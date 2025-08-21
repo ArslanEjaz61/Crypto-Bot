@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import axios from 'axios';
+import { setLocalStorageWithExpiry, getLocalStorageWithExpiry, clearExpiredLocalStorage } from './CryptoUtils';
 
 // Initial state
 const initialState = {
@@ -21,7 +22,8 @@ const initialState = {
     total: 0,
     hasMore: true
   },
-  lastFetch: null
+  lastFetch: null,
+  usingCachedData: false
 };
 
 // Create Context
@@ -41,7 +43,9 @@ const cryptoReducer = (state, action) => {
         filteredCryptos: filterCryptos(action.payload.cryptos, state.filter),
         pagination: action.payload.pagination,
         lastFetch: action.payload.timestamp,
-        loading: false 
+        loading: false,
+        usingCachedData: action.payload.usingCachedData || false,
+        error: action.payload.usingCachedData ? 'Using cached data. Server connection may be unavailable.' : null
       };
     case 'ADD_CRYPTOS_BATCH':
       const combinedCryptos = [...state.cryptos, ...action.payload.cryptos];
@@ -51,7 +55,8 @@ const cryptoReducer = (state, action) => {
         filteredCryptos: filterCryptos(combinedCryptos, state.filter),
         pagination: action.payload.pagination,
         lastFetch: action.payload.timestamp,
-        loading: false
+        loading: false,
+        usingCachedData: action.payload.usingCachedData || state.usingCachedData
       };
     case 'UPDATE_FILTER':
       return { 
@@ -115,77 +120,208 @@ const filterCryptos = (cryptos, filter) => {
 export const CryptoProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cryptoReducer, initialState);
 
-  // Load all cryptos with pagination and caching to prevent redundant API requests
-  const loadCryptos = useCallback(async (page = 1, limit = 50, forceRefresh = false) => {
-    try {
-      // Check if we've recently fetched this page and have it cached
-      const now = new Date().getTime();
-      const shouldUseCachedData = !forceRefresh && 
-                                state.lastFetch && 
-                                (now - state.lastFetch < 3 * 60 * 1000) && // 3 minute cache
-                                page === state.pagination.page &&
-                                state.cryptos.length > 0;
-      
-      if (shouldUseCachedData) {
-        console.log('Using cached crypto data');
-        return {
-          total: state.pagination.total,
-          hasMore: state.pagination.hasMore
-        };
-      }
-      
+  // Load all cryptos with pagination, caching, and robust retry mechanism to prevent request cancellations
+  // Added silentLoading parameter to prevent showing loading state during background refreshes
+  const loadCryptos = useCallback(async (page = 1, limit = 50, forceRefresh = true, silentLoading = false) => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; // 2 seconds between retries
+    const REQUEST_TIMEOUT = 15000; // 15 second timeout, increased from 10s
+    
+    // Function to delay execution
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Cache key for localStorage backup
+    const CACHE_KEY = 'crypto_data_cache';
+    const now = new Date().getTime();
+    
+    // Attempt request with retries
+    let retries = 0;
+    let lastError = null;
+    
+    // Only dispatch loading state if not in silent mode
+    if (!silentLoading) {
       dispatch({ type: 'CRYPTO_REQUEST' });
-      
-      // Use pagination parameters to limit the number of cryptos loaded at once
-      const { data } = await axios.get('/api/crypto', {
-        params: { page, limit }
-      });
-      
-      if (page === 1) {
-        // First page - replace existing cryptos
-        dispatch({ 
-          type: 'GET_CRYPTOS', 
-          payload: {
-            cryptos: data,
-            pagination: {
-              page,
-              limit,
-              total: data.total || data.length,
-              hasMore: data.hasMore || (data.length === limit)
-            },
-            timestamp: now
-          }
-        });
-      } else {
-        // Additional pages - append to existing cryptos
-        dispatch({ 
-          type: 'ADD_CRYPTOS_BATCH', 
-          payload: {
-            cryptos: data,
-            pagination: {
-              page,
-              limit,
-              total: data.total || data.length,
-              hasMore: data.hasMore || (data.length === limit)
-            },
-            timestamp: now
-          }
-        });
-      }
-      
-      // Return total count and whether there are more pages
-      return {
-        total: data.total || data.length,
-        hasMore: data.hasMore || (data.length === limit)
-      };
-    } catch (error) {
-      dispatch({
-        type: 'CRYPTO_FAIL',
-        payload: error.response?.data?.message || 'Failed to load crypto data',
-      });
-      return { total: 0, hasMore: false };
     }
-  }, [state.cryptos.length, state.lastFetch, state.pagination.hasMore, state.pagination.page, state.pagination.total]);
+    console.log('Initiating crypto data fetch with retry mechanism...');
+    
+    while (retries < MAX_RETRIES) {
+      try {
+        // Create a controller for this attempt
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.log(`Request timeout after ${REQUEST_TIMEOUT}ms, aborting...`);
+          controller.abort();
+        }, REQUEST_TIMEOUT);
+        
+        // Use a more robust axios configuration
+        const axiosConfig = {
+          params: { page, limit },
+          signal: controller.signal,
+          timeout: REQUEST_TIMEOUT,
+          withCredentials: false, // Helps with CORS issues
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        };
+        
+        console.log(`Attempt ${retries + 1}/${MAX_RETRIES} to fetch crypto data...`);
+        
+        try {
+          // Make a clean URL with explicit protocol and hostname to avoid proxy issues
+          const baseUrl = process.env.REACT_APP_API_URL || '';
+          const endpoint = baseUrl ? `${baseUrl}/api/crypto` : '/api/crypto';
+          
+          const { data } = await axios.get(endpoint, axiosConfig);
+          
+          // Clear timeout if request succeeded
+          clearTimeout(timeoutId);
+          
+          console.log(`Success! Crypto data received: ${data.cryptos ? data.cryptos.length : 0} items`);
+          
+          // Store successful response in localStorage as backup
+          setLocalStorageWithExpiry(CACHE_KEY, {
+            data: data,
+            timestamp: now
+          }, 5 * 60 * 1000); // 5 minute expiry
+          
+          if (page === 1) {
+            // First page - replace existing cryptos
+            const cryptosArray = data.cryptos || [];
+            const paginationInfo = data.pagination || { total: cryptosArray.length };
+            
+            dispatch({ 
+              type: 'GET_CRYPTOS', 
+              payload: {
+                cryptos: cryptosArray,
+                pagination: {
+                  page,
+                  limit,
+                  total: paginationInfo.total,
+                  hasMore: paginationInfo.hasMore || (cryptosArray.length === limit)
+                },
+                timestamp: now
+              }
+            });
+          } else {
+            // Additional pages - append to existing cryptos
+            const cryptosArray = data.cryptos || [];
+            const paginationInfo = data.pagination || { total: cryptosArray.length };
+            
+            dispatch({ 
+              type: 'ADD_CRYPTOS_BATCH', 
+              payload: {
+                cryptos: cryptosArray,
+                pagination: {
+                  page,
+                  limit,
+                  total: paginationInfo.total,
+                  hasMore: paginationInfo.hasMore || (cryptosArray.length === limit)
+                },
+                timestamp: now
+              }
+            });
+          }
+          
+          // Return total count and whether there are more pages
+          const cryptosArray = data.cryptos || [];
+          const paginationInfo = data.pagination || { total: cryptosArray.length };
+          
+          return {
+            total: paginationInfo.total,
+            hasMore: paginationInfo.hasMore || (cryptosArray.length === limit)
+          };
+        } catch (requestError) {
+          clearTimeout(timeoutId);
+          throw requestError;
+        }
+      } catch (error) {
+        lastError = error;
+        console.warn(`Attempt ${retries + 1} failed:`, error.message);
+        
+        // Don't retry if it's a 4xx error (client error)
+        if (error.response && error.response.status >= 400 && error.response.status < 500) {
+          console.error('Client error, not retrying:', error.response.status);
+          break;
+        }
+        
+        // Try to use cached data if all else fails and we're on the last retry
+        if (retries === MAX_RETRIES - 1) {
+          console.log('Final retry failed. Checking for cached data...');
+          const cachedData = getLocalStorageWithExpiry(CACHE_KEY);
+          
+          if (cachedData) {
+            console.log('Using cached data from local storage');
+            const data = cachedData.data;
+            
+            if (page === 1) {
+              // First page - replace existing cryptos
+              const cryptosArray = data.cryptos || [];
+              const paginationInfo = data.pagination || { total: cryptosArray.length };
+              
+              dispatch({ 
+                type: 'GET_CRYPTOS', 
+                payload: {
+                  cryptos: cryptosArray,
+                  pagination: {
+                    page,
+                    limit,
+                    total: paginationInfo.total,
+                    hasMore: paginationInfo.hasMore || (cryptosArray.length === limit)
+                  },
+                  timestamp: now,
+                  usingCachedData: true
+                }
+              });
+              
+              return {
+                total: paginationInfo.total,
+                hasMore: paginationInfo.hasMore || (cryptosArray.length === limit),
+                usingCachedData: true
+              };
+            }
+          }
+        }
+        
+        retries++;
+        if (retries < MAX_RETRIES) {
+          console.log(`Retrying in ${RETRY_DELAY}ms...`);
+          await delay(RETRY_DELAY);
+        }
+      }
+    }
+    
+    // All retries failed
+    console.error('All retry attempts failed. Last error:', lastError);
+    
+    // Format detailed error message for user
+    let errorMessage = 'Failed to load crypto data after multiple attempts';
+    
+    if (lastError) {
+      if (lastError.name === 'AbortError') {
+        errorMessage = 'API requests timed out repeatedly. The server might be down or experiencing high load.';
+      } else if (lastError.code === 'ECONNABORTED') {
+        errorMessage = 'Connection repeatedly aborted. Please check your internet connection.';
+      } else if (lastError.response) {
+        // Server responded with error status
+        errorMessage = `Server error (${lastError.response.status}): ${lastError.response.data?.message || 'Unknown error'}`;
+      } else if (lastError.request) {
+        // Request made but no response received
+        errorMessage = 'No response from server. Please check if the server is running.';
+      } else if (lastError.message && lastError.message.includes('Network Error')) {
+        errorMessage = 'Network error. Please check your internet connection and ensure the server is running.';
+      }
+    }
+    
+    dispatch({
+      type: 'CRYPTO_FAIL',
+      payload: errorMessage,
+    });
+    
+    return { total: 0, hasMore: false };
+  }, [dispatch]);
+
 
   // Update filter
   const updateFilter = useCallback((filterUpdate) => {
@@ -196,18 +332,40 @@ export const CryptoProvider = ({ children }) => {
   const toggleFavorite = useCallback(async (symbol) => {
     try {
       const crypto = state.cryptos.find((c) => c.symbol === symbol);
+      if (!crypto) {
+        console.error(`Could not find crypto with symbol ${symbol}`);
+        return;
+      }
       const newStatus = !crypto.isFavorite;
       
-      await axios.put(`/api/crypto/${symbol}/favorite`);
+      console.log(`Toggling favorite status for ${symbol} to ${newStatus}`);
       
+      // Use baseUrl to ensure we have the correct API endpoint
+      const baseUrl = process.env.REACT_APP_API_URL || '';
+      const endpoint = baseUrl ? `${baseUrl}/api/crypto/${symbol}/favorite` : `/api/crypto/${symbol}/favorite`;
+      
+      await axios.put(endpoint, { isFavorite: newStatus });
+      
+      // Immediately update the UI state without waiting for a full data refresh
       dispatch({ 
         type: 'TOGGLE_FAVORITE', 
         payload: { symbol, isFavorite: newStatus } 
       });
     } catch (error) {
+      console.error(`Error toggling favorite for ${symbol}:`, error);
+      let errorMessage = 'Failed to update favorite status';
+      
+      if (error.response) {
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        errorMessage = 'No response received from server. Please check your connection.';
+      } else {
+        errorMessage = error.message || 'An unexpected error occurred';
+      }
+      
       dispatch({
         type: 'CRYPTO_FAIL',
-        payload: error.response?.data?.message || 'Failed to update favorite status',
+        payload: errorMessage,
       });
     }
   }, [state.cryptos, dispatch]);
@@ -258,6 +416,22 @@ export const CryptoProvider = ({ children }) => {
     rsiCache.current = {};
   }, []);
 
+  // Check alert conditions for a symbol with direct API call
+  const checkAlertConditions = useCallback(async (symbol, filters) => {
+    try {
+      console.log(`Making direct API call to check conditions for ${symbol}`);
+      const { data } = await axios.post(`/api/crypto/${symbol}/check-conditions`, { 
+        filters, 
+        forceRefresh: true // Always force fresh data when checking conditions
+      });
+      console.log(`Received condition check results for ${symbol}:`, data);
+      return data;
+    } catch (error) {
+      console.error(`Error checking conditions for ${symbol}:`, error);
+      return { meetsConditions: false, conditions: {} };
+    }
+  }, []);
+
   return (
     <CryptoContext.Provider
       value={{
@@ -266,7 +440,8 @@ export const CryptoProvider = ({ children }) => {
         updateFilter,
         toggleFavorite,
         getRSI,
-        clearRSICache
+        clearRSICache,
+        checkAlertConditions
       }}
     >
       {children}
@@ -276,3 +451,75 @@ export const CryptoProvider = ({ children }) => {
 
 // Custom hook
 export const useCrypto = () => useContext(CryptoContext);
+
+// Auto-refresh data with improved reliability
+export const AutoRefreshProvider = ({ children }) => {
+  const { loadCryptos } = useCrypto();
+  const refreshInProgress = React.useRef(false);
+  const refreshAttempts = React.useRef(0);
+  const maxConsecutiveFailures = 3;
+  const backoffMultiplier = 1.5;
+  const initialRefreshInterval = 60000; // Start with 1 minute
+  const [refreshInterval, setRefreshInterval] = React.useState(initialRefreshInterval);
+  
+  // Function to handle refresh with error tracking
+  const handleRefresh = React.useCallback(async () => {
+    // Skip if a refresh is already in progress to avoid overlapping requests
+    if (refreshInProgress.current) {
+      console.log('Skipping refresh as another refresh is already in progress');
+      return;
+    }
+    
+    refreshInProgress.current = true;
+    console.log(`Auto-refresh: Fetching latest crypto data (interval: ${refreshInterval}ms)`);
+    
+    try {
+      await loadCryptos(1, 50, true, true); // Use silent loading for background refreshes
+      // Reset on success
+      refreshAttempts.current = 0;
+      setRefreshInterval(initialRefreshInterval);
+      console.log('Auto-refresh completed successfully');
+    } catch (error) {
+      console.error('Auto-refresh failed:', error);
+      refreshAttempts.current++;
+      
+      // If we've had multiple consecutive failures, increase the interval
+      if (refreshAttempts.current >= maxConsecutiveFailures) {
+        const newInterval = Math.min(refreshInterval * backoffMultiplier, 300000); // Max 5 minutes
+        console.log(`Too many consecutive failures. Increasing refresh interval to ${newInterval}ms`);
+        setRefreshInterval(newInterval);
+        refreshAttempts.current = 0; // Reset counter after backing off
+      }
+    } finally {
+      refreshInProgress.current = false;
+    }
+  }, [loadCryptos, refreshInterval, initialRefreshInterval]);
+  
+  // Set up interval to refresh data
+  useEffect(() => {
+    console.log(`Setting up auto-refresh for crypto data (${refreshInterval}ms interval)`);
+    
+    // Initial load with slight delay to ensure app is fully mounted
+    const initialLoadTimeout = setTimeout(() => {
+      handleRefresh();
+    }, 1000); // 1 second delay for initial load
+    
+    // Set up interval for auto-refresh
+    const interval = setInterval(handleRefresh, refreshInterval);
+    
+    // Clean up interval on component unmount or when interval changes
+    return () => {
+      console.log('Cleaning up auto-refresh interval');
+      clearTimeout(initialLoadTimeout);
+      clearInterval(interval);
+    };
+  }, [handleRefresh, refreshInterval]);
+  
+  // Add a direct route for manually triggering refresh
+  const triggerManualRefresh = React.useCallback(async () => {
+    console.log('Manual refresh triggered');
+    return handleRefresh();
+  }, [handleRefresh]);
+  
+  return children;
+};

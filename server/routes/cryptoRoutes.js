@@ -4,7 +4,9 @@ const {
   getCryptoList, 
   getCryptoBySymbol, 
   updateFavoriteStatus,
-  calculateRSI
+  calculateRSI,
+  getChartData,
+  checkAlertConditions
 } = require('../controllers/cryptoController');
 
 // @route   GET api/crypto
@@ -26,5 +28,15 @@ router.put('/:symbol/favorite', updateFavoriteStatus);
 // @desc    Calculate RSI for a specific crypto pair
 // @access  Public
 router.get('/:symbol/rsi', calculateRSI);
+
+// @route   GET api/crypto/:symbol/chart
+// @desc    Get chart data for a specific crypto pair
+// @access  Public
+router.get('/:symbol/chart', getChartData);
+
+// @route   POST api/crypto/:symbol/check-conditions
+// @desc    Check if coin meets filter conditions for alerts
+// @access  Public
+router.post('/:symbol/check-conditions', checkAlertConditions);
 
 module.exports = router;

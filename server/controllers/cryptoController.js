@@ -1,6 +1,138 @@
 const Crypto = require('../models/cryptoModel');
 const axios = require('axios');
 
+// Simple in-memory cache for API responses
+const apiCache = {
+  data: {},
+  timestamps: {},
+  locks: {}
+};
+
+// Cache configuration from environment variables or defaults
+const CACHE_TTL = parseInt(process.env.API_CACHE_TTL || '60000'); // Cache TTL in milliseconds (1 minute)
+const MIN_REFRESH_INTERVAL = parseInt(process.env.API_MIN_REFRESH_INTERVAL || '30000'); // Minimum time between refresh attempts (30 seconds)
+const API_TIMEOUT = parseInt(process.env.API_TIMEOUT || '5000'); // Timeout for API responses
+
+// Configure axios defaults for Binance API
+const binanceAPI = axios.create({
+  baseURL: 'https://api.binance.com',
+  timeout: 15000, // Increased timeout for reliability
+  headers: {
+    'Content-Type': 'application/json',
+    'User-Agent': 'BinanceAlertsApp/1.0',
+    'X-MBX-APIKEY': process.env.BINANCE_API_KEY || ''
+  }
+});
+
+// Helper function to get cached data or fetch fresh data
+const getCachedOrFresh = async (cacheKey, fetchFunction) => {
+  const now = Date.now();
+  const lastUpdate = apiCache.timestamps[cacheKey] || 0;
+  const isLocked = apiCache.locks[cacheKey] || false;
+  
+  // If we have cached data that's still fresh, return it
+  if (apiCache.data[cacheKey] && (now - lastUpdate) < CACHE_TTL) {
+    console.log(`Using cached data for ${cacheKey}, age: ${(now - lastUpdate)/1000}s`);
+    return apiCache.data[cacheKey];
+  }
+  
+  // If another request is already in progress for this cache key, wait for it
+  if (isLocked) {
+    console.log(`API request for ${cacheKey} is already in progress, waiting...`);
+    // Wait a bit and check cache again (another request is fetching fresh data)
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    return getCachedOrFresh(cacheKey, fetchFunction);
+  }
+  
+  // If we recently tried to update this cache key, use the stale data
+  // to prevent too many requests
+  if ((now - lastUpdate) < MIN_REFRESH_INTERVAL) {
+    console.log(`Using slightly stale data for ${cacheKey}, throttling refresh`);
+    return apiCache.data[cacheKey];
+  }
+  
+  try {
+    // Set lock to prevent parallel requests for same resource
+    apiCache.locks[cacheKey] = true;
+    
+    // Fetch fresh data
+    console.log(`Fetching fresh data for ${cacheKey}`);
+    const result = await fetchFunction();
+    
+    // Update cache
+    apiCache.data[cacheKey] = result;
+    apiCache.timestamps[cacheKey] = Date.now();
+    
+    return result;
+  } catch (error) {
+    console.error(`Error fetching ${cacheKey}:`, error.message);
+    // Return existing data even if stale, or throw if none exists
+    if (apiCache.data[cacheKey]) {
+      console.log(`Returning stale data for ${cacheKey} after fetch error`);
+      return apiCache.data[cacheKey];
+    }
+    throw error;
+  } finally {
+    // Always release the lock
+    apiCache.locks[cacheKey] = false;
+  }
+};
+
+
+// Add a retry mechanism for API calls
+const fetchWithRetry = async (apiCall, retries = 3, delay = 1000) => {
+  let lastError;
+  
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      console.log(`API call attempt ${attempt + 1}/${retries}`);
+      return await apiCall();
+    } catch (error) {
+      console.error(`Attempt ${attempt + 1} failed:`, error.message);
+      lastError = error;
+      
+      // Only delay and retry if this wasn't the last attempt
+      if (attempt < retries - 1) {
+        // Exponential backoff with jitter
+        const backoffDelay = delay * Math.pow(2, attempt) * (0.8 + Math.random() * 0.4);
+        console.log(`Retrying in ${backoffDelay.toFixed(0)}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+    }
+  }
+  
+  // If we get here, all retries failed
+  throw lastError;
+};
+
+// Handle API errors consistently
+const handleAPIError = (error, res, errorMessage) => {
+  console.error(errorMessage, error);
+  
+  if (error.response) {
+    // The request was made and the server responded with an error status
+    console.error('Binance API error response:', error.response.data);
+    return res.status(error.response.status).json({ 
+      message: errorMessage,
+      details: error.response.data
+    });
+  } else if (error.request) {
+    // The request was made but no response was received
+    console.error('Binance API no response received');
+    return res.status(503).json({ 
+      message: 'Service unavailable: Could not connect to Binance API',
+      details: errorMessage
+    });
+  } else {
+    // Something happened in setting up the request that triggered an error
+    console.error('Unexpected error during API request:', error.message);
+    return res.status(500).json({ 
+      message: 'Internal server error when connecting to Binance API',
+      details: errorMessage
+    });
+  }
+};
+
 // Calculate RSI function
 const calculateRSIValue = (prices, period = 14) => {
   if (prices.length < period + 1) {
@@ -34,47 +166,197 @@ const calculateRSIValue = (prices, period = 14) => {
   return rsiValues[rsiValues.length - 1];
 };
 
+// Function to refresh all crypto data at once from Binance API
+const refreshCryptoData = async () => {
+  try {
+    console.log('Starting Binance API data refresh with caching and throttling');
+    
+    // Initialize responses to null
+    let tickerResponse = null;
+    let statsResponse = null;
+    
+    // Use caching system for ticker prices
+    try {
+      tickerResponse = await getCachedOrFresh('ticker_prices', async () => {
+        // Use retry mechanism within the cache refresh function
+        return await fetchWithRetry(() => binanceAPI.get('/api/v3/ticker/price'));
+      });
+      console.log('Successfully retrieved ticker prices data');
+    } catch (tickerError) {
+      console.error('Failed to fetch ticker prices:', tickerError.message);
+      // Continue with partial update if we already have data in DB
+    }
+    
+    // Use caching system for 24hr stats
+    try {
+      statsResponse = await getCachedOrFresh('ticker_24hr', async () => {
+        // Use retry mechanism within the cache refresh function
+        return await fetchWithRetry(() => binanceAPI.get('/api/v3/ticker/24hr'));
+      });
+      console.log('Successfully retrieved 24hr stats data');
+    } catch (statsError) {
+      console.error('Failed to fetch 24hr stats:', statsError.message);
+      // Continue with partial update if possible
+    }
+    
+    // Check if we have at least ticker data to proceed
+    if (!tickerResponse || !tickerResponse.data || !Array.isArray(tickerResponse.data)) {
+      console.error('No valid ticker data available, cannot proceed with refresh');
+      return 0;
+    }
+    
+    // Create a map for stats if available, otherwise use empty map
+    const statsMap = {};
+    if (statsResponse && statsResponse.data && Array.isArray(statsResponse.data)) {
+      statsResponse.data.forEach(item => {
+        try {
+          statsMap[item.symbol] = {
+            volume: parseFloat(item.volume || 0) * parseFloat(item.weightedAvgPrice || 0),
+            priceChangePercent: parseFloat(item.priceChangePercent || 0)
+          };
+        } catch (parseError) {
+          console.error(`Error parsing stats for ${item.symbol}:`, parseError.message);
+          // Skip this item but continue processing others
+        }
+      });
+    } else {
+      console.warn('Stats data unavailable or invalid format - proceeding with price-only updates');
+    }
+    
+    // Update database with batch operations
+    let operations = [];
+    
+    try {
+      operations = tickerResponse.data
+        .filter(ticker => ticker && ticker.symbol && ticker.symbol.endsWith('USDT'))
+        .map(ticker => {
+          try {
+            const stats = statsMap[ticker.symbol] || { volume: 0, priceChangePercent: 0 };
+            return {
+              updateOne: {
+                filter: { symbol: ticker.symbol },
+                update: { 
+                  $set: {
+                    price: parseFloat(ticker.price || 0),
+                    volume24h: stats.volume,
+                    priceChangePercent24h: stats.priceChangePercent,
+                    lastUpdated: new Date()
+                  } 
+                },
+                upsert: true
+              }
+            };
+          } catch (mapError) {
+            console.error(`Error processing ticker ${ticker.symbol}:`, mapError.message);
+            return null; // Skip this item on error
+          }
+        })
+        .filter(op => op !== null); // Remove nulls from errors
+    } catch (processError) {
+      console.error('Error processing ticker data:', processError.message);
+    }
+      
+    if (operations.length > 0) {
+      try {
+        await Crypto.bulkWrite(operations);
+        console.log(`Updated ${operations.length} crypto records`);
+        return operations.length;
+      } catch (dbError) {
+        console.error('Error writing to database:', dbError.message);
+        throw dbError; // Database errors should still be thrown
+      }
+    } else {
+      console.warn('No valid operations to perform on database');
+      return 0;
+    }
+  } catch (updateError) {
+    console.error('Error refreshing crypto data:', updateError);
+    
+    // Log detailed error information for debugging
+    if (updateError.response) {
+      console.error('Binance API error response:', updateError.response.status, updateError.response.data);
+    } else if (updateError.request) {
+      console.error('No response received from Binance API');
+    } else {
+      console.error('Error setting up request to Binance API:', updateError.message);
+    }
+    throw updateError;
+  }
+};
+
 // @desc    Get all crypto pairs
 // @route   GET /api/crypto
 // @access  Public
 const getCryptoList = async (req, res) => {
-  try {
-    const { market, minVolume, favorites, sort, order } = req.query;
+  // Create a flag to track when the response has been sent
+  let responseSent = false;
+  
+  // Set a timeout to ensure the response is always sent, even if Binance API hangs
+  const responseTimeout = setTimeout(() => {
+    if (!responseSent) {
+      console.log('Response timeout reached - sending database data without waiting for API refresh');
+      sendCryptoResponse();
+    }
+  }, API_TIMEOUT); // Use configurable timeout from environment
 
-    let query = {};
+  // Define the function to send response to prevent duplicate sends
+  const sendCryptoResponse = async () => {
+    if (responseSent) return; // Prevent duplicate response
+    responseSent = true;
+    clearTimeout(responseTimeout); // Clear timeout if response sent normally
     
-    // Filter by market
-    if (market && market !== 'all') {
-      query.symbol = { $regex: market + '$' };
-    }
-    
-    // Filter by minimum volume
-    if (minVolume && !isNaN(minVolume)) {
-      query.volume24h = { $gte: Number(minVolume) };
-    }
-    
-    // Filter by favorites
-    if (favorites === 'true') {
-      query.isFavorite = true;
-    }
-    
-    // Get crypto data
-    let cryptoData = await Crypto.find(query);
-    
-    // Sort data if requested
-    if (sort) {
-      const sortOrder = order === 'desc' ? -1 : 1;
-      cryptoData.sort((a, b) => {
-        if (a[sort] < b[sort]) return -1 * sortOrder;
-        if (a[sort] > b[sort]) return 1 * sortOrder;
-        return 0;
+    try {
+      // Get all cryptos without pagination, sorted by volume
+      const cryptos = await Crypto.find({})
+        .sort({ volume24h: -1 });
+        
+      console.log(`Returning all ${cryptos.length} cryptos in a single response`);
+      
+      res.json({
+        cryptos,
+        totalCount: cryptos.length,
+        timestamp: new Date().toISOString(),
+        dataSource: req.query.skipRefresh === 'true' ? 'database' : 'refreshed'
       });
+    } catch (dbError) {
+      if (!responseSent) {
+        handleAPIError(dbError, res, 'Error retrieving crypto data from database');
+        responseSent = true;
+      }
+    }
+  };
+  
+  try {
+    console.log('API Request: Getting all crypto pairs');
+    
+    // Parse pagination parameters but ignore them in new implementation
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    console.log(`Received pagination params (now ignored): page=${page}, limit=${limit}`);
+    
+    // Check if we should skip refreshing data
+    const skipRefresh = req.query.skipRefresh === 'true';
+    
+    if (!skipRefresh) {
+      try {
+        // Start refreshing data but don't await it directly
+        console.log('Starting crypto data refresh in background');
+        // This runs in the background - we'll get data from DB regardless
+        refreshCryptoData().catch(err => {
+          console.error('Background refresh failed:', err.message);
+        });
+      } catch (refreshError) {
+        console.error('Error initiating refresh:', refreshError.message);
+      }
     }
     
-    res.json(cryptoData);
+    // Send response with current DB data, don't wait for refresh to complete
+    await sendCryptoResponse();
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server Error' });
+    if (!responseSent) {
+      handleAPIError(error, res, 'Error fetching crypto list');
+      responseSent = true;
+    }
   }
 };
 
@@ -125,14 +407,18 @@ const calculateRSI = async (req, res) => {
     const symbol = req.params.symbol;
     const period = parseInt(req.query.period) || 14;
     
-    // Fetch historical data from Binance
-    const response = await axios.get(`https://api.binance.com/api/v3/klines`, {
+    console.log(`Fetching RSI data for ${symbol} with period ${period}`);
+    
+    // Fetch historical data from Binance with retry mechanism
+    console.log(`Fetching RSI data for ${symbol} with retry mechanism`);
+    const response = await fetchWithRetry(() => binanceAPI.get('/api/v3/klines', {
       params: {
         symbol,
         interval: '1h',
         limit: period + 10 // Get a few extra candles for calculation
       }
-    });
+    }));
+    console.log(`Successfully fetched RSI data for ${symbol}`);
     
     if (!response.data || response.data.length === 0) {
       return res.status(404).json({ message: 'Historical data not found' });
@@ -153,14 +439,249 @@ const calculateRSI = async (req, res) => {
     
     res.json({ symbol, rsi: rsiValue });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server Error' });
+    handleAPIError(error, res, `Error calculating RSI for ${req.params.symbol}`);
   }
 };
 
+// @desc    Get chart data for a specific crypto pair
+// @route   GET /api/crypto/:symbol/chart
+// @access  Public
+const getChartData = async (req, res) => {
+  try {
+    const symbol = req.params.symbol;
+    
+    // TEMPORARILY DISABLED CHART FUNCTIONALITY
+    // Return a simple message instead of trying to fetch chart data
+    console.log(`Chart functionality for ${symbol} is temporarily disabled`);
+    
+    // Return placeholder data to avoid frontend errors
+    return res.json({
+      message: 'Chart functionality temporarily disabled',
+      symbol,
+      disabledForMaintenance: true,
+      // Return minimal placeholder data so the frontend doesn't crash
+      data: [
+        { time: Date.now() / 1000, open: 0, high: 0, low: 0, close: 0, volume: 0 }
+      ]
+    });
+    
+    /* ORIGINAL CHART CODE - COMMENTED OUT TO AVOID ERRORS
+    const timeframe = req.query.timeframe || '1h';
+    const limit = parseInt(req.query.limit) || 100;
+    
+    console.log(`Fetching chart data for ${symbol} with timeframe ${timeframe}`);
+    
+    // Map timeframe to Binance interval
+    const binanceTimeframeMap = {
+      '5m': '5m',
+      '15m': '15m',
+      '1h': '1h',
+      '4h': '4h',
+      '1d': '1d',
+      '1w': '1w'
+    };
+    
+    const interval = binanceTimeframeMap[timeframe] || '1h';
+    
+    // Fetch klines/candlestick data from Binance with retry
+    console.log(`Fetching chart data for ${symbol} with retry mechanism`);
+    const response = await fetchWithRetry(() => binanceAPI.get('/api/v3/klines', {
+      params: {
+        symbol,
+        interval,
+        limit
+      }
+    }));
+    console.log(`Successfully fetched chart data for ${symbol}`);
+    
+    if (!response.data || response.data.length === 0) {
+      return res.status(404).json({ message: 'Chart data not found' });
+    }
+    
+    // Transform data to format needed by lightweight-charts
+    const chartData = response.data.map(candle => ({
+      time: candle[0] / 1000, // Convert to seconds for lightweight-charts
+      open: parseFloat(candle[1]),
+      high: parseFloat(candle[2]),
+      low: parseFloat(candle[3]),
+      close: parseFloat(candle[4]),
+      volume: parseFloat(candle[5])
+    }));
+    
+    res.json(chartData);
+    */
+  } catch (error) {
+    handleAPIError(error, res, `Error with chart data for ${req.params.symbol}`);
+  }
+};
+
+// @desc    Check if coin meets filter conditions for alerts
+// @route   POST /api/crypto/:symbol/check-conditions
+// @access  Public
+const checkAlertConditions = async (req, res) => {
+  try {
+    const symbol = req.params.symbol;
+    const filters = req.body.filters || {};
+    const forceRefresh = req.body.forceRefresh === true;
+    
+    console.log(`Checking alert conditions for ${symbol} with filters:`, filters);
+    
+    // If forceRefresh is true, get the latest data from Binance
+    let crypto = await Crypto.findOne({ symbol });
+    if (!crypto) {
+      return res.status(404).json({ message: 'Crypto not found' });
+    }
+    
+    if (forceRefresh) {
+      console.log(`Force refreshing data for ${symbol} before checking conditions`);
+      try {
+        // Fetch latest price
+        const priceResponse = await fetchWithRetry(() => binanceAPI.get(`/api/v3/ticker/price?symbol=${symbol}`));
+        
+        // Fetch 24hr stats
+        const statsResponse = await fetchWithRetry(() => binanceAPI.get(`/api/v3/ticker/24hr?symbol=${symbol}`));
+        
+        if (priceResponse.data && statsResponse.data) {
+          // Update crypto with latest data
+          const price = parseFloat(priceResponse.data.price);
+          const stats = statsResponse.data;
+          const volume24h = parseFloat(stats.volume) * parseFloat(stats.weightedAvgPrice);
+          const priceChangePercent24h = parseFloat(stats.priceChangePercent);
+          
+          // Update in memory and database
+          crypto.price = price;
+          crypto.volume24h = volume24h;
+          crypto.priceChangePercent24h = priceChangePercent24h;
+          crypto.lastUpdated = new Date();
+          
+          await crypto.save();
+          console.log(`Updated ${symbol} with fresh data before condition check`);
+        }
+      } catch (error) {
+        console.error(`Error refreshing data for ${symbol}:`, error);
+        // Continue with potentially stale data rather than failing
+      }
+    }
+    
+    let results = {
+      symbol,
+      meetsConditions: false,
+      conditions: {}
+    };
+    
+    // Get current data
+    const price = crypto.price;
+    const volume24h = crypto.volume24h || 0;
+    const priceChangePercent24h = crypto.priceChangePercent24h || 0;
+    
+    // Get RSI if needed
+    let rsi = crypto.rsi || null;
+    if ((filters.rsiLow || filters.rsiHigh) && !rsi) {
+      try {
+        console.log(`Fetching klines data for RSI calculation for ${symbol}`);
+        // Fetch historical data for RSI calculation with retry
+        console.log(`Fetching klines data for RSI calculation for ${symbol} with retry mechanism`);
+        const klinesResponse = await fetchWithRetry(() => binanceAPI.get('/api/v3/klines', {
+          params: {
+            symbol,
+            interval: '1h',
+            limit: 25 // Get enough candles for RSI(14)
+          }
+        }));
+        console.log(`Successfully fetched klines data for RSI calculation for ${symbol}`);
+        
+        if (klinesResponse.data && klinesResponse.data.length > 0) {
+          // Calculate RSI
+          const closingPrices = klinesResponse.data.map(candle => parseFloat(candle[4]));
+          rsi = calculateRSIValue(closingPrices, 14);
+          
+          // Update crypto record
+          crypto.rsi = rsi;
+          await crypto.save();
+          console.log(`Updated RSI for ${symbol}: ${rsi}`);
+        }
+      } catch (rsiError) {
+        console.error('Error calculating RSI:', rsiError);
+        
+        // Log detailed error information for debugging
+        if (rsiError.response) {
+          console.error(`Binance API error response for ${symbol} RSI:`, rsiError.response.status, rsiError.response.data);
+        } else if (rsiError.request) {
+          console.error(`No response received from Binance API for ${symbol} RSI`);
+        } else {
+          console.error(`Error setting up request to Binance API for ${symbol} RSI:`, rsiError.message);
+        }
+        
+        // Try to find the most recent RSI value from database if available
+        console.log(`Using most recent RSI value from database for ${symbol} if available`);
+        // Continue with null RSI rather than failing completely
+      }
+    }
+    
+    // Check price change
+    if (filters.priceChangePercent) {
+      const threshold = parseFloat(filters.priceChangePercent);
+      results.conditions.priceChange = {
+        actual: priceChangePercent24h,
+        threshold: threshold,
+        pass: priceChangePercent24h >= threshold
+      };
+    }
+    
+    // Check volume
+    if (filters.minVolume) {
+      const threshold = parseFloat(filters.minVolume) * 1000000; // Convert to million
+      results.conditions.volume = {
+        actual: volume24h,
+        threshold: threshold,
+        pass: volume24h >= threshold
+      };
+    }
+    
+    // Check RSI oversold condition
+    if (filters.rsiLow && rsi !== null) {
+      const threshold = parseFloat(filters.rsiLow);
+      results.conditions.rsiLow = {
+        actual: rsi,
+        threshold: threshold,
+        pass: rsi <= threshold
+      };
+    }
+    
+    // Check RSI overbought condition
+    if (filters.rsiHigh && rsi !== null) {
+      const threshold = parseFloat(filters.rsiHigh);
+      results.conditions.rsiHigh = {
+        actual: rsi,
+        threshold: threshold,
+        pass: rsi >= threshold
+      };
+      results.meetsConditions = results.meetsConditions && results.conditions.rsiHigh.pass;
+    }
+    
+    // Check price below condition
+    if (filters.priceBelow) {
+      const threshold = parseFloat(filters.priceBelow);
+      results.conditions.priceBelow = {
+        actual: price,
+        threshold: threshold,
+        pass: price <= threshold
+      };
+      results.meetsConditions = results.meetsConditions && results.conditions.priceBelow.pass;
+    }
+    
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error', error: error.toString() });
+  }
+};
 module.exports = {
   getCryptoList,
   getCryptoBySymbol,
   updateFavoriteStatus,
-  calculateRSI
+  calculateRSI,
+  getChartData,
+  checkAlertConditions
 };
+

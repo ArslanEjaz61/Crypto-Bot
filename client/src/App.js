@@ -10,6 +10,8 @@ import { useAlert } from './context/AlertContext';
 import { useCrypto } from './context/CryptoContext';
 import SocketProvider from './context/SocketContext';
 import Notification from './components/Notification';
+import Dashboard from './components/Dashboard';
+import { FilterProvider } from './context/FilterContext';
 
 const darkTheme = createTheme({
   palette: {
@@ -125,13 +127,15 @@ function App() {
     <SocketProvider>
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
-        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-          <Header />
-          <Container component="main" maxWidth="xl" sx={{ flexGrow: 1, py: 3 }}>
-            <AlertTabs />
-          </Container>
-          <Notification />
-        </Box>
+        <FilterProvider>
+          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <Header />
+            <Box component="main" sx={{ flexGrow: 1 }}>
+              <Dashboard />
+            </Box>
+            <Notification />
+          </Box>
+        </FilterProvider>
       </ThemeProvider>
     </SocketProvider>
   );
