@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Paper, Typography, CircularProgress, Chip } from '@mui/material';
+import { Box, Paper, Typography, CircularProgress, Chip, Link, Button, ButtonGroup } from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import { useFilters } from '../context/FilterContext';
-import { createChart } from 'lightweight-charts';
+// Import all required modules from lightweight-charts
+import * as LightweightCharts from 'lightweight-charts';
 
-const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false }) => {
+const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false, onTimeframeChange }) => {
   const { filters, getValidationFilters } = useFilters();
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
@@ -42,6 +44,7 @@ const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false }) =
     setError(null);
 
     // Fetch chart data from our API endpoint that connects to Binance
+    console.log(`Fetching chart data for ${symbol} with timeframe ${timeframe}`);
     fetch(`/api/crypto/${symbol}/chart?timeframe=${timeframe}&limit=100`)
       .then(response => {
         if (!response.ok) {
@@ -78,8 +81,8 @@ const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false }) =
       chartRef.current = null;
     }
 
-    // Create new chart
-    const chart = createChart(chartContainerRef.current, {
+    // Create new chart with proper API usage for v5+
+    const chart = LightweightCharts.createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 400,
       layout: {
@@ -94,9 +97,13 @@ const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false }) =
         borderColor: '#2c3940',
         timeVisible: true,
       },
+      // Add attribution as required by the license
+      attributionLogo: {
+        visible: true,
+      },
     });
 
-    // Add candlestick series
+    // Add candlestick series using proper API method
     const candleSeries = chart.addCandlestickSeries({
       upColor: '#9acd32',
       downColor: '#ff4500',
@@ -104,6 +111,8 @@ const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false }) =
       wickUpColor: '#9acd32',
       wickDownColor: '#ff4500',
     });
+    
+    console.log('Candlestick series created:', candleSeries);
     
     // Add price line markers for alert conditions if available
     if (alertLevels) {
@@ -143,13 +152,39 @@ const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false }) =
       },
     });
 
-    // Set data
-    candleSeries.setData(chartData);
-    volumeSeries.setData(chartData.map(item => ({
-      time: item.time,
-      value: item.volume,
-      color: item.close > item.open ? '#9acd32' : '#ff4500',
-    })));
+    // Set data with verification
+    console.log('Setting chart data:', chartData);
+    try {
+      // Ensure data is properly formatted for chart
+      // Lightweight Charts v5 requires the time format to be in specific formats
+      // For UTC timestamp in seconds: time needs integer timestamp
+      const formattedData = chartData.map(item => ({
+        // Convert to proper time format for Lightweight Charts v5
+        time: typeof item.time === 'number' ? item.time : Math.floor(new Date(item.time).getTime() / 1000),
+        open: Number(item.open),
+        high: Number(item.high),
+        low: Number(item.low),
+        close: Number(item.close)
+      }));
+      
+      console.log('Formatted data sample:', formattedData[0]);
+      candleSeries.setData(formattedData);
+    } catch (err) {
+      console.error('Error setting candlestick data:', err);
+    }
+    try {
+      const volumeData = chartData.map(item => ({
+        // Match the time format used in candlestick data
+        time: typeof item.time === 'number' ? item.time : Math.floor(new Date(item.time).getTime() / 1000),
+        value: Number(item.volume),
+        color: Number(item.close) > Number(item.open) ? '#9acd32' : '#ff4500',
+      }));
+      
+      console.log('Volume data sample:', volumeData[0]);
+      volumeSeries.setData(volumeData);
+    } catch (err) {
+      console.error('Error setting volume data:', err);
+    }
 
     // Fit content
     chart.timeScale().fitContent();
@@ -184,6 +219,18 @@ const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false }) =
     };
   }, [chartData, loading, error]);
 
+  const handleTimeframeChange = (newTimeframe) => {
+    // Store the last selected timeframe in session storage
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('preferredTimeframe', newTimeframe);
+    }
+    
+    // Call the parent component's callback to update the timeframe
+    if (onTimeframeChange) {
+      onTimeframeChange(newTimeframe);
+    }
+  };
+
   return (
     <Paper sx={{ p: 2, mb: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -201,6 +248,39 @@ const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false }) =
             />
           )}
         </Box>
+        
+        <ButtonGroup size="small" aria-label="timeframe selection">
+          <Button 
+            variant={timeframe === '5m' ? 'contained' : 'outlined'}
+            onClick={() => handleTimeframeChange('5m')}
+          >
+            5M
+          </Button>
+          <Button 
+            variant={timeframe === '15m' ? 'contained' : 'outlined'}
+            onClick={() => handleTimeframeChange('15m')}
+          >
+            15M
+          </Button>
+          <Button 
+            variant={timeframe === '1h' ? 'contained' : 'outlined'}
+            onClick={() => handleTimeframeChange('1h')}
+          >
+            1H
+          </Button>
+          <Button 
+            variant={timeframe === '4h' ? 'contained' : 'outlined'}
+            onClick={() => handleTimeframeChange('4h')}
+          >
+            4H
+          </Button>
+          <Button 
+            variant={timeframe === '1d' ? 'contained' : 'outlined'}
+            onClick={() => handleTimeframeChange('1d')}
+          >
+            1D
+          </Button>
+        </ButtonGroup>
       </Box>
 
       <Box 
@@ -231,6 +311,16 @@ const CoinAlertChart = ({ symbol, timeframe = '1h', meetsConditions = false }) =
             No chart data available
           </Typography>
         )}
+      </Box>
+      
+      {/* TradingView attribution as required by license */}
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <Typography variant="caption" color="text.secondary">
+          Charts powered by {' '}
+          <Link href="https://www.tradingview.com/" target="_blank" rel="noopener" underline="hover">
+            TradingView Lightweight Charts™
+          </Link>
+        </Typography>
       </Box>
     </Paper>
   );

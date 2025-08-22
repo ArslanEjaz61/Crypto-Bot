@@ -2,7 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Box, Grid, Paper, Typography, Tabs, Tab } from '@mui/material';
 import FilterSidebar from './FilterSidebar';
 import AlertSummary from './AlertSummary';
-import CoinAlertChart from './CoinAlertChart';
+import CoinAlertChart from '../components/CoinAlertChart';
+import SimpleChart from '../components/SimpleChart';
+import BasicChart from '../components/BasicChart';
+import MinimalChart from '../components/MinimalChart';
+import StaticChart from '../components/StaticChart';
+import FinalChart from '../components/FinalChart';
+import LineChart from '../components/LineChart';
 import GroupedAlertsList from './GroupedAlertsList';
 import MarketPanel from './MarketPanel';
 import { useFilters } from '../context/FilterContext';
@@ -17,6 +23,13 @@ const Dashboard = ({ children }) => {
   const [recentAlert, setRecentAlert] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [meetingCondition, setMeetingCondition] = useState(false);
+  const [chartTimeframe, setChartTimeframe] = useState(() => {
+    // Get timeframe from session storage or use default
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('preferredTimeframe') || '1h';
+    }
+    return '1h';
+  });
 
   // Get the most recent alert for the selected coin or the most recent alert overall
   useEffect(() => {
@@ -75,11 +88,46 @@ const Dashboard = ({ children }) => {
             {/* Top area - Alert Summary and Chart */}
             <AlertSummary alert={recentAlert} />
             
+            {/* Using LineChart with named imports style */}
+            <LineChart 
+              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
+              timeframe={chartTimeframe}
+              onTimeframeChange={(tf) => {
+                console.log(`Dashboard: Setting timeframe to ${tf}`);
+                setChartTimeframe(tf);
+                // Also store in session storage for persistence
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem('preferredTimeframe', tf);
+                }
+              }}
+            />
+            {/* Previous attempts - temporarily disabled 
+            <FinalChart 
+              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
+              timeframe={chartTimeframe}
+            />
+            <StaticChart 
+              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
+              timeframe={chartTimeframe}
+            />
+            <MinimalChart 
+              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
+              timeframe={chartTimeframe}
+            />
+            <BasicChart 
+              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
+              timeframe={chartTimeframe}
+            />
+            <SimpleChart 
+              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
+              timeframe={chartTimeframe}
+            />
             <CoinAlertChart 
               symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
-              timeframe={filters.chart?.timeframe || '1h'}
+              timeframe={chartTimeframe}
               meetsConditions={meetingCondition}
-            />
+              onTimeframeChange={setChartTimeframe}
+            /> */}
             
             {/* Bottom area - Alerts List */}
             <Box sx={{ flexGrow: 1, overflow: 'auto' }}>

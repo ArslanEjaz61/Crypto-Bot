@@ -449,23 +449,6 @@ const calculateRSI = async (req, res) => {
 const getChartData = async (req, res) => {
   try {
     const symbol = req.params.symbol;
-    
-    // TEMPORARILY DISABLED CHART FUNCTIONALITY
-    // Return a simple message instead of trying to fetch chart data
-    console.log(`Chart functionality for ${symbol} is temporarily disabled`);
-    
-    // Return placeholder data to avoid frontend errors
-    return res.json({
-      message: 'Chart functionality temporarily disabled',
-      symbol,
-      disabledForMaintenance: true,
-      // Return minimal placeholder data so the frontend doesn't crash
-      data: [
-        { time: Date.now() / 1000, open: 0, high: 0, low: 0, close: 0, volume: 0 }
-      ]
-    });
-    
-    /* ORIGINAL CHART CODE - COMMENTED OUT TO AVOID ERRORS
     const timeframe = req.query.timeframe || '1h';
     const limit = parseInt(req.query.limit) || 100;
     
@@ -509,7 +492,7 @@ const getChartData = async (req, res) => {
     }));
     
     res.json(chartData);
-    */
+    
   } catch (error) {
     handleAPIError(error, res, `Error with chart data for ${req.params.symbol}`);
   }
