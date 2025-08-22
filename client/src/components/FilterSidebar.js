@@ -40,8 +40,8 @@ const CustomCheckbox = styled((props) => (
     checkedIcon={
       <span
         style={{
-          width: 18,
-          height: 18,
+          width: 21,
+          height: 21,
           borderRadius: 3,
           backgroundColor: "#1890ff", // full blue fill
           display: "flex",
