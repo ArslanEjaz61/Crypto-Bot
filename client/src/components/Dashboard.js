@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Grid, Paper, Typography, Tabs, Tab } from '@mui/material';
-import FilterSidebar from './FilterSidebar';
 import AlertSummary from './AlertSummary';
-import CoinAlertChart from '../components/CoinAlertChart';
-import SimpleChart from '../components/SimpleChart';
-import BasicChart from '../components/BasicChart';
-import MinimalChart from '../components/MinimalChart';
-import StaticChart from '../components/StaticChart';
-import FinalChart from '../components/FinalChart';
-import LineChart from '../components/LineChart';
+import TradingViewChart from '../components/TradingViewChart';
 import GroupedAlertsList from './GroupedAlertsList';
 import MarketPanel from './MarketPanel';
 import { useFilters } from '../context/FilterContext';
@@ -16,7 +9,7 @@ import { useAlert } from '../context/AlertContext';
 import { useCrypto } from '../context/CryptoContext';
 
 const Dashboard = ({ children }) => {
-  const { filters, setFilters } = useFilters();
+  const { filters } = useFilters();
   const { alerts, loading: alertsLoading } = useAlert();
   const { cryptos, loading: cryptosLoading, checkAlertConditions } = useCrypto();
   const [selectedCoin, setSelectedCoin] = useState(null);
@@ -77,57 +70,14 @@ const Dashboard = ({ children }) => {
   return (
     <Box sx={{ flexGrow: 1, height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
       <Grid container spacing={2} sx={{ height: '100%', p: 1 }}>
-        {/* Left Sidebar - Filter Section */}
-        <Grid item xs={12} md={3} lg={2} sx={{ height: '100%', overflow: 'auto' }}>
-          <FilterSidebar filters={filters} setFilters={setFilters} />
-        </Grid>
-
-        {/* Middle Section - Chart and Alerts */}
-        <Grid item xs={12} md={6} lg={7} sx={{ height: '100%', overflow: 'auto' }}>
+        {/* Main Section - Chart and Alerts */}
+        <Grid item xs={12} md={8} lg={9} sx={{ height: '100%', overflow: 'auto' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Top area - Alert Summary and Chart */}
             <AlertSummary alert={recentAlert} />
             
-            {/* Using LineChart with named imports style */}
-            <LineChart 
-              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
-              timeframe={chartTimeframe}
-              onTimeframeChange={(tf) => {
-                console.log(`Dashboard: Setting timeframe to ${tf}`);
-                setChartTimeframe(tf);
-                // Also store in session storage for persistence
-                if (typeof window !== 'undefined') {
-                  sessionStorage.setItem('preferredTimeframe', tf);
-                }
-              }}
-            />
-            {/* Previous attempts - temporarily disabled 
-            <FinalChart 
-              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
-              timeframe={chartTimeframe}
-            />
-            <StaticChart 
-              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
-              timeframe={chartTimeframe}
-            />
-            <MinimalChart 
-              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
-              timeframe={chartTimeframe}
-            />
-            <BasicChart 
-              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
-              timeframe={chartTimeframe}
-            />
-            <SimpleChart 
-              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
-              timeframe={chartTimeframe}
-            />
-            <CoinAlertChart 
-              symbol={selectedCoin ? selectedCoin.symbol : recentAlert?.symbol} 
-              timeframe={chartTimeframe}
-              meetsConditions={meetingCondition}
-              onTimeframeChange={setChartTimeframe}
-            /> */}
+            {/* Using TradingView Widget with fixed BTCUSDT */}
+            <TradingViewChart />
             
             {/* Bottom area - Alerts List */}
             <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
@@ -158,7 +108,7 @@ const Dashboard = ({ children }) => {
         </Grid>
 
         {/* Right Section - Market Panel */}
-        <Grid item xs={12} md={3} lg={3} sx={{ height: '100%', overflow: 'auto' }}>
+        <Grid item xs={12} md={4} lg={3} sx={{ height: '100%', overflow: 'auto' }}>
           <MarketPanel onSelectCoin={handleSelectCoin} />
         </Grid>
       </Grid>
