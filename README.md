@@ -1,6 +1,6 @@
 # Binance Alerts System
 
-A real-time cryptocurrency monitoring and alert system built with MERN stack (MongoDB, Express, React, Node.js). This application allows traders to track cryptocurrency prices, set custom alerts based on price conditions, and analyze market trends through RSI indicators.
+A real-time cryptocurrency monitoring and alert system built with MERN stack (MongoDB, Express, React, Node.js). This application allows traders to track cryptocurrency prices, set custom alerts based on price conditions, and analyze market trends using TradingView charts.
 
 ## Features
 
@@ -9,11 +9,11 @@ A real-time cryptocurrency monitoring and alert system built with MERN stack (Mo
 - **Smart Alert Triggering**: Alerts trigger based on price conditions, not time schedules
 - **Email Notifications**: Receive email notifications when alerts trigger
 - **Advanced RSI Analysis**: Calculate and display Relative Strength Index for cryptocurrencies with multiple timeframe support
-- **Interactive RSI Interface**: 
-  - Search functionality with autocomplete for coins
-  - Batch loading with pagination (load 20 coins at a time)
-  - Visual categorization (overbought/oversold/neutral)
-  - Custom timeframe selection (1m, 5m, 15m, 1h, 4h, 1d, 1w)
+- **TradingView Chart Integration**: 
+  - Embedded professional TradingView widget
+  - Symbol change support
+  - Dark theme optimized interface
+  - Multiple timeframe options within TradingView
 - **Favorites**: Mark pairs as favorites for easy access
 - **Filtering & Sorting**: Filter by market, favorites, volume, and more
 - **Real-time Updates**: Socket.io integration for real-time data updates
@@ -26,6 +26,7 @@ A real-time cryptocurrency monitoring and alert system built with MERN stack (Mo
 - **Database**: MongoDB
 - **Real-time Communication**: Socket.io
 - **API Integration**: Binance REST and WebSocket APIs
+- **Charting**: TradingView Widget API
 - **Email Notifications**: Nodemailer
 - **Scheduled Tasks**: node-cron
 
@@ -108,12 +109,12 @@ npm start
 
 1. **Create Alerts**: Navigate to the "Create Alert" tab to set up new price alerts with custom conditions
 2. **Manage Alerts**: View and manage your alerts in the "Alerts List" tab
-3. **Analyze RSI**: Use the "RSI Analysis" tab to:
-   - Calculate RSI values for cryptocurrencies
-   - Search for specific coins using the autocomplete search feature
-   - View results for different timeframes
-   - Sort by RSI values (highest/lowest)
-   - Load more results in batches using the "Load More" button
+3. **Analyze Charts**: Use the integrated TradingView chart to:
+   - View professional-grade charts for any cryptocurrency pair
+   - Change symbols directly within the TradingView widget
+   - Apply technical indicators and drawing tools
+   - Switch between different timeframes
+   - Access TradingView's extensive charting capabilities
 
 ## API Endpoints
 
