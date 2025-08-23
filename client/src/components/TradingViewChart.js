@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { Box, Paper } from '@mui/material';
 
-// Direct HTML implementation of TradingView widget
+// Direct HTML implementation of TradingView widget with metrics
 const TradingViewChart = () => {
   const scriptRef = useRef(null);
+  const widgetRef = useRef(null);
 
   // Direct HTML content for TradingView widget
   const widgetHtml = `
@@ -21,7 +22,7 @@ const TradingViewChart = () => {
     script.async = true;
     script.onload = () => {
       // Create new TradingView widget
-      new window.TradingView.widget({
+      widgetRef.current = new window.TradingView.widget({
         "width": "100%",
         "height": 600,
         "symbol": "BINANCE:BTCUSDT",
@@ -36,6 +37,8 @@ const TradingViewChart = () => {
         "hide_top_toolbar": false,
         "container_id": "tradingview_chart"
       });
+      
+      // No symbol change listeners needed
     };
     
     // Save reference to script and append to document

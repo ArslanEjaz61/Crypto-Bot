@@ -1,70 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Grid, Paper, Typography, Tabs, Tab } from '@mui/material';
 import AlertSummary from './AlertSummary';
-import TradingViewChart from '../components/TradingViewChart';
+import TradingViewChart from './TradingViewChart';
 import GroupedAlertsList from './GroupedAlertsList';
 import MarketPanel from './MarketPanel';
-import { useFilters } from '../context/FilterContext';
 import { useAlert } from '../context/AlertContext';
-import { useCrypto } from '../context/CryptoContext';
 
 const Dashboard = ({ children }) => {
-  const { filters } = useFilters();
-  const { alerts, loading: alertsLoading } = useAlert();
-  const { cryptos, loading: cryptosLoading, checkAlertConditions } = useCrypto();
-  const [selectedCoin, setSelectedCoin] = useState(null);
+  const { alerts } = useAlert();
   const [recentAlert, setRecentAlert] = useState(null);
   const [tabValue, setTabValue] = useState(0);
-  const [meetingCondition, setMeetingCondition] = useState(false);
-  const [chartTimeframe, setChartTimeframe] = useState(() => {
-    // Get timeframe from session storage or use default
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('preferredTimeframe') || '1h';
-    }
-    return '1h';
-  });
 
-  // Get the most recent alert for the selected coin or the most recent alert overall
+  // Get the most recent alert overall
   useEffect(() => {
     if (!alerts || alerts.length === 0) return;
     
-    if (selectedCoin) {
-      const coinAlerts = alerts.filter(alert => alert.symbol === selectedCoin.symbol);
-      if (coinAlerts.length > 0) {
-        // Sort by date descending
-        coinAlerts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setRecentAlert(coinAlerts[0]);
-        return;
-      }
-    }
-    
-    // If no coin selected or no alerts for selected coin, show most recent alert
+    // Show most recent alert
     const sortedAlerts = [...alerts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     setRecentAlert(sortedAlerts[0]);
-  }, [alerts, selectedCoin]);
+  }, [alerts]);
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
-  };
-
-  // Handle coin selection from market panel
-  const handleSelectCoin = (coin) => {
-    setSelectedCoin(coin);
-    
-    // Check if the selected coin meets alert conditions
-    if (coin) {
-      checkAlertConditions(coin.symbol, filters)
-        .then(result => {
-          setMeetingCondition(result.meetsConditions);
-        })
-        .catch(err => {
-          console.error('Error checking conditions:', err);
-          setMeetingCondition(false);
-        });
-    } else {
-      setMeetingCondition(false);
-    }
   };
 
   return (
@@ -109,7 +67,7 @@ const Dashboard = ({ children }) => {
 
         {/* Right Section - Market Panel */}
         <Grid item xs={12} md={4} lg={3} sx={{ height: '100%', overflow: 'auto' }}>
-          <MarketPanel onSelectCoin={handleSelectCoin} />
+          <MarketPanel />
         </Grid>
       </Grid>
     </Box>

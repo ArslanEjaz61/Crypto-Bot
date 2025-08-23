@@ -27,7 +27,7 @@ import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import { useCrypto } from '../context/CryptoContext';
 import { useFilters } from '../context/FilterContext';
 
-const MarketPanel = ({ onSelectCoin }) => {
+const MarketPanel = () => {
   const { cryptos, loading, error, toggleFavorite, checkAlertConditions, updateFilter, loadCryptos } = useCrypto();
   const { filters, getValidationFilters, hasActiveFilters } = useFilters();
   const [view, setView] = useState('market');
@@ -251,7 +251,6 @@ const MarketPanel = ({ onSelectCoin }) => {
               <React.Fragment key={crypto._id || crypto.symbol}>
                 <ListItem
                   button
-                  onClick={() => onSelectCoin && onSelectCoin(crypto)}
                   sx={{ py: 1 }}
                 >
                   <ListItemText
