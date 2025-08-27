@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Grid, Paper, Typography, Tabs, Tab } from '@mui/material';
 import AlertSummary from './AlertSummary';
-import LineChart from './LineChart.jsx';
+import LineChart from './LineChart.js';
 import GroupedAlertsList from './GroupedAlertsList';
 import MarketPanel from './MarketPanel';
 import { useAlert } from '../context/AlertContext';
