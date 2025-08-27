@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Box, Paper, Typography, ButtonGroup, Button } from '@mui/material';
-import { createChart, LineStyle } from 'lightweight-charts';
+import * as LightweightCharts from 'lightweight-charts';
 
 const LineChart = ({ symbol = 'BTCUSDT', defaultTimeframe = '1h' }) => {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
+  const seriesRef = useRef(null);
   const [timeframe, setTimeframe] = useState(defaultTimeframe);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,8 +19,14 @@ const LineChart = ({ symbol = 'BTCUSDT', defaultTimeframe = '1h' }) => {
     }
   }, []);
 
+  const handleTimeframeChange = useCallback((newTimeframe) => {
+    console.log(`Changing timeframe to ${newTimeframe}`);
+    setTimeframe(newTimeframe);
+  }, []);
+
   // Cleanup function extracted for reuse
   const cleanupChart = useCallback(() => {
+    console.log('Cleaning up chart...');
     // Remove resize listener first
     window.removeEventListener('resize', handleResize);
     
@@ -27,32 +34,17 @@ const LineChart = ({ symbol = 'BTCUSDT', defaultTimeframe = '1h' }) => {
     if (chartRef.current) {
       try {
         chartRef.current.remove();
+        console.log('Chart removed successfully');
       } catch (error) {
         console.error('Error cleaning up chart:', error);
       }
       chartRef.current = null;
+      seriesRef.current = null;
     }
   }, [handleResize]);
-
-  useEffect(() => {
-    // Always clean up previous chart before creating a new one
-    cleanupChart();
-    
-    // Create chart when component mounts if container is ready
-    if (containerRef.current) {
-      fetchDataAndCreateChart();
-    }
-
-    // Cleanup on unmount or when dependencies change
-    return cleanupChart;
-  }, [symbol, timeframe, cleanupChart]); // Re-run when symbol or timeframe changes
-
-  const handleTimeframeChange = (newTimeframe) => {
-    console.log(`Changing timeframe to ${newTimeframe}`);
-    setTimeframe(newTimeframe);
-  };
-
-  const fetchDataAndCreateChart = async () => {
+  
+  // Define fetchDataAndCreateChart inside useCallback to avoid dependency cycle
+  const fetchDataAndCreateChart = useCallback(async () => {
     setIsLoading(true);
     setError(null); // Clear any previous errors
     
@@ -78,12 +70,12 @@ const LineChart = ({ symbol = 'BTCUSDT', defaultTimeframe = '1h' }) => {
       if (!containerRef.current) return;
       
       // Create chart with dark theme
-      const chart = createChart(containerRef.current, {
+      const chart = LightweightCharts.createChart(containerRef.current, {
         width: containerRef.current.clientWidth,
         height: 400,
         layout: { 
           textColor: '#d1d4dc', 
-          background: { color: '#222' } 
+          background: { type: 'solid', color: '#222' } 
         },
         grid: { 
           vertLines: { color: '#444' }, 
@@ -102,10 +94,14 @@ const LineChart = ({ symbol = 'BTCUSDT', defaultTimeframe = '1h' }) => {
       const lineSeries = chart.addLineSeries({
         color: '#4CAF50',
         lineWidth: 2,
-        lineStyle: LineStyle.Solid,
+        lastValueVisible: true,
+        priceLineVisible: true,
         crosshairMarkerVisible: true,
-        crosshairMarkerRadius: 6,
       });
+      console.log('Line series created successfully');
+      
+      // Store series reference
+      seriesRef.current = lineSeries;
 
       // Format data for line series (close price only)
       const formattedData = data.map(item => {
@@ -113,7 +109,7 @@ const LineChart = ({ symbol = 'BTCUSDT', defaultTimeframe = '1h' }) => {
         if (typeof item.time === 'string') {
           // If time is ISO string, convert to YYYY-MM-DD format
           const date = new Date(item.time);
-          time = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+          time = Math.floor(date.getTime() / 1000); // Convert to unix timestamp
         } else {
           // If time is unix timestamp
           time = item.time;
@@ -137,16 +133,60 @@ const LineChart = ({ symbol = 'BTCUSDT', defaultTimeframe = '1h' }) => {
         }
       });
 
-      // Set data
-      lineSeries.setData(uniqueData);
+      try {
+        // Set data
+        if (lineSeries && uniqueData.length > 0) {
+          lineSeries.setData(uniqueData);
+          console.log(`Set ${uniqueData.length} data points on line series`);
+        } else {
+          console.warn('Either lineSeries not created or no data points available');
+        }
       
-      // Fit content
-      chart.timeScale().fitContent();
-      
-      console.log(`Line chart created successfully with ${uniqueData.length} points`);
+        // Fit content
+        chart.timeScale().fitContent();
+        
+        // Add volume data if available
+        if (data.length > 0 && data[0].volume) {
+          try {
+            const volumeSeries = chart.addHistogramSeries({
+              color: '#26a69a',
+              priceFormat: {
+                type: 'volume',
+              },
+              priceScaleId: '',
+              scaleMargins: {
+                top: 0.8,
+                bottom: 0,
+              },
+            });
+            
+            const volumeData = uniqueData.map(item => {
+              const dataPoint = data.find(d => 
+                Math.floor(d.time) === item.time || 
+                Math.floor(new Date(d.time).getTime() / 1000) === item.time
+              );
+              return {
+                time: item.time,
+                value: dataPoint?.volume || 0,
+                color: (dataPoint?.close || 0) >= (dataPoint?.open || 0) ? '#26a69a' : '#ef5350',
+              };
+            });
+            
+            volumeSeries.setData(volumeData);
+            console.log('Volume histogram added successfully');
+          } catch (volumeError) {
+            console.error('Failed to add volume histogram:', volumeError);
+          }
+        }
+        
+        console.log(`Line chart created successfully with ${uniqueData.length} points`);
 
-      // Add resize listener
-      window.addEventListener('resize', handleResize);
+        // Add resize listener
+        window.addEventListener('resize', handleResize);
+      } catch (dataError) {
+        console.error('Error setting data on chart:', dataError);
+        throw dataError;
+      }
 
     } catch (error) {
       console.error('Error creating chart:', error);
@@ -155,7 +195,49 @@ const LineChart = ({ symbol = 'BTCUSDT', defaultTimeframe = '1h' }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [symbol, timeframe, handleResize]);
+  
+  // Create chart when component mounts or when symbol/timeframe changes
+  useEffect(() => {
+    console.log(`LineChart useEffect triggered - symbol: ${symbol}, timeframe: ${timeframe}`);
+    
+    let isMounted = true;
+    let timer = null;
+    
+    // Always clean up previous chart before creating a new one
+    cleanupChart();
+    
+    // Short delay before creating a new chart to ensure DOM is ready
+    timer = setTimeout(() => {
+      // Only proceed if component is still mounted
+      if (isMounted) {
+        // Create chart when component mounts if container is ready
+        if (containerRef.current) {
+          console.log('Container ref is ready, creating chart...');
+          fetchDataAndCreateChart().catch(error => {
+            console.error('Error in fetchDataAndCreateChart:', error);
+            if (isMounted) {
+              setError(error.message || 'Failed to create chart');
+            }
+          });
+        } else {
+          console.log('Container ref is not available');
+          if (isMounted) {
+            setError('Chart container not available');
+          }
+        }
+      }
+    }, 100);
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      isMounted = false;
+      if (timer) {
+        clearTimeout(timer);
+      }
+      cleanupChart();
+    };
+  }, [symbol, timeframe, cleanupChart, fetchDataAndCreateChart]);
 
   return (
     <Paper sx={{ p: 2, mb: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
