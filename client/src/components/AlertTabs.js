@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import eventBus from '../services/eventBus';
 import { Box, Tab, Tabs, Paper } from '@mui/material';
 import AlertsList from './AlertsList';
 import CreateAlertForm from './CreateAlertForm';
@@ -28,6 +29,23 @@ const AlertTabs = () => {
   const [value, setValue] = useState(0);
   // Track which tabs have been visited to enable lazy loading
   const [visitedTabs, setVisitedTabs] = useState([0]); // Start with first tab as visited
+  
+  // Listen for navigation events
+  useEffect(() => {
+    // Subscribe to tab navigation event
+    const unsubscribe = eventBus.on('NAVIGATE_TO_ALERTS_TAB', () => {
+      // Switch to alerts list tab (index 0)
+      setValue(0);
+      
+      // Make sure this tab is marked as visited
+      if (!visitedTabs.includes(0)) {
+        setVisitedTabs(prev => [...prev, 0]);
+      }
+    });
+    
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [visitedTabs]);
 
   const handleChange = (event, newValue) => {
     setValue(newValue);
@@ -72,7 +90,7 @@ const AlertTabs = () => {
       </TabPanel>
 
       <TabPanel value={value} index={1}>
-        {visitedTabs.includes(1) && <CreateAlertForm />}
+        {visitedTabs.includes(1) && <CreateAlertForm onSuccess={() => setValue(0)} />}
       </TabPanel>
 
       <TabPanel value={value} index={2}>

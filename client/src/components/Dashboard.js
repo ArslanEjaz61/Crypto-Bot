@@ -3,6 +3,7 @@ import { Box, Grid, Paper, Typography, Tabs, Tab } from '@mui/material';
 import AlertSummary from './AlertSummary';
 import TradingViewChart from './TradingViewChart';
 import GroupedAlertsList from './GroupedAlertsList';
+import RSIAnalysisList from './RSIAnalysisList';
 import MarketPanel from './MarketPanel';
 import { useAlert } from '../context/AlertContext';
 
@@ -47,6 +48,7 @@ const Dashboard = ({ children }) => {
               >
                 <Tab label="Alerts" />
                 <Tab label="Overview" />
+                <Tab label="RSI Analysis" />
               </Tabs>
               
               {tabValue === 0 && (
@@ -60,6 +62,10 @@ const Dashboard = ({ children }) => {
                     Overview content will be displayed here.
                   </Typography>
                 </Paper>
+              )}
+              
+              {tabValue === 2 && (
+                <RSIAnalysisList />
               )}
             </Box>
           </Box>

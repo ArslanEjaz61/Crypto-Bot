@@ -6,10 +6,12 @@ const Crypto = require('../models/cryptoModel');
 // @access  Public
 const getAlerts = async (req, res) => {
   try {
+    console.log('Getting all alerts');
     const alerts = await Alert.find({}).sort({ createdAt: -1 });
+    console.log(`Found ${alerts.length} alerts`);
     res.json(alerts);
   } catch (error) {
-    console.error(error);
+    console.error('Error in getAlerts:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -19,6 +21,7 @@ const getAlerts = async (req, res) => {
 // @access  Public
 const createAlert = async (req, res) => {
   try {
+    console.log('Creating new alert with body:', req.body);
     const {
       symbol,
       direction,
@@ -32,12 +35,19 @@ const createAlert = async (req, res) => {
       email
     } = req.body;
 
+    if (!symbol) {
+      console.error('Missing symbol in request body');
+      return res.status(400).json({ message: 'Symbol is required' });
+    }
+
     // Check if the symbol exists
     const crypto = await Crypto.findOne({ symbol });
     if (!crypto) {
+      console.error(`Invalid crypto symbol: ${symbol}`);
       return res.status(400).json({ message: 'Invalid crypto symbol' });
     }
 
+    console.log(`Found crypto ${symbol} with price ${crypto.price}`);
     const currentPrice = crypto.price;
 
     const alert = new Alert({

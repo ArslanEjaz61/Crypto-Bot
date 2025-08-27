@@ -27,6 +27,7 @@ import { useAlert } from '../context/AlertContext';
 import { useCrypto } from '../context/CryptoContext';
 import EditAlertDialog from './EditAlertDialog';
 import ConfirmDialog from './ConfirmDialog';
+import eventBus from '../services/eventBus';
 
 const AlertsList = () => {
   const { alerts, loadAlerts, deleteAlert } = useAlert();
@@ -40,9 +41,33 @@ const AlertsList = () => {
   const [editAlert, setEditAlert] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
+  // Load alerts when component mounts
+  useEffect(() => {
+    console.log('AlertsList mounted, loading alerts');
+    loadAlerts(1, 20, true); // Force refresh to get latest alerts
+  }, [loadAlerts]);
+  
+  // Listen for alert created events
+  useEffect(() => {
+    // Subscribe to ALERT_CREATED event
+    const unsubscribe = eventBus.on('ALERT_CREATED', (alertData) => {
+      console.log('ALERT_CREATED event received:', alertData);
+      // Reload alerts when a new one is created
+      loadAlerts(1, 20, true);
+    });
+    
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [loadAlerts]);
+
   // Filter alerts when alerts or filter changes
   useEffect(() => {
-    if (!alerts) return;
+    console.log('Alerts changed in AlertsList, current alerts:', alerts);
+    if (!alerts || alerts.length === 0) {
+      console.log('No alerts to filter');
+      setFilteredAlerts([]);
+      return;
+    }
 
     const filtered = alerts.filter(alert => {
       // Filter by symbol
