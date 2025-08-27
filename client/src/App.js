@@ -83,12 +83,18 @@ function App() {
       return;
     }
     
+    console.log(`Loading data with force=${force}, dataExpired=${dataExpired}`);
+    
     try {
       setIsDataLoading(true);
       console.log('Loading initial application data...');
       
       // Load data with slight delay between calls to reduce server load
-      await loadAlerts(1, 20, force);
+      console.log('Loading alerts from API...');
+      const alertResult = await loadAlerts(1, 100, force);
+      console.log('Alert loading result:', alertResult);
+      
+      console.log('Loading cryptos from API...');
       await loadCryptos(1, 50, force);
       
       // Mark data as loaded and store timestamp
@@ -108,13 +114,15 @@ function App() {
     // Create an AbortController for cleanup
     const controller = new AbortController();
     
+    console.log('App mounted, loading initial data...');
     // Initial data load
-    loadInitialData();
+    loadInitialData(true); // Force refresh on initial load
     
-    // Setup periodic data refresh (every 5 minutes)
+    // Setup periodic data refresh (every 2 minutes)
     const refreshInterval = setInterval(() => {
+      console.log('Running scheduled data refresh...');
       loadInitialData(true); // Force refresh
-    }, 5 * 60 * 1000);
+    }, 2 * 60 * 1000); // Reduced to 2 minutes for testing
     
     // Cleanup function
     return () => {

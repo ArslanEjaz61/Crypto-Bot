@@ -3,6 +3,7 @@ import { Box, Grid, Paper, Typography, Tabs, Tab } from '@mui/material';
 import AlertSummary from './AlertSummary';
 import LineChart from './LineChart.js';
 import GroupedAlertsList from './GroupedAlertsList';
+import RSIAnalysisList from './RSIAnalysisList';
 import MarketPanel from './MarketPanel';
 import { useAlert } from '../context/AlertContext';
 
@@ -10,6 +11,7 @@ const Dashboard = ({ children }) => {
   const { alerts } = useAlert();
   const [recentAlert, setRecentAlert] = useState(null);
   const [tabValue, setTabValue] = useState(0);
+  const [selectedCoin, setSelectedCoin] = useState('BTCUSDT');
 
   // Get the most recent alert overall
   useEffect(() => {
@@ -34,8 +36,8 @@ const Dashboard = ({ children }) => {
             {/* Top area - Alert Summary and Chart */}
             <AlertSummary alert={recentAlert} />
             
-            {/* Using LineChart with fixed BTCUSDT */}
-            <LineChart symbol="BTCUSDT" defaultTimeframe="1h" />
+            {/* LineChart with selected coin */}
+            <LineChart symbol={selectedCoin} defaultTimeframe="1h" />
             
             {/* Bottom area - Alerts List */}
             <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
@@ -47,6 +49,7 @@ const Dashboard = ({ children }) => {
               >
                 <Tab label="Alerts" />
                 <Tab label="Overview" />
+                <Tab label="RSI Analysis" />
               </Tabs>
               
               {tabValue === 0 && (
@@ -61,13 +64,17 @@ const Dashboard = ({ children }) => {
                   </Typography>
                 </Paper>
               )}
+              
+              {tabValue === 2 && (
+                <RSIAnalysisList />
+              )}
             </Box>
           </Box>
         </Grid>
 
         {/* Right Section - Market Panel */}
         <Grid item xs={12} md={4} lg={3} sx={{ height: '100%', overflow: 'auto' }}>
-          <MarketPanel />
+          <MarketPanel onSelectCoin={(symbol) => setSelectedCoin(symbol)} />
         </Grid>
       </Grid>
     </Box>

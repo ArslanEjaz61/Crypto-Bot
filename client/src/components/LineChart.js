@@ -44,6 +44,7 @@ const LineChart = ({ symbol, timeframe: propTimeframe = '1h', onTimeframeChange 
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
+      seriesRef.current = null;
     }
     if (seriesRef.current) {
       seriesRef.current = null;

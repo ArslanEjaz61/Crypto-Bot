@@ -25,8 +25,9 @@ import { useCrypto } from '../context/CryptoContext';
 import { useSocket } from '../context/SocketContext';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, TimePicker } from '@mui/x-date-pickers';
+import eventBus from '../services/eventBus';
 
-const CreateAlertForm = () => {
+const CreateAlertForm = ({ onSuccess }) => {
   const { createAlert } = useAlert();
   const { cryptos, filteredCryptos, updateFilter } = useCrypto();
   const { showNotification } = useSocket();
@@ -206,22 +207,40 @@ const CreateAlertForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate form
     if (!validateForm()) {
       return;
     }
     
     try {
-      // Format alert data
+      console.log('Submitting form with values:', formValues);
+      // Format alert data with all required fields
       const alertData = {
         ...formValues,
+        symbol: formValues.symbol.trim(),
+        direction: formValues.direction || '>',
+        targetType: formValues.targetType || 'price',
         alertTime: formatTimeForAPI(formValues.alertTime),
         targetValue: parseFloat(formValues.targetValue),
-        intervalMinutes: parseInt(formValues.intervalMinutes, 10),
-        volumeChangeRequired: parseFloat(formValues.volumeChangeRequired) || 0
+        trackingMode: formValues.trackingMode || 'current',
+        intervalMinutes: parseInt(formValues.intervalMinutes, 10) || 5,
+        volumeChangeRequired: parseFloat(formValues.volumeChangeRequired) || 0,
+        email: formValues.email || 'test@example.com',  // Ensure email is provided
+        comment: formValues.comment || ''
       };
       
-      await createAlert(alertData);
+      console.log('Formatted alert data for submission:', alertData);
+      
+      const createdAlert = await createAlert(alertData);
       showNotification('Alert created successfully', 'success');
+      
+      // Emit alert created event to refresh alerts list
+      eventBus.emit('ALERT_CREATED', createdAlert);
+      
+      // Call onSuccess callback if provided
+      if (onSuccess && typeof onSuccess === 'function') {
+        onSuccess();
+      }
       
       // Reset form
       setFormValues({

@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import axios from 'axios';
 
+// Configure axios
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+axios.defaults.headers.common['Content-Type'] = 'application/json';
+
 // Initial state
 const initialState = {
   alerts: [],
@@ -85,6 +89,7 @@ export const AlertProvider = ({ children }) => {
   // Load alerts with caching and optimization
   const loadAlerts = useCallback(async (page = 1, limit = 20, forceRefresh = false) => {
     try {
+      console.log('Loading alerts with params:', { page, limit, forceRefresh });
       // Check if we've recently fetched this page and have it cached
       const now = new Date().getTime();
       const shouldUseCachedData = !forceRefresh && 
@@ -94,7 +99,7 @@ export const AlertProvider = ({ children }) => {
                                 state.alerts.length > 0;
       
       if (shouldUseCachedData) {
-        console.log('Using cached alerts data');
+        console.log('Using cached alerts data', state.alerts);
         return {
           total: state.pagination.total,
           hasMore: state.pagination.hasMore
@@ -102,38 +107,56 @@ export const AlertProvider = ({ children }) => {
       }
       
       dispatch({ type: 'ALERT_REQUEST' });
+      console.log('Making API call to fetch alerts');
       
       // Use pagination parameters to limit the number of alerts loaded at once
-      const { data } = await axios.get('/api/alerts', {
+      const response = await axios.get('/api/alerts', {
         params: { page, limit }
       });
+      console.log('Alerts API response:', response);
+      
+      // The server returns the alerts directly in the data property
+      // Make sure we're handling the response correctly
+      let alertsData = response.data;
+      console.log('Parsed alerts data:', alertsData);
+      
+      // If the data isn't an array, handle the error
+      if (!Array.isArray(alertsData)) {
+        console.error('Expected array of alerts but got:', typeof alertsData);
+        alertsData = [];
+      }
       
       if (page === 1) {
         // First page - replace existing alerts
+        console.log('Dispatching GET_ALERTS with data:', alertsData);
         dispatch({ 
           type: 'GET_ALERTS', 
           payload: {
-            alerts: data,
+            alerts: alertsData,
             pagination: {
               page,
               limit,
-              total: data.total || data.length,
-              hasMore: data.hasMore || (data.length === limit)
+              total: alertsData.length,
+              hasMore: alertsData.length === limit
             },
             timestamp: now
           }
         });
+        // Check state after update
+        setTimeout(() => {
+          console.log('State after loading alerts:', state.alerts);
+        }, 100);
       } else {
         // Additional pages - append to existing alerts
         dispatch({ 
           type: 'ADD_ALERTS_BATCH', 
           payload: {
-            alerts: data,
+            alerts: alertsData,
             pagination: {
               page,
               limit,
-              total: data.total || data.length,
-              hasMore: data.hasMore || (data.length === limit)
+              total: alertsData.length,
+              hasMore: alertsData.length === limit
             },
             timestamp: now
           }
@@ -142,8 +165,8 @@ export const AlertProvider = ({ children }) => {
       
       // Return total count and whether there are more pages
       return {
-        total: data.total || data.length,
-        hasMore: data.hasMore || (data.length === limit)
+        total: alertsData.length,
+        hasMore: alertsData.length === limit
       };
     } catch (error) {
       dispatch({
@@ -152,17 +175,30 @@ export const AlertProvider = ({ children }) => {
       });
       return { total: 0, hasMore: false };
     }
-  }, [state.alerts.length, state.lastFetch, state.pagination.hasMore, state.pagination.page, state.pagination.total]);
+  }, [state.alerts, state.lastFetch, state.pagination.hasMore, state.pagination.page, state.pagination.total]);
 
   // Create new alert
   const createAlert = async (alertData) => {
     try {
+      console.log('Creating alert with data:', alertData);
       dispatch({ type: 'ALERT_REQUEST' });
-      const { data } = await axios.post('/api/alerts', alertData);
+      const response = await axios.post('/api/alerts', alertData);
+      console.log('Create alert API response:', response);
+      const { data } = response;
+      
+      // Log the alert before adding to state
+      console.log('Alert to be added to state:', data);
       dispatch({ type: 'ADD_ALERT', payload: data });
       dispatch({ type: 'SET_MESSAGE', payload: 'Alert created successfully' });
+      
+      // Log state after update
+      setTimeout(() => {
+        console.log('Alert state after creation:', state.alerts);
+      }, 100);
+      
       return data;
     } catch (error) {
+      console.error('Error creating alert:', error);
       dispatch({
         type: 'ALERT_FAIL',
         payload: error.response?.data?.message || 'Failed to create alert',

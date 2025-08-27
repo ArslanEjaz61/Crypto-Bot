@@ -12,7 +12,6 @@ import {
   Divider,
   Chip,
   IconButton,
-  CircularProgress,
   alpha
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -27,14 +26,14 @@ import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import { useCrypto } from '../context/CryptoContext';
 import { useFilters } from '../context/FilterContext';
 
-const MarketPanel = () => {
-  const { cryptos, loading, error, toggleFavorite, checkAlertConditions, updateFilter, loadCryptos } = useCrypto();
+const MarketPanel = ({ onSelectCoin }) => {
+  const { cryptos, error, toggleFavorite, checkAlertConditions, loadCryptos } = useCrypto();
   const { filters, getValidationFilters, hasActiveFilters } = useFilters();
   const [view, setView] = useState('market');
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCryptos, setFilteredCryptos] = useState([]);
   const [meetingConditions, setMeetingConditions] = useState({});
-  const [checkingConditions, setCheckingConditions] = useState(false);
+  const [, setCheckingConditions] = useState(false);
 
   // Check which coins meet the alert conditions
   const checkCoinConditions = useCallback(async (coinList) => {
@@ -77,20 +76,7 @@ const MarketPanel = () => {
     setCheckingConditions(false);
   }, [getValidationFilters, checkAlertConditions]);
 
-  // Handle filter change events
-  const handleFilterChange = (field, value) => {
-    console.log('Filter changed:', field, value);
-    
-    // Update filter in context
-    updateFilter({ [field]: value });
-    
-    // For all filter changes, make a direct API call to get fresh data without showing loading state
-    loadCryptos(1, 50, true, true).then(result => {
-      console.log('Filter applied with fresh data, result:', result);
-    }).catch(error => {
-      console.error('Error applying filter with fresh data:', error);
-    });
-  };
+  /* Filter functionality is handled directly in the component through the context */
 
   // Fetch fresh data and then filter cryptos
   useEffect(() => {
@@ -140,7 +126,7 @@ const MarketPanel = () => {
     } else {
       setMeetingConditions({});
     }
-  }, [cryptos, view, searchTerm, filters, checkCoinConditions]);
+  }, [cryptos, view, searchTerm, filters, checkCoinConditions, hasActiveFilters]);
 
   // Handle view change
   const handleViewChange = (event, newView) => {
@@ -252,6 +238,7 @@ const MarketPanel = () => {
                 <ListItem
                   button
                   sx={{ py: 1 }}
+                  onClick={() => onSelectCoin && onSelectCoin(crypto.symbol)}
                 >
                   <ListItemText
                     primary={
