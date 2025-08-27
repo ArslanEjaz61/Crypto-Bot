@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Grid, Paper, Typography, Tabs, Tab } from '@mui/material';
 import AlertSummary from './AlertSummary';
-import TradingViewChart from './TradingViewChart';
+import LineChart from './LineChart.jsx';
 import GroupedAlertsList from './GroupedAlertsList';
 import MarketPanel from './MarketPanel';
 import { useAlert } from '../context/AlertContext';
@@ -34,8 +34,8 @@ const Dashboard = ({ children }) => {
             {/* Top area - Alert Summary and Chart */}
             <AlertSummary alert={recentAlert} />
             
-            {/* Using TradingView Widget with fixed BTCUSDT */}
-            <TradingViewChart />
+            {/* Using LineChart with fixed BTCUSDT */}
+            <LineChart symbol="BTCUSDT" defaultTimeframe="1h" />
             
             {/* Bottom area - Alerts List */}
             <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
