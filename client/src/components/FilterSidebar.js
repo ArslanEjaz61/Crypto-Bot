@@ -63,23 +63,35 @@ const DarkAccordion = styled(Accordion)({
   backgroundColor: 'transparent',
   color: 'white',
   boxShadow: 'none',
+  marginBottom: '8px',
   '&:before': {
     display: 'none',
   },
   '& .MuiAccordionSummary-root': {
-    minHeight: 'auto',
-    padding: '8px 0',
+    minHeight: '48px',
+    padding: '0 16px',
+    borderRadius: '6px',
+    '&:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    },
   },
   '& .MuiAccordionSummary-content': {
-    margin: '6px 0',
+    margin: '12px 0',
+    fontSize: '14px',
+    fontWeight: '500',
+    letterSpacing: '0.5px',
   },
   '& .MuiAccordionDetails-root': {
-    padding: '0 8px 8px 8px',
+    padding: '8px 16px 16px 16px',
   },
 });
 
 const CustomAccordionSummary = styled(AccordionSummary)({
   '& .MuiAccordionSummary-expandIconWrapper': {
+    color: 'rgba(255, 255, 255, 0.7)',
+    transition: 'transform 0.2s ease',
+  },
+  '&:hover .MuiAccordionSummary-expandIconWrapper': {
     color: 'white',
   },
 });
@@ -88,21 +100,30 @@ const DarkTextField = styled(TextField)({
   '& .MuiOutlinedInput-root': {
     backgroundColor: '#151b26',
     color: 'white',
+    borderRadius: '6px',
+    fontSize: '13px',
     '& fieldset': {
       borderColor: '#30363d',
+      borderWidth: '1px',
     },
     '&:hover fieldset': {
       borderColor: '#4f80ff',
     },
     '&.Mui-focused fieldset': {
       borderColor: '#4f80ff',
+      borderWidth: '2px',
     },
   },
   '& .MuiInputLabel-root': {
     color: '#8b949e',
+    fontSize: '13px',
+    fontWeight: '400',
   },
   '& .MuiInputAdornment-root': {
     color: '#8b949e',
+  },
+  '& .MuiInputBase-input': {
+    padding: '12px 14px',
   },
 });
 
@@ -125,15 +146,27 @@ const DarkToggleButton = styled(ToggleButton)({
 const DarkButton = styled(Button)({
   borderColor: '#30363d',
   color: 'white',
+  borderRadius: '8px',
+  fontSize: '14px',
+  fontWeight: '500',
+  textTransform: 'none',
+  letterSpacing: '0.5px',
+  padding: '12px 24px',
+  transition: 'all 0.2s ease',
   '&:hover': {
     backgroundColor: '#1c2637',
     borderColor: '#4f80ff',
+    transform: 'translateY(-1px)',
+    boxShadow: '0 4px 12px rgba(72, 128, 255, 0.3)',
   },
   '&.MuiButton-contained': {
     backgroundColor: '#4f80ff',
     color: 'white',
+    boxShadow: '0 2px 8px rgba(72, 128, 255, 0.3)',
     '&:hover': {
       backgroundColor: '#3b6ae8',
+      transform: 'translateY(-1px)',
+      boxShadow: '0 6px 16px rgba(72, 128, 255, 0.4)',
     },
   },
 });
@@ -157,17 +190,29 @@ const DarkToggleButtonGroup = styled(ToggleButtonGroup)({
 
 const StyledFormControlLabel = styled(FormControlLabel)({
   '& .MuiFormControlLabel-label': {
-    color: 'white',
-    fontSize: '0.875rem',
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: '13px',
+    fontWeight: '400',
+    letterSpacing: '0.3px',
+    marginLeft: '6px',
   },
-  marginLeft: '-6px', // Adjust for better alignment with the screenshot
+  margin: '2px 0',
+  padding: '2px 4px',
+  borderRadius: '4px',
+  transition: 'background-color 0.2s ease',
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
   '& .MuiCheckbox-root': {
-    padding: '2px 6px 2px 2px',
+    padding: '2px',
   },
 });
 
 const DarkTypography = styled(Typography)({
-  color: 'white',
+  color: 'rgba(255, 255, 255, 0.95)',
+  fontSize: '14px',
+  fontWeight: '500',
+  letterSpacing: '0.5px',
 });
 
 const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
@@ -299,14 +344,21 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
   return (
     <Paper sx={{ 
       bgcolor: '#0d1117', 
-      borderRadius: 2,
+      borderRadius: '12px',
       height: '100%', 
-      p: 2,
+      p: 3,
       overflow: 'auto',
       maxHeight: 'calc(100vh - 100px)',
-      color: 'white'
+      color: 'white',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
     }}>
-      <Box component="aside" sx={{ color: 'text.primary' }}>
+      <Box component="aside" sx={{ 
+        color: 'text.primary',
+        '& > *:not(:last-child)': {
+          marginBottom: '4px',
+        }
+      }}>
         {/* Market Section */}
         <DarkAccordion defaultExpanded>
           <CustomAccordionSummary
@@ -388,17 +440,22 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
           >
             <DarkTypography>Min. Daily</DarkTypography>
           </CustomAccordionSummary>
-          <AccordionDetails>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.minDaily?.['10K'] || false} 
-                    onChange={() => handleCheckboxChange('minDaily', '10K')}
-                  />
-                }
-                label="10k"
-              />
+                     <AccordionDetails>
+             <Box sx={{ 
+               display: 'grid', 
+               gridTemplateColumns: '1fr 1fr', 
+               gap: 1,
+               padding: '2px 0'
+             }}>
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.minDaily?.['10K'] || false} 
+                     onChange={() => handleCheckboxChange('minDaily', '10K')}
+                   />
+                 }
+                 label="10k"
+               />
               <StyledFormControlLabel
                 control={
                   <CustomCheckbox 
@@ -486,12 +543,18 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
             <DarkTypography>Volume</DarkTypography>
           </CustomAccordionSummary>
           <AccordionDetails>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <DarkTypography variant="body2">Min</DarkTypography>
+                         <Box sx={{ 
+               display: 'flex', 
+               alignItems: 'center', 
+               gap: 1,
+               padding: '2px 0'
+             }}>
+              <DarkTypography variant="body2" sx={{ minWidth: '40px', fontSize: '13px' }}>Min</DarkTypography>
               <DarkTextField 
                 size="small"
                 variant="outlined"
                 fullWidth
+                placeholder="0"
                 value={filters.volume?.min || ''}
                 onChange={(e) => handleTextChange('volume', { ...filters.volume, min: e.target.value })}
               />
@@ -508,17 +571,22 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
           >
             <DarkTypography>Display Chart</DarkTypography>
           </CustomAccordionSummary>
-          <AccordionDetails>
-            <FormGroup row>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.displayChart?.['1HR'] || false} 
-                    onChange={() => handleCheckboxChange('displayChart', '1HR')}
-                  />
-                }
-                label="1HR"
-              />
+                     <AccordionDetails>
+             <Box sx={{ 
+               display: 'grid', 
+               gridTemplateColumns: '1fr 1fr', 
+               gap: 1,
+               padding: '2px 0'
+             }}>
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.displayChart?.['1HR'] || false} 
+                     onChange={() => handleCheckboxChange('displayChart', '1HR')}
+                   />
+                 }
+                 label="1HR"
+               />
               <StyledFormControlLabel
                 control={
                   <CustomCheckbox 
@@ -546,7 +614,7 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
                 }
                 label="W"
               />
-            </FormGroup>
+            </Box>
           </AccordionDetails>
         </DarkAccordion>
 
@@ -559,17 +627,22 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
           >
             <DarkTypography>Change %</DarkTypography>
           </CustomAccordionSummary>
-          <AccordionDetails>
-            <FormGroup row>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.changePercent?.['1MIN'] || false} 
-                    onChange={() => handleCheckboxChange('changePercent', '1MIN')}
-                  />
-                }
-                label="1MIN"
-              />
+                     <AccordionDetails>
+             <Box sx={{ 
+               display: 'grid', 
+               gridTemplateColumns: '1fr 1fr', 
+               gap: 1,
+               padding: '2px 0'
+             }}>
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.changePercent?.['1MIN'] || false} 
+                     onChange={() => handleCheckboxChange('changePercent', '1MIN')}
+                   />
+                 }
+                 label="1MIN"
+               />
               <StyledFormControlLabel
                 control={
                   <CustomCheckbox 
@@ -597,18 +670,19 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
                 }
                 label="1HR"
               />
-            </FormGroup>
+            </Box>
             
             {/* Percentage % */}
-            <Box sx={{ mt: 1 }}>
-              <DarkTypography variant="body2" gutterBottom>Percentage %</DarkTypography>
+                         <Box sx={{ 
+               mt: 1,
+               padding: '2px 0'
+             }}>
+              <DarkTypography variant="body2" sx={{ fontSize: '13px', mb: 1 }}>Percentage %</DarkTypography>
               <DarkTextField 
                 size="small"
                 variant="outlined"
                 fullWidth
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">%</InputAdornment>,
-                }}
+                placeholder="%"
                 value={filters.percentageValue || ''}
                 onChange={(e) => handleTextChange('percentageValue', e.target.value)}
               />
@@ -625,17 +699,22 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
           >
             <DarkTypography>Alert Count</DarkTypography>
           </CustomAccordionSummary>
-          <AccordionDetails>
-            <FormGroup row>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.alertCount?.['5MIN'] || false} 
-                    onChange={() => handleCheckboxChange('alertCount', '5MIN')}
-                  />
-                }
-                label="5MIN"
-              />
+                     <AccordionDetails>
+             <Box sx={{ 
+               display: 'grid', 
+               gridTemplateColumns: '1fr 1fr', 
+               gap: 1,
+               padding: '2px 0'
+             }}>
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.alertCount?.['5MIN'] || false} 
+                     onChange={() => handleCheckboxChange('alertCount', '5MIN')}
+                   />
+                 }
+                 label="5MIN"
+               />
               <StyledFormControlLabel
                 control={
                   <CustomCheckbox 
@@ -654,7 +733,7 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
                 }
                 label="1HR"
               />
-            </FormGroup>
+            </Box>
           </AccordionDetails>
         </DarkAccordion>
 
