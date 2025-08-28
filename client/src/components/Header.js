@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
-import { AppBar, Toolbar, Typography, Box, useTheme, Button, Dialog, DialogContent, IconButton, Menu, MenuItem } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, useTheme, IconButton, Menu, MenuItem } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import AddAlertIcon from '@mui/icons-material/AddAlert';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
-import CreateAlertForm from './CreateAlertForm';
-import eventBus from '../services/eventBus';
 import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
@@ -15,19 +12,7 @@ const Header = () => {
   const { connected } = useSocket();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [openAlertDialog, setOpenAlertDialog] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
-  
-  const handleOpenAlertDialog = () => {
-    setOpenAlertDialog(true);
-  };
-
-  const handleCloseAlertDialog = () => {
-    setOpenAlertDialog(false);
-    
-    // Emit an event to navigate to alerts tab
-    eventBus.emit('NAVIGATE_TO_ALERTS_TAB');
-  };
 
   const handleOpenUserMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -55,17 +40,6 @@ const Header = () => {
           </Box>
           
           <Box sx={{ flexGrow: 1 }} />
-          
-          {/* Add New Alert Button */}
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddAlertIcon />}
-            onClick={handleOpenAlertDialog}
-            sx={{ mr: 2 }}
-          >
-            Add New Alert
-          </Button>
           
           {/* Connection status indicator */}
           <Box 
@@ -114,18 +88,6 @@ const Header = () => {
           )}
         </Toolbar>
       </AppBar>
-      
-      {/* Alert Dialog */}
-      <Dialog
-        open={openAlertDialog}
-        onClose={handleCloseAlertDialog}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogContent>
-          <CreateAlertForm onSuccess={handleCloseAlertDialog} />
-        </DialogContent>
-      </Dialog>
     </>
   );
 };

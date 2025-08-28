@@ -6,6 +6,7 @@ import LineChart from './LineChart.js';
 import GroupedAlertsList from './GroupedAlertsList';
 import RSIAnalysisList from './RSIAnalysisList';
 import MarketPanel from './MarketPanel';
+import FilterSidebar from './FilterSidebar';
 import { useAlert } from '../context/AlertContext';
 
 const Dashboard = ({ children }) => {
@@ -38,8 +39,13 @@ const Dashboard = ({ children }) => {
   return (
     <Box sx={{ flexGrow: 1, height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
       <Grid container spacing={2} sx={{ height: '100%', p: 1 }}>
+        {/* Left Section - Filters Sidebar */}
+        <Grid item xs={12} md={3} lg={3} sx={{ height: '100%', overflow: 'auto' }}>
+          <FilterSidebar selectedSymbol={selectedCoin} />
+        </Grid>
+
         {/* Main Section - Chart and Alerts */}
-        <Grid item xs={12} md={8} lg={9} sx={{ height: '100%', overflow: 'auto' }}>
+        <Grid item xs={12} md={6} lg={6} sx={{ height: '100%', overflow: 'auto' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Top area - Alert Summary and Chart */}
             <AlertSummary alert={recentAlert} />
@@ -92,7 +98,7 @@ const Dashboard = ({ children }) => {
         </Grid>
 
         {/* Right Section - Market Panel */}
-        <Grid item xs={12} md={4} lg={3} sx={{ height: '100%', overflow: 'auto' }}>
+        <Grid item xs={12} md={3} lg={3} sx={{ height: '100%', overflow: 'auto' }}>
           <MarketPanel onSelectCoin={(symbol) => setSelectedCoin(symbol)} />
         </Grid>
       </Grid>

@@ -19,6 +19,10 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
+import { useFilters } from '../context/FilterContext';
+import { useAlert } from '../context/AlertContext';
+import { useSocket } from '../context/SocketContext';
+import eventBus from '../services/eventBus';
 
 // Custom styled components to match screenshot
 const CustomCheckbox = styled((props) => (
@@ -166,7 +170,14 @@ const DarkTypography = styled(Typography)({
   color: 'white',
 });
 
-const FilterSidebar = ({ filters, setFilters }) => {
+const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
+  const { filters: ctxFilters, setFilters: setCtxFilters } = useFilters();
+  const { createAlert } = useAlert();
+  const { showNotification } = useSocket();
+
+  // Fallback to context if props not supplied
+  filters = filters || ctxFilters;
+  setFilters = setFilters || setCtxFilters;
   // Handle checkbox change
   const handleCheckboxChange = (category, value) => {
     setFilters(prev => ({
@@ -193,6 +204,95 @@ const FilterSidebar = ({ filters, setFilters }) => {
         ...prev,
         [category]: newValue
       }));
+    }
+  };
+
+  // Create alert using current sidebar filter selections
+  const handleCreateAlert = async () => {
+    try {
+      const now = new Date();
+      const pad = (n) => n.toString().padStart(2, '0');
+      const alertTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      // Helpers to read first selected key from a section
+      const firstSelected = (sectionObj) => {
+        if (!sectionObj) return undefined;
+        const keys = Object.keys(sectionObj).filter((k) => sectionObj[k]);
+        return keys.length > 0 ? keys[0] : undefined;
+      };
+
+      const market = firstSelected(filters.market) || 'ALL';
+      const exchange = firstSelected(filters.exchange) || 'ALL';
+      const tradingPair = firstSelected(filters.pair) || 'ALL';
+      const displayChartTimeframe = firstSelected(filters.displayChart) || '1HR';
+      const changePercentTimeframe = firstSelected(filters.changePercent) || '1MIN';
+      const alertCountTimeframe = firstSelected(filters.alertCount) || '5MIN';
+      const candleTimeframe = firstSelected(filters.candle) || '1HR';
+      const rsiTimeframe = firstSelected(filters.rsiRange) || '1HR';
+      const emaTimeframe = firstSelected(filters.ema) || '1HR';
+
+      const percentageValue = parseFloat(filters.percentageValue || '1');
+      const minDailyVolumeMap = {
+        '10K': 10000,
+        '100K': 100000,
+        '500K': 500000,
+        '1MN': 1000000,
+        '2MN': 2000000,
+        '5MN': 5000000,
+        '10MN': 10000000,
+        '25MN': 25000000,
+        '50MN_PLUS': 50000000,
+      };
+      const minDailyKey = firstSelected(filters.minDaily);
+      const minDailyVolume = minDailyKey ? (minDailyVolumeMap[minDailyKey] || 0) : 0;
+
+      const alertData = {
+        symbol: selectedSymbol || 'BTCUSDT',
+        direction: '>',
+        targetType: 'percentage',
+        targetValue: isNaN(percentageValue) ? 1 : percentageValue,
+        trackingMode: 'current',
+        intervalMinutes: 60,
+        volumeChangeRequired: 0,
+        alertTime,
+        comment: '',
+        email: 'test@example.com',
+        // Candle
+        candleTimeframe,
+        candleCondition: (filters.candleCondition === 'Candle Below Open') ? 'BELOW_OPEN' : (filters.candleCondition === 'Candle Above Open') ? 'ABOVE_OPEN' : 'NONE',
+        // RSI
+        rsiEnabled: Boolean(filters.rsiRange && Object.values(filters.rsiRange).some(Boolean)),
+        rsiTimeframe,
+        rsiPeriod: parseInt(filters.rsiPeriod || '14', 10),
+        rsiCondition: (filters.rsiCondition || 'ABOVE').replace(' ', '_'),
+        rsiLevel: parseInt(filters.rsiLevel || '70', 10),
+        // EMA
+        emaEnabled: Boolean(filters.ema && Object.values(filters.ema).some(Boolean)),
+        emaTimeframe,
+        emaFastPeriod: parseInt(filters.emaFast || '12', 10),
+        emaSlowPeriod: parseInt(filters.emaSlow || '26', 10),
+        emaCondition: (filters.emaCondition || 'CROSSING UP').replace(' ', '_'),
+        // Volume Spike
+        volumeEnabled: Boolean(filters.volumeSpikeK && parseFloat(filters.volumeSpikeK) > 0),
+        volumeSpikeMultiplier: parseFloat(filters.volumeSpikeK || '2'),
+        // Market filters
+        market,
+        exchange,
+        tradingPair,
+        minDailyVolume,
+        // Extra fields used by model but not set in UI
+        displayChartTimeframe,
+        changePercentTimeframe,
+        changePercentValue: isNaN(percentageValue) ? 0 : percentageValue,
+        alertCountTimeframe,
+      };
+
+      const created = await createAlert(alertData);
+      showNotification('Alert created successfully', 'success');
+      eventBus.emit('ALERT_CREATED', created);
+    } catch (err) {
+      console.error('Failed to create alert from sidebar:', err);
+      showNotification('Error creating alert', 'error');
     }
   };
 
@@ -902,6 +1002,7 @@ const FilterSidebar = ({ filters, setFilters }) => {
             fullWidth 
             size="large"
             sx={{ py: 1.5 }}
+            onClick={handleCreateAlert}
           >
             New Alert
           </DarkButton>
