@@ -194,17 +194,17 @@ const StyledFormControlLabel = styled(FormControlLabel)({
     fontSize: '13px',
     fontWeight: '400',
     letterSpacing: '0.3px',
-    marginLeft: '6px',
+    marginLeft: '8px',
   },
-  margin: '2px 0',
-  padding: '2px 4px',
+  margin: '1px 0',
+  padding: '1px 2px',
   borderRadius: '4px',
   transition: 'background-color 0.2s ease',
   '&:hover': {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   '& .MuiCheckbox-root': {
-    padding: '2px',
+    padding: '1px',
   },
 });
 
@@ -444,8 +444,8 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
              <Box sx={{ 
                display: 'grid', 
                gridTemplateColumns: '1fr 1fr', 
-               gap: 1,
-               padding: '2px 0'
+               gap: 0.5,
+               padding: '1px 0'
              }}>
                <StyledFormControlLabel
                  control={
@@ -546,8 +546,8 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
                          <Box sx={{ 
                display: 'flex', 
                alignItems: 'center', 
-               gap: 1,
-               padding: '2px 0'
+               gap: 0.5,
+               padding: '1px 0'
              }}>
               <DarkTypography variant="body2" sx={{ minWidth: '40px', fontSize: '13px' }}>Min</DarkTypography>
               <DarkTextField 
@@ -575,8 +575,8 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
              <Box sx={{ 
                display: 'grid', 
                gridTemplateColumns: '1fr 1fr', 
-               gap: 1,
-               padding: '2px 0'
+               gap: 0.5,
+               padding: '1px 0'
              }}>
                <StyledFormControlLabel
                  control={
@@ -631,8 +631,8 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
              <Box sx={{ 
                display: 'grid', 
                gridTemplateColumns: '1fr 1fr', 
-               gap: 1,
-               padding: '2px 0'
+               gap: 0.5,
+               padding: '1px 0'
              }}>
                <StyledFormControlLabel
                  control={
@@ -674,8 +674,8 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
             
             {/* Percentage % */}
                          <Box sx={{ 
-               mt: 1,
-               padding: '2px 0'
+               mt: 0.5,
+               padding: '1px 0'
              }}>
               <DarkTypography variant="body2" sx={{ fontSize: '13px', mb: 1 }}>Percentage %</DarkTypography>
               <DarkTextField 
@@ -703,8 +703,8 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
              <Box sx={{ 
                display: 'grid', 
                gridTemplateColumns: '1fr 1fr', 
-               gap: 1,
-               padding: '2px 0'
+               gap: 0.5,
+               padding: '1px 0'
              }}>
                <StyledFormControlLabel
                  control={
@@ -746,74 +746,77 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
           >
             <DarkTypography>Candle</DarkTypography>
           </CustomAccordionSummary>
-          <AccordionDetails>
-            <FormGroup row>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.candle?.['5MIN'] || false} 
-                    onChange={() => handleCheckboxChange('candle', '5MIN')}
-                  />
-                }
-                label="5MIN"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.candle?.['15MIN'] || false} 
-                    onChange={() => handleCheckboxChange('candle', '15MIN')}
-                  />
-                }
-                label="15MIN"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.candle?.['1HR'] || false} 
-                    onChange={() => handleCheckboxChange('candle', '1HR')}
-                  />
-                }
-                label="1HR"
-              />
-            </FormGroup>
-            <FormGroup row>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.candle?.['4HR'] || false} 
-                    onChange={() => handleCheckboxChange('candle', '4HR')}
-                  />
-                }
-                label="4HR"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.candle?.['12HR'] || false} 
-                    onChange={() => handleCheckboxChange('candle', '12HR')}
-                  />
-                }
-                label="12HR"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.candle?.D || false} 
-                    onChange={() => handleCheckboxChange('candle', 'D')}
-                  />
-                }
-                label="D"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.candle?.W || false} 
-                    onChange={() => handleCheckboxChange('candle', 'W')}
-                  />
-                }
-                label="W"
-              />
-            </FormGroup>
+                     <AccordionDetails>
+             <Box sx={{ 
+               display: 'flex', 
+               flexWrap: 'wrap',
+               gap: 0.5,
+               padding: '1px 0'
+             }}>
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.candle?.['5MIN'] || false} 
+                     onChange={() => handleCheckboxChange('candle', '5MIN')}
+                   />
+                 }
+                 label="5MIN"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.candle?.['15MIN'] || false} 
+                     onChange={() => handleCheckboxChange('candle', '15MIN')}
+                   />
+                 }
+                 label="15MIN"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.candle?.['1HR'] || false} 
+                     onChange={() => handleCheckboxChange('candle', '1HR')}
+                   />
+                 }
+                 label="1HR"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.candle?.['4HR'] || false} 
+                     onChange={() => handleCheckboxChange('candle', '4HR')}
+                   />
+                 }
+                 label="4HR"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.candle?.['12HR'] || false} 
+                     onChange={() => handleCheckboxChange('candle', '12HR')}
+                   />
+                 }
+                 label="12HR"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.candle?.D || false} 
+                     onChange={() => handleCheckboxChange('candle', 'D')}
+                   />
+                 }
+                 label="D"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.candle?.W || false} 
+                     onChange={() => handleCheckboxChange('candle', 'W')}
+                   />
+                 }
+                 label="W"
+               />
+             </Box>
             
             {/* Condition */}
             <Box sx={{ mt: 1 }}>
@@ -838,111 +841,132 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
           >
             <DarkTypography>RSI Range</DarkTypography>
           </CustomAccordionSummary>
-          <AccordionDetails>
-            <FormGroup row>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.rsiRange?.['5MIN'] || false} 
-                    onChange={() => handleCheckboxChange('rsiRange', '5MIN')}
-                  />
-                }
-                label="5MIN"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.rsiRange?.['15MIN'] || false} 
-                    onChange={() => handleCheckboxChange('rsiRange', '15MIN')}
-                  />
-                }
-                label="15MIN"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.rsiRange?.['1HR'] || false} 
-                    onChange={() => handleCheckboxChange('rsiRange', '1HR')}
-                  />
-                }
-                label="1HR"
-              />
-            </FormGroup>
-            <FormGroup row>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.rsiRange?.['4HR'] || false} 
-                    onChange={() => handleCheckboxChange('rsiRange', '4HR')}
-                  />
-                }
-                label="4HR"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.rsiRange?.['12HR'] || false} 
-                    onChange={() => handleCheckboxChange('rsiRange', '12HR')}
-                  />
-                }
-                label="12HR"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.rsiRange?.D || false} 
-                    onChange={() => handleCheckboxChange('rsiRange', 'D')}
-                  />
-                }
-                label="D"
-              />
-            </FormGroup>
+                     <AccordionDetails>
+             <Box sx={{ 
+               display: 'flex', 
+               flexWrap: 'wrap',
+               gap: 0.5,
+               padding: '1px 0'
+             }}>
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.rsiRange?.['5MIN'] || false} 
+                     onChange={() => handleCheckboxChange('rsiRange', '5MIN')}
+                   />
+                 }
+                 label="5MIN"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.rsiRange?.['15MIN'] || false} 
+                     onChange={() => handleCheckboxChange('rsiRange', '15MIN')}
+                   />
+                 }
+                 label="15MIN"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.rsiRange?.['1HR'] || false} 
+                     onChange={() => handleCheckboxChange('rsiRange', '1HR')}
+                   />
+                 }
+                 label="1HR"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.rsiRange?.['4HR'] || false} 
+                     onChange={() => handleCheckboxChange('rsiRange', '4HR')}
+                   />
+                 }
+                 label="4HR"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.rsiRange?.['12HR'] || false} 
+                     onChange={() => handleCheckboxChange('rsiRange', '12HR')}
+                   />
+                 }
+                 label="12HR"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.rsiRange?.D || false} 
+                     onChange={() => handleCheckboxChange('rsiRange', 'D')}
+                   />
+                 }
+                 label="D"
+               />
+             </Box>
             
-            <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-              <Box>
-                <DarkTypography variant="body2" gutterBottom>RSI Period</DarkTypography>
-                <DarkTextField 
-                  size="small"
-                  variant="outlined"
-                  value={filters.rsiPeriod || '14'}
-                  onChange={(e) => handleTextChange('rsiPeriod', e.target.value)}
-                  sx={{ width: '100px' }}
-                />
-              </Box>
-              
-              <Box>
-                <DarkTypography variant="body2" gutterBottom>Level (1-100)</DarkTypography>
-                <DarkTextField 
-                  size="small"
-                  variant="outlined"
-                  value={filters.rsiLevel || '70'}
-                  onChange={(e) => handleTextChange('rsiLevel', e.target.value)}
-                  sx={{ width: '100px' }}
-                />
-              </Box>
-            </Box>
+                         <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+               <Box>
+                 <DarkTypography variant="body2" gutterBottom>RSI Period</DarkTypography>
+                 <DarkTextField 
+                   size="small"
+                   variant="outlined"
+                   value={filters.rsiPeriod || '14'}
+                   onChange={(e) => handleTextChange('rsiPeriod', e.target.value)}
+                   sx={{ width: '100px' }}
+                 />
+               </Box>
+               
+               <Box>
+                 <DarkTypography variant="body2" gutterBottom>Level (1-100)</DarkTypography>
+                 <DarkTextField 
+                   size="small"
+                   variant="outlined"
+                   value={filters.rsiLevel || '70'}
+                   onChange={(e) => handleTextChange('rsiLevel', e.target.value)}
+                   sx={{ width: '100px' }}
+                 />
+               </Box>
+             </Box>
             
-            <Box sx={{ mt: 2 }}>
-              <DarkToggleButtonGroup
-                value={filters.rsiCondition || 'ABOVE'}
-                exclusive
-                onChange={(e, val) => handleToggleChange('rsiCondition', e, val)}
-                aria-label="RSI condition"
-                fullWidth
-              >
-                <DarkToggleButton value="ABOVE" aria-label="above">
-                  ABOVE
-                </DarkToggleButton>
-                <DarkToggleButton value="BELOW" aria-label="below">
-                  BELOW
-                </DarkToggleButton>
-              </DarkToggleButtonGroup>
-              
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-                <DarkButton variant="outlined" fullWidth>CROSSING UP</DarkButton>
-                <DarkButton variant="outlined" fullWidth>CROSSING DOWN</DarkButton>
-              </Box>
-            </Box>
+                         <Box sx={{ mt: 1 }}>
+               <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
+                 <DarkButton 
+                   variant={filters.rsiCondition === 'ABOVE' ? 'contained' : 'outlined'} 
+                   size="small"
+                   onClick={() => handleToggleChange('rsiCondition', null, 'ABOVE')}
+                   sx={{ flex: 1, py: 0.5, fontSize: '12px' }}
+                 >
+                   ABOVE
+                 </DarkButton>
+                 <DarkButton 
+                   variant={filters.rsiCondition === 'BELOW' ? 'contained' : 'outlined'} 
+                   size="small"
+                   onClick={() => handleToggleChange('rsiCondition', null, 'BELOW')}
+                   sx={{ flex: 1, py: 0.5, fontSize: '12px' }}
+                 >
+                   BELOW
+                 </DarkButton>
+               </Box>
+               
+               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                 <DarkButton 
+                   variant={filters.rsiCondition === 'CROSSING UP' ? 'contained' : 'outlined'} 
+                   size="small"
+                   onClick={() => handleToggleChange('rsiCondition', null, 'CROSSING UP')}
+                   sx={{ py: 0.5, fontSize: '12px' }}
+                 >
+                   CROSSING UP
+                 </DarkButton>
+                 <DarkButton 
+                   variant={filters.rsiCondition === 'CROSSING DOWN' ? 'contained' : 'outlined'} 
+                   size="small"
+                   onClick={() => handleToggleChange('rsiCondition', null, 'CROSSING DOWN')}
+                   sx={{ py: 0.5, fontSize: '12px' }}
+                 >
+                   CROSSING DOWN
+                 </DarkButton>
+               </Box>
+             </Box>
           </AccordionDetails>
         </DarkAccordion>
 
@@ -955,98 +979,129 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
           >
             <DarkTypography>EMA Fast / Slow</DarkTypography>
           </CustomAccordionSummary>
-          <AccordionDetails>
-            <FormGroup row>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.ema?.['5MIN'] || false} 
-                    onChange={() => handleCheckboxChange('ema', '5MIN')}
-                  />
-                }
-                label="5MIN"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.ema?.['15MIN'] || false} 
-                    onChange={() => handleCheckboxChange('ema', '15MIN')}
-                  />
-                }
-                label="15MIN"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.ema?.['1HR'] || false} 
-                    onChange={() => handleCheckboxChange('ema', '1HR')}
-                  />
-                }
-                label="1HR"
-              />
-            </FormGroup>
-            <FormGroup row>
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.ema?.['4HR'] || false} 
-                    onChange={() => handleCheckboxChange('ema', '4HR')}
-                  />
-                }
-                label="4HR"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.ema?.['12HR'] || false} 
-                    onChange={() => handleCheckboxChange('ema', '12HR')}
-                  />
-                }
-                label="12HR"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.ema?.D || false} 
-                    onChange={() => handleCheckboxChange('ema', 'D')}
-                  />
-                }
-                label="D"
-              />
-            </FormGroup>
+                     <AccordionDetails>
+             <Box sx={{ 
+               display: 'flex', 
+               flexWrap: 'wrap',
+               gap: 0.5,
+               padding: '1px 0'
+             }}>
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.ema?.['5MIN'] || false} 
+                     onChange={() => handleCheckboxChange('ema', '5MIN')}
+                   />
+                 }
+                 label="5MIN"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.ema?.['15MIN'] || false} 
+                     onChange={() => handleCheckboxChange('ema', '15MIN')}
+                   />
+                 }
+                 label="15MIN"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.ema?.['1HR'] || false} 
+                     onChange={() => handleCheckboxChange('ema', '1HR')}
+                   />
+                 }
+                 label="1HR"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.ema?.['4HR'] || false} 
+                     onChange={() => handleCheckboxChange('ema', '4HR')}
+                   />
+                 }
+                 label="4HR"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.ema?.['12HR'] || false} 
+                     onChange={() => handleCheckboxChange('ema', '12HR')}
+                   />
+                 }
+                 label="12HR"
+               />
+               <StyledFormControlLabel
+                 control={
+                   <CustomCheckbox 
+                     checked={filters.ema?.D || false} 
+                     onChange={() => handleCheckboxChange('ema', 'D')}
+                   />
+                 }
+                 label="D"
+               />
+             </Box>
             
-            <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-              <Box>
-                <DarkTypography variant="body2" gutterBottom>Fast</DarkTypography>
-                <DarkTextField 
-                  size="small"
-                  variant="outlined"
-                  value={filters.emaFast || '12'}
-                  onChange={(e) => handleTextChange('emaFast', e.target.value)}
-                  sx={{ width: '100px' }}
-                />
-              </Box>
-              
-              <Box>
-                <DarkTypography variant="body2" gutterBottom>Slow</DarkTypography>
-                <DarkTextField 
-                  size="small"
-                  variant="outlined"
-                  value={filters.emaSlow || '26'}
-                  onChange={(e) => handleTextChange('emaSlow', e.target.value)}
-                  sx={{ width: '100px' }}
-                />
-              </Box>
-            </Box>
+                         <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+               <Box>
+                 <DarkTypography variant="body2" gutterBottom>Fast</DarkTypography>
+                 <DarkTextField 
+                   size="small"
+                   variant="outlined"
+                   value={filters.emaFast || '12'}
+                   onChange={(e) => handleTextChange('emaFast', e.target.value)}
+                   sx={{ width: '100px' }}
+                 />
+               </Box>
+               
+               <Box>
+                 <DarkTypography variant="body2" gutterBottom>Slow</DarkTypography>
+                 <DarkTextField 
+                   size="small"
+                   variant="outlined"
+                   value={filters.emaSlow || '26'}
+                   onChange={(e) => handleTextChange('emaSlow', e.target.value)}
+                   sx={{ width: '100px' }}
+                 />
+               </Box>
+             </Box>
             
-            <Box sx={{ mt: 2 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <DarkButton variant="outlined" fullWidth>ABOVE</DarkButton>
-                <DarkButton variant="outlined" fullWidth>BELOW</DarkButton>
-                <DarkButton variant="contained" color="primary" fullWidth>CROSSING UP</DarkButton>
-                <DarkButton variant="outlined" fullWidth>CROSSING DOWN</DarkButton>
-              </Box>
-            </Box>
+                         <Box sx={{ mt: 1 }}>
+               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                 <DarkButton 
+                   variant={filters.emaCondition === 'ABOVE' ? 'contained' : 'outlined'} 
+                   size="small"
+                   onClick={() => handleToggleChange('emaCondition', null, 'ABOVE')}
+                   sx={{ py: 0.5, fontSize: '12px' }}
+                 >
+                   ABOVE
+                 </DarkButton>
+                 <DarkButton 
+                   variant={filters.emaCondition === 'BELOW' ? 'contained' : 'outlined'} 
+                   size="small"
+                   onClick={() => handleToggleChange('emaCondition', null, 'BELOW')}
+                   sx={{ py: 0.5, fontSize: '12px' }}
+                 >
+                   BELOW
+                 </DarkButton>
+                 <DarkButton 
+                   variant={filters.emaCondition === 'CROSSING UP' ? 'contained' : 'outlined'} 
+                   size="small"
+                   onClick={() => handleToggleChange('emaCondition', null, 'CROSSING UP')}
+                   sx={{ py: 0.5, fontSize: '12px' }}
+                 >
+                   CROSSING UP
+                 </DarkButton>
+                 <DarkButton 
+                   variant={filters.emaCondition === 'CROSSING DOWN' ? 'contained' : 'outlined'} 
+                   size="small"
+                   onClick={() => handleToggleChange('emaCondition', null, 'CROSSING DOWN')}
+                   sx={{ py: 0.5, fontSize: '12px' }}
+                 >
+                   CROSSING DOWN
+                 </DarkButton>
+               </Box>
+             </Box>
           </AccordionDetails>
         </DarkAccordion>
 
@@ -1060,7 +1115,7 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
             <DarkTypography>Volume Spike ≥ k x avg</DarkTypography>
           </CustomAccordionSummary>
           <AccordionDetails>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <DarkTypography variant="body2">k =</DarkTypography>
               <DarkTextField 
                 size="small"

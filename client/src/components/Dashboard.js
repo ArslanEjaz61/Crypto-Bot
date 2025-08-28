@@ -13,6 +13,7 @@ const Dashboard = ({ children }) => {
   const { cryptos } = useCrypto();
   const [tabValue, setTabValue] = useState(0);
   const [selectedCoin, setSelectedCoin] = useState('BTCUSDT');
+  const [selectedTimeframe, setSelectedTimeframe] = useState('1h');
   
   // Get crypto coins that have alerts
   const coinsWithAlerts = useMemo(() => {
@@ -56,6 +57,11 @@ const Dashboard = ({ children }) => {
     setTabValue(newValue);
   };
 
+  // Handle timeframe change
+  const handleTimeframeChange = (newTimeframe) => {
+    setSelectedTimeframe(newTimeframe);
+  };
+
   return (
     <Box sx={{ flexGrow: 1, height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
       <Grid container spacing={2} sx={{ height: '100%', p: 1 }}>
@@ -68,7 +74,11 @@ const Dashboard = ({ children }) => {
         <Grid item xs={12} md={6} lg={6} sx={{ height: '100%', overflow: 'auto' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* LineChart with selected coin */}
-            <LineChart symbol={selectedCoin} defaultTimeframe="1h" />
+            <LineChart 
+              symbol={selectedCoin} 
+              timeframe={selectedTimeframe}
+              onTimeframeChange={handleTimeframeChange}
+            />
             
             {/* Bottom area - Alerts List */}
             <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
