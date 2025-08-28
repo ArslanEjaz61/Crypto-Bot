@@ -1,17 +1,20 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Container, Box } from '@mui/material';
+import { Box } from '@mui/material';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Components
 import Header from './components/Header';
-import AlertTabs from './components/AlertTabs';
 import { useAlert } from './context/AlertContext';
 import { useCrypto } from './context/CryptoContext';
 import SocketProvider from './context/SocketContext';
 import Notification from './components/Notification';
 import Dashboard from './components/Dashboard';
 import { FilterProvider } from './context/FilterContext';
+import Login from './components/Login';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './context/AuthContext';
 
 const darkTheme = createTheme({
   palette: {
@@ -62,8 +65,8 @@ const darkTheme = createTheme({
 });
 
 function App() {
-  const { loadAlerts, loading: alertsLoading } = useAlert();
-  const { loadCryptos, loading: cryptosLoading } = useCrypto();
+  const { loadAlerts } = useAlert();
+  const { loadCryptos } = useCrypto();
   const [isDataLoading, setIsDataLoading] = useState(false);
 
   // Memoized function to load initial data
@@ -132,20 +135,41 @@ function App() {
   }, [loadInitialData]); // Depend on memoized function
 
   return (
-    <SocketProvider>
-      <ThemeProvider theme={darkTheme}>
-        <CssBaseline />
-        <FilterProvider>
-          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-            <Header />
-            <Box component="main" sx={{ flexGrow: 1 }}>
-              <Dashboard />
-            </Box>
-            <Notification />
-          </Box>
-        </FilterProvider>
-      </ThemeProvider>
-    </SocketProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <SocketProvider>
+          <ThemeProvider theme={darkTheme}>
+            <CssBaseline />
+            <FilterProvider>
+              <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  
+                  {/* Protected routes */}
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/dashboard" element={
+                      <>
+                        <Header />
+                        <Box component="main" sx={{ flexGrow: 1 }}>
+                          <Dashboard />
+                        </Box>
+                        <Notification />
+                      </>
+                    } />
+                  </Route>
+                  
+                  {/* Redirect root to dashboard (protected) */}
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  
+                  {/* Catch all other routes */}
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </Box>
+            </FilterProvider>
+          </ThemeProvider>
+        </SocketProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

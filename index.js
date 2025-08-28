@@ -65,13 +65,20 @@ app.set('io', io);
 // Import routes
 const alertRoutes = require('./server/routes/alertRoutes');
 const cryptoRoutes = require('./server/routes/cryptoRoutes');
+const authRoutes = require('./server/routes/authRoutes');
+const { notFound, errorHandler } = require('./server/utils/errorHandler');
 
 // Use routes
 app.use('/api/alerts', alertRoutes);
 app.use('/api/crypto', cryptoRoutes);
+app.use('/api/auth', authRoutes);
 
 // Start cron jobs
 setupCronJobs(io);
+
+// Error handler middleware
+app.use(notFound);
+app.use(errorHandler);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {

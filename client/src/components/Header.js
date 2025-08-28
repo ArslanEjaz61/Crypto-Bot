@@ -1,15 +1,22 @@
 import React, { useState } from 'react';
-import { AppBar, Toolbar, Typography, Box, useTheme, Button, Dialog, DialogContent } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, useTheme, Button, Dialog, DialogContent, IconButton, Menu, MenuItem } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import AddAlertIcon from '@mui/icons-material/AddAlert';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import CreateAlertForm from './CreateAlertForm';
 import eventBus from '../services/eventBus';
+import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
   const theme = useTheme();
   const { connected } = useSocket();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [openAlertDialog, setOpenAlertDialog] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
   
   const handleOpenAlertDialog = () => {
     setOpenAlertDialog(true);
@@ -20,6 +27,20 @@ const Header = () => {
     
     // Emit an event to navigate to alerts tab
     eventBus.emit('NAVIGATE_TO_ALERTS_TAB');
+  };
+
+  const handleOpenUserMenu = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseUserMenu = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    handleCloseUserMenu();
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -58,9 +79,39 @@ const Header = () => {
               mr: 1
             }}
           />
-          <Typography variant="body2" color="textSecondary">
+          <Typography variant="body2" color="textSecondary" sx={{ mr: 2 }}>
             {connected ? 'Connected' : 'Disconnected'}
           </Typography>
+          
+          {/* User menu */}
+          {user && (
+            <>
+              <IconButton onClick={handleOpenUserMenu} color="inherit">
+                <AccountCircleIcon />
+              </IconButton>
+              <Typography variant="body2" sx={{ mr: 1 }}>
+                {user.username}
+              </Typography>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleCloseUserMenu}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+              >
+                <MenuItem onClick={handleLogout}>
+                  <LogoutIcon sx={{ mr: 1 }} />
+                  Logout
+                </MenuItem>
+              </Menu>
+            </>
+          )}
         </Toolbar>
       </AppBar>
       
