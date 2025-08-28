@@ -1,28 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Grid, Paper, Typography, Tabs, Tab, Button } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import AlertSummary from './AlertSummary';
 import LineChart from './LineChart.js';
-import GroupedAlertsList from './GroupedAlertsList';
-import RSIAnalysisList from './RSIAnalysisList';
+import CryptoList from './CryptoList';
 import MarketPanel from './MarketPanel';
 import FilterSidebar from './FilterSidebar';
 import { useAlert } from '../context/AlertContext';
+import { useCrypto } from '../context/CryptoContext';
 
 const Dashboard = ({ children }) => {
   const { alerts, loadAlerts } = useAlert();
-  const [recentAlert, setRecentAlert] = useState(null);
+  const { cryptos } = useCrypto();
   const [tabValue, setTabValue] = useState(0);
   const [selectedCoin, setSelectedCoin] = useState('BTCUSDT');
+  
+  // Get crypto coins that have alerts
+  const coinsWithAlerts = useMemo(() => {
+    if (!alerts || alerts.length === 0 || !cryptos || cryptos.length === 0) {
+      return [];
+    }
+    
+    // Group alerts by symbol
+    const alertsBySymbol = {};
+    alerts.forEach(alert => {
+      if (!alert.symbol) return;
+      
+      if (!alertsBySymbol[alert.symbol]) {
+        alertsBySymbol[alert.symbol] = [];
+      }
+      alertsBySymbol[alert.symbol].push(alert);
+    });
+    
+    // Match with crypto data
+    return cryptos
+      .filter(crypto => alertsBySymbol[crypto.symbol])
+      .map(crypto => ({
+        ...crypto,
+        alertsCount: alertsBySymbol[crypto.symbol].length
+      }));
+  }, [alerts, cryptos]);
 
-  // Get the most recent alert overall
+  // Log alerts for debugging
   useEffect(() => {
     console.log('Dashboard - Current alerts state:', alerts);
-    if (!alerts || alerts.length === 0) return;
-    
-    // Show most recent alert
-    const sortedAlerts = [...alerts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    setRecentAlert(sortedAlerts[0]);
   }, [alerts]);
   
   // Force refresh alerts
@@ -47,9 +67,6 @@ const Dashboard = ({ children }) => {
         {/* Main Section - Chart and Alerts */}
         <Grid item xs={12} md={6} lg={6} sx={{ height: '100%', overflow: 'auto' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Top area - Alert Summary and Chart */}
-            <AlertSummary alert={recentAlert} />
-            
             {/* LineChart with selected coin */}
             <LineChart symbol={selectedCoin} defaultTimeframe="1h" />
             
@@ -78,7 +95,12 @@ const Dashboard = ({ children }) => {
               </Box>
               
               {tabValue === 0 && (
-                <GroupedAlertsList />
+                <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2, mb: 3 }}>
+                  <Typography variant="h6">Alert Coins</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    Showing coins that have active alerts
+                  </Typography>
+                </Box>
               )}
               
               {tabValue === 1 && (
@@ -91,7 +113,21 @@ const Dashboard = ({ children }) => {
               )}
               
               {tabValue === 2 && (
-                <RSIAnalysisList />
+                <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
+                  <Typography variant="h6">RSI Analysis</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    RSI analysis will be displayed here.
+                  </Typography>
+                </Box>
+              )}
+              
+              {/* Crypto List with Alerts */}
+              {coinsWithAlerts.length > 0 ? (
+                <CryptoList cryptos={coinsWithAlerts} />
+              ) : (
+                <Box sx={{ textAlign: 'center', mt: 3, p: 4, bgcolor: 'background.paper', borderRadius: 2 }}>
+                  <Typography>No coins with alerts found</Typography>
+                </Box>
               )}
             </Box>
           </Box>

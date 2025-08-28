@@ -20,24 +20,24 @@ const darkTheme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#3875d7',
+      main: '#0066FF',
     },
     secondary: {
       main: '#9acd32',
     },
     background: {
-      default: '#262e33',
-      paper: '#1c252b',
+      default: '#0A0E17',  // Dark background matching the image
+      paper: '#0A0E17',    // Same dark background for paper components
     },
     text: {
-      primary: '#ffffff',
-      secondary: '#b3b3b3',
+      primary: '#FFFFFF',
+      secondary: '#94A3B8', // Light gray text for secondary content
     },
     success: {
-      main: '#9acd32',
+      main: '#10B981',     // Green color for positive changes
     },
     error: {
-      main: '#ff4500',
+      main: '#EF4444',     // Red color for negative changes
     },
   },
   typography: {
