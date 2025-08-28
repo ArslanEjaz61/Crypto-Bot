@@ -54,13 +54,25 @@ const GroupedAlertsList = () => {
   }, [filters, checkAlertConditions]);
   
   useEffect(() => {
-    if (!alerts || alerts.length === 0) return;
+    console.log('GroupedAlertsList - Alerts state:', alerts);
+    if (!alerts) {
+      console.log('No alerts available');
+      return;
+    }
     
-    const filteredAlerts = applyFilters(alerts);
+    // For debugging, show all alerts raw data
+    console.log('Raw alerts data:', JSON.stringify(alerts));
+    
+    // TEMPORARY DEBUGGING: Skip filtering and show all alerts
+    const filteredAlerts = alerts;
+    console.log('Using all alerts (bypassing filters):', filteredAlerts.length);
     
     // Group by symbol
     const groups = filteredAlerts.reduce((acc, alert) => {
-      const symbol = alert.symbol;
+      // Make sure each alert has a symbol, default to "UNKNOWN" if missing
+      const symbol = alert.symbol || "UNKNOWN";
+      console.log('Processing alert with symbol:', symbol, alert);
+      
       if (!acc[symbol]) {
         acc[symbol] = [];
       }
@@ -68,9 +80,15 @@ const GroupedAlertsList = () => {
       return acc;
     }, {});
     
+    console.log('Grouped alerts by symbol:', groups);
+    
     // Sort each group by timestamp (newest first)
     Object.keys(groups).forEach(symbol => {
-      groups[symbol].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      groups[symbol].sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+        return dateB - dateA;
+      });
       
       // Check if this symbol meets current filter conditions
       checkSymbolConditions(symbol);
@@ -82,6 +100,7 @@ const GroupedAlertsList = () => {
     );
     
     setGroupedAlerts(sortedGroups);
+    console.log('Set grouped alerts:', sortedGroups);
     
     // Initialize all groups as collapsed
     if (Object.keys(sortedGroups).length > 0 && Object.keys(expandedGroups).length === 0) {

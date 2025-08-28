@@ -44,6 +44,7 @@ const alertReducer = (state, action) => {
     case 'SET_MESSAGE':
       return { ...state, message: action.payload };
     case 'GET_ALERTS':
+      console.log('GET_ALERTS reducer with payload:', action.payload);
       return { 
         ...state, 
         alerts: action.payload.alerts, 
@@ -52,6 +53,7 @@ const alertReducer = (state, action) => {
         loading: false 
       };
     case 'ADD_ALERTS_BATCH':
+      console.log('ADD_ALERTS_BATCH reducer with payload:', action.payload);
       return { 
         ...state, 
         alerts: [...state.alerts, ...action.payload.alerts], 
@@ -60,6 +62,7 @@ const alertReducer = (state, action) => {
         loading: false 
       };
     case 'ADD_ALERT':
+      console.log('ADD_ALERT reducer with payload:', action.payload);
       return { ...state, alerts: [action.payload, ...state.alerts], loading: false, success: true };
     case 'UPDATE_ALERT':
       return {
@@ -90,9 +93,14 @@ export const AlertProvider = ({ children }) => {
   const loadAlerts = useCallback(async (page = 1, limit = 20, forceRefresh = false) => {
     try {
       console.log('Loading alerts with params:', { page, limit, forceRefresh });
+      
+      // Always bypass cache for debugging purposes
+      const bypassCache = true;
+      
       // Check if we've recently fetched this page and have it cached
       const now = new Date().getTime();
       const shouldUseCachedData = !forceRefresh && 
+                                !bypassCache &&
                                 state.lastFetch && 
                                 (now - state.lastFetch < 2 * 60 * 1000) && // 2 minute cache
                                 page === state.pagination.page &&
@@ -113,18 +121,39 @@ export const AlertProvider = ({ children }) => {
       const response = await axios.get('/api/alerts', {
         params: { page, limit }
       });
-      console.log('Alerts API response:', response);
+      console.log('Alerts API response status:', response.status);
+      console.log('Alerts API response data type:', typeof response.data);
       
       // The server returns the alerts directly in the data property
-      // Make sure we're handling the response correctly
       let alertsData = response.data;
-      console.log('Parsed alerts data:', alertsData);
+      console.log('Raw alertsData:', alertsData);
       
-      // If the data isn't an array, handle the error
+      // DEBUGGING - force to array if needed
       if (!Array.isArray(alertsData)) {
-        console.error('Expected array of alerts but got:', typeof alertsData);
-        alertsData = [];
+        console.warn('Expected array but received:', typeof alertsData);
+        
+        // Handle various response formats
+        if (alertsData && alertsData.alerts && Array.isArray(alertsData.alerts)) {
+          console.log('Found nested alerts array, using it');
+          alertsData = alertsData.alerts;
+        } else if (alertsData && typeof alertsData === 'object') {
+          // If it's an object with numeric keys, convert to array
+          const possibleArray = Object.values(alertsData);
+          if (possibleArray.length > 0 && typeof possibleArray[0] === 'object') {
+            console.log('Converting object to array');
+            alertsData = possibleArray;
+          } else {
+            console.error('Could not convert to array, using empty array');
+            alertsData = [];
+          }
+        } else {
+          console.error('Unexpected data format, using empty array');
+          alertsData = [];
+        }
       }
+      
+      console.log('Processed alerts data:', alertsData);
+      console.log('Number of alerts:', alertsData.length);
       
       if (page === 1) {
         // First page - replace existing alerts
@@ -142,12 +171,14 @@ export const AlertProvider = ({ children }) => {
             timestamp: now
           }
         });
-        // Check state after update
+        
+        // Wait for state update and verify
         setTimeout(() => {
-          console.log('State after loading alerts:', state.alerts);
-        }, 100);
+          console.log('Alert context state after loading alerts:', state);
+        }, 500); // Increased timeout to give reducer time to update
       } else {
         // Additional pages - append to existing alerts
+        console.log('Appending additional alerts data');
         dispatch({ 
           type: 'ADD_ALERTS_BATCH', 
           payload: {
@@ -155,7 +186,7 @@ export const AlertProvider = ({ children }) => {
             pagination: {
               page,
               limit,
-              total: alertsData.length,
+              total: state.pagination.total + alertsData.length,
               hasMore: alertsData.length === limit
             },
             timestamp: now

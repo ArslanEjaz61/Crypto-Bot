@@ -44,7 +44,31 @@ const CreateAlertForm = ({ onSuccess }) => {
     volumeChangeRequired: 0,
     alertTime: new Date(),
     comment: '',
-    email: ''
+    email: '',
+    // Candle section
+    candleTimeframe: '1HR',
+    candleCondition: 'NONE',
+    // RSI section
+    rsiEnabled: false,
+    rsiTimeframe: '1HR',
+    rsiPeriod: 14,
+    rsiCondition: 'NONE',
+    rsiLevel: 70,
+    // EMA section
+    emaEnabled: false,
+    emaTimeframe: '1HR',
+    emaFastPeriod: 12,
+    emaSlowPeriod: 26,
+    emaCondition: 'NONE',
+    // Volume Spike section
+    volumeEnabled: false,
+    volumeSpikeMultiplier: 2.0,
+    // Market filters
+    market: 'ALL',
+    exchange: 'ALL',
+    tradingPair: 'ALL',
+    // Min Daily Volume
+    minDailyVolume: 0,
   });
   
   // Predefined values
@@ -226,7 +250,30 @@ const CreateAlertForm = ({ onSuccess }) => {
         intervalMinutes: parseInt(formValues.intervalMinutes, 10) || 5,
         volumeChangeRequired: parseFloat(formValues.volumeChangeRequired) || 0,
         email: formValues.email || 'test@example.com',  // Ensure email is provided
-        comment: formValues.comment || ''
+        comment: formValues.comment || '',
+        // Candle section
+        candleTimeframe: formValues.candleTimeframe || '1HR',
+        candleCondition: formValues.candleCondition || 'NONE',
+        // RSI section
+        rsiEnabled: Boolean(formValues.rsiEnabled),
+        rsiTimeframe: formValues.rsiTimeframe || '1HR',
+        rsiPeriod: parseInt(formValues.rsiPeriod, 10) || 14,
+        rsiCondition: formValues.rsiCondition || 'NONE',
+        rsiLevel: parseInt(formValues.rsiLevel, 10) || 70,
+        // EMA section
+        emaEnabled: Boolean(formValues.emaEnabled),
+        emaTimeframe: formValues.emaTimeframe || '1HR',
+        emaFastPeriod: parseInt(formValues.emaFastPeriod, 10) || 12,
+        emaSlowPeriod: parseInt(formValues.emaSlowPeriod, 10) || 26,
+        emaCondition: formValues.emaCondition || 'NONE',
+        // Volume Spike section
+        volumeEnabled: Boolean(formValues.volumeEnabled),
+        volumeSpikeMultiplier: parseFloat(formValues.volumeSpikeMultiplier) || 2.0,
+        // Market filters
+        market: formValues.market || 'ALL',
+        exchange: formValues.exchange || 'ALL',
+        tradingPair: formValues.tradingPair || 'ALL',
+        minDailyVolume: parseFloat(formValues.minDailyVolume) || 0,
       };
       
       console.log('Formatted alert data for submission:', alertData);
@@ -253,7 +300,30 @@ const CreateAlertForm = ({ onSuccess }) => {
         volumeChangeRequired: 0,
         alertTime: new Date(),
         comment: '',
-        email: ''
+        email: '',
+        // Reset Candle section
+        candleTimeframe: '1HR',
+        candleCondition: 'NONE',
+        // Reset RSI section
+        rsiEnabled: false,
+        rsiTimeframe: '1HR',
+        rsiPeriod: 14,
+        rsiCondition: 'NONE',
+        rsiLevel: 70,
+        // Reset EMA section
+        emaEnabled: false,
+        emaTimeframe: '1HR',
+        emaFastPeriod: 12,
+        emaSlowPeriod: 26,
+        emaCondition: 'NONE',
+        // Reset Volume Spike section
+        volumeEnabled: false,
+        volumeSpikeMultiplier: 2.0,
+        // Reset Market filters
+        market: 'ALL',
+        exchange: 'ALL',
+        tradingPair: 'ALL',
+        minDailyVolume: 0,
       });
     } catch (error) {
       showNotification('Error creating alert', 'error');
@@ -490,6 +560,378 @@ const CreateAlertForm = ({ onSuccess }) => {
                   )}
                 </Grid>
                 
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle1" gutterBottom>
+                    Candle Section
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="candle-timeframe-label">Candle Timeframe</InputLabel>
+                    <Select
+                      labelId="candle-timeframe-label"
+                      name="candleTimeframe"
+                      value={formValues.candleTimeframe}
+                      onChange={handleChange}
+                      label="Candle Timeframe"
+                    >
+                      <MenuItem value="5MIN">5 Minutes</MenuItem>
+                      <MenuItem value="15MIN">15 Minutes</MenuItem>
+                      <MenuItem value="1HR">1 Hour</MenuItem>
+                      <MenuItem value="4HR">4 Hours</MenuItem>
+                      <MenuItem value="12HR">12 Hours</MenuItem>
+                      <MenuItem value="D">1 Day</MenuItem>
+                      <MenuItem value="W">1 Week</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="candle-condition-label">Candle Condition</InputLabel>
+                    <Select
+                      labelId="candle-condition-label"
+                      name="candleCondition"
+                      value={formValues.candleCondition}
+                      onChange={handleChange}
+                      label="Candle Condition"
+                    >
+                      <MenuItem value="NONE">No Condition</MenuItem>
+                      <MenuItem value="ABOVE_OPEN">Candle Above Open</MenuItem>
+                      <MenuItem value="BELOW_OPEN">Candle Below Open</MenuItem>
+                    </Select>
+                    <FormHelperText>
+                      {formValues.candleCondition === 'ABOVE_OPEN' ? 
+                        'Current price must be above the candle open price' : 
+                        formValues.candleCondition === 'BELOW_OPEN' ?
+                        'Current price must be below the candle open price' :
+                        'No candle condition applied'}
+                    </FormHelperText>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle1" gutterBottom>
+                    RSI Range Section
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formValues.rsiEnabled}
+                        onChange={handleChange}
+                        name="rsiEnabled"
+                        color="primary"
+                      />
+                    }
+                    label="Enable RSI Condition"
+                  />
+                </Grid>
+                
+                {formValues.rsiEnabled && (
+                  <>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel id="rsi-timeframe-label">RSI Timeframe</InputLabel>
+                        <Select
+                          labelId="rsi-timeframe-label"
+                          name="rsiTimeframe"
+                          value={formValues.rsiTimeframe}
+                          onChange={handleChange}
+                          label="RSI Timeframe"
+                        >
+                          <MenuItem value="5MIN">5 Minutes</MenuItem>
+                          <MenuItem value="15MIN">15 Minutes</MenuItem>
+                          <MenuItem value="1HR">1 Hour</MenuItem>
+                          <MenuItem value="4HR">4 Hours</MenuItem>
+                          <MenuItem value="12HR">12 Hours</MenuItem>
+                          <MenuItem value="D">1 Day</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="RSI Period"
+                        name="rsiPeriod"
+                        type="number"
+                        value={formValues.rsiPeriod}
+                        onChange={handleChange}
+                        InputProps={{
+                          inputProps: { min: 1, max: 100 }
+                        }}
+                        helperText="Typical values: 14, 21, 9"
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel id="rsi-condition-label">RSI Condition</InputLabel>
+                        <Select
+                          labelId="rsi-condition-label"
+                          name="rsiCondition"
+                          value={formValues.rsiCondition}
+                          onChange={handleChange}
+                          label="RSI Condition"
+                        >
+                          <MenuItem value="NONE">No Condition</MenuItem>
+                          <MenuItem value="ABOVE">Above Level</MenuItem>
+                          <MenuItem value="BELOW">Below Level</MenuItem>
+                          <MenuItem value="CROSSING_UP">Crossing Up</MenuItem>
+                          <MenuItem value="CROSSING_DOWN">Crossing Down</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="RSI Level"
+                        name="rsiLevel"
+                        type="number"
+                        value={formValues.rsiLevel}
+                        onChange={handleChange}
+                        InputProps={{
+                          inputProps: { min: 1, max: 100 }
+                        }}
+                        helperText="Typical values: 30 (oversold), 70 (overbought)"
+                      />
+                    </Grid>
+                  </>
+                )}
+
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle1" gutterBottom>
+                    EMA Fast/Slow Section
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formValues.emaEnabled}
+                        onChange={handleChange}
+                        name="emaEnabled"
+                        color="primary"
+                      />
+                    }
+                    label="Enable EMA Fast/Slow Condition"
+                  />
+                </Grid>
+                
+                {formValues.emaEnabled && (
+                  <>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel id="ema-timeframe-label">EMA Timeframe</InputLabel>
+                        <Select
+                          labelId="ema-timeframe-label"
+                          name="emaTimeframe"
+                          value={formValues.emaTimeframe}
+                          onChange={handleChange}
+                          label="EMA Timeframe"
+                        >
+                          <MenuItem value="5MIN">5 Minutes</MenuItem>
+                          <MenuItem value="15MIN">15 Minutes</MenuItem>
+                          <MenuItem value="1HR">1 Hour</MenuItem>
+                          <MenuItem value="4HR">4 Hours</MenuItem>
+                          <MenuItem value="12HR">12 Hours</MenuItem>
+                          <MenuItem value="D">1 Day</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel id="ema-condition-label">EMA Condition</InputLabel>
+                        <Select
+                          labelId="ema-condition-label"
+                          name="emaCondition"
+                          value={formValues.emaCondition}
+                          onChange={handleChange}
+                          label="EMA Condition"
+                        >
+                          <MenuItem value="NONE">No Condition</MenuItem>
+                          <MenuItem value="ABOVE">Fast Above Slow</MenuItem>
+                          <MenuItem value="BELOW">Fast Below Slow</MenuItem>
+                          <MenuItem value="CROSSING_UP">Fast Crossing Up</MenuItem>
+                          <MenuItem value="CROSSING_DOWN">Fast Crossing Down</MenuItem>
+                        </Select>
+                        <FormHelperText>
+                          {formValues.emaCondition === 'ABOVE' ? 
+                            'Fast EMA is above Slow EMA' : 
+                            formValues.emaCondition === 'BELOW' ?
+                            'Fast EMA is below Slow EMA' :
+                            formValues.emaCondition === 'CROSSING_UP' ?
+                            'Fast EMA is crossing above Slow EMA' :
+                            formValues.emaCondition === 'CROSSING_DOWN' ?
+                            'Fast EMA is crossing below Slow EMA' :
+                            'No EMA condition applied'}
+                        </FormHelperText>
+                      </FormControl>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Fast EMA Period"
+                        name="emaFastPeriod"
+                        type="number"
+                        value={formValues.emaFastPeriod}
+                        onChange={handleChange}
+                        InputProps={{
+                          inputProps: { min: 1, max: 200 }
+                        }}
+                        helperText="Typical values: 12, 9, 5"
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Slow EMA Period"
+                        name="emaSlowPeriod"
+                        type="number"
+                        value={formValues.emaSlowPeriod}
+                        onChange={handleChange}
+                        InputProps={{
+                          inputProps: { min: 1, max: 200 }
+                        }}
+                        helperText="Typical values: 26, 21, 14"
+                      />
+                    </Grid>
+                  </>
+                )}
+
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle1" gutterBottom>
+                    Volume Spike Section
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formValues.volumeEnabled}
+                        onChange={handleChange}
+                        name="volumeEnabled"
+                        color="primary"
+                      />
+                    }
+                    label="Enable Volume Spike Condition"
+                  />
+                </Grid>
+
+                {formValues.volumeEnabled && (
+                  <>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Volume Spike Multiplier"
+                        name="volumeSpikeMultiplier"
+                        type="number"
+                        value={formValues.volumeSpikeMultiplier}
+                        onChange={handleChange}
+                        InputProps={{
+                          inputProps: { min: 1, max: 100, step: 0.1 }
+                        }}
+                        helperText="Trigger when volume is X times higher than average (e.g., 2.0 = twice the average)"
+                      />
+                    </Grid>
+                  </>
+                )}
+
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle1" gutterBottom>
+                    Market Filters
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="market-label">Market Type</InputLabel>
+                    <Select
+                      labelId="market-label"
+                      name="market"
+                      value={formValues.market}
+                      onChange={handleChange}
+                      label="Market Type"
+                    >
+                      <MenuItem value="ALL">All Markets</MenuItem>
+                      <MenuItem value="SPOT">Spot</MenuItem>
+                      <MenuItem value="FUTURES">Futures</MenuItem>
+                      <MenuItem value="OPTIONS">Options</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="exchange-label">Exchange</InputLabel>
+                    <Select
+                      labelId="exchange-label"
+                      name="exchange"
+                      value={formValues.exchange}
+                      onChange={handleChange}
+                      label="Exchange"
+                    >
+                      <MenuItem value="ALL">All Exchanges</MenuItem>
+                      <MenuItem value="BINANCE">Binance</MenuItem>
+                      <MenuItem value="COINBASE">Coinbase</MenuItem>
+                      <MenuItem value="KUCOIN">KuCoin</MenuItem>
+                      <MenuItem value="BYBIT">Bybit</MenuItem>
+                      <MenuItem value="KRAKEN">Kraken</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="trading-pair-label">Trading Pair</InputLabel>
+                    <Select
+                      labelId="trading-pair-label"
+                      name="tradingPair"
+                      value={formValues.tradingPair}
+                      onChange={handleChange}
+                      label="Trading Pair"
+                    >
+                      <MenuItem value="ALL">All Pairs</MenuItem>
+                      <MenuItem value="BTC">BTC Pairs</MenuItem>
+                      <MenuItem value="ETH">ETH Pairs</MenuItem>
+                      <MenuItem value="USDT">USDT Pairs</MenuItem>
+                      <MenuItem value="USDC">USDC Pairs</MenuItem>
+                      <MenuItem value="BUSD">BUSD Pairs</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Min. Daily Volume (USD)"
+                    name="minDailyVolume"
+                    type="number"
+                    value={formValues.minDailyVolume}
+                    onChange={handleChange}
+                    InputProps={{
+                      inputProps: { min: 0 },
+                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    }}
+                    helperText="Minimum 24h trading volume (0 = no minimum)"
+                  />
+                </Grid>
+
                 <Grid item xs={12}>
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="subtitle1" gutterBottom>

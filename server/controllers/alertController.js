@@ -32,7 +32,30 @@ const createAlert = async (req, res) => {
       volumeChangeRequired,
       alertTime,
       comment,
-      email
+      email,
+      // Candle section
+      candleTimeframe,
+      candleCondition,
+      // RSI section
+      rsiEnabled,
+      rsiTimeframe,
+      rsiPeriod,
+      rsiCondition,
+      rsiLevel,
+      // EMA section
+      emaEnabled,
+      emaTimeframe,
+      emaFastPeriod,
+      emaSlowPeriod,
+      emaCondition,
+      // Volume Spike section
+      volumeEnabled,
+      volumeSpikeMultiplier,
+      // Market filters
+      market,
+      exchange,
+      tradingPair,
+      minDailyVolume
     } = req.body;
 
     if (!symbol) {
@@ -61,7 +84,30 @@ const createAlert = async (req, res) => {
       volumeChangeRequired: volumeChangeRequired || 0,
       alertTime,
       comment,
-      email
+      email,
+      // Candle section
+      candleTimeframe: candleTimeframe || '1HR',
+      candleCondition: candleCondition || 'NONE',
+      // RSI section
+      rsiEnabled: Boolean(rsiEnabled),
+      rsiTimeframe: rsiTimeframe || '1HR',
+      rsiPeriod: parseInt(rsiPeriod) || 14,
+      rsiCondition: rsiCondition || 'NONE',
+      rsiLevel: parseInt(rsiLevel) || 70,
+      // EMA section
+      emaEnabled: Boolean(emaEnabled),
+      emaTimeframe: emaTimeframe || '1HR',
+      emaFastPeriod: parseInt(emaFastPeriod) || 12,
+      emaSlowPeriod: parseInt(emaSlowPeriod) || 26,
+      emaCondition: emaCondition || 'NONE',
+      // Volume Spike section
+      volumeEnabled: Boolean(volumeEnabled),
+      volumeSpikeMultiplier: parseFloat(volumeSpikeMultiplier) || 2.0,
+      // Market filters
+      market: market || 'ALL',
+      exchange: exchange || 'ALL',
+      tradingPair: tradingPair || 'ALL',
+      minDailyVolume: parseFloat(minDailyVolume) || 0
     });
 
     const createdAlert = await alert.save();
@@ -116,7 +162,30 @@ const updateAlert = async (req, res) => {
       alertTime,
       isActive,
       comment,
-      email
+      email,
+      // Candle section
+      candleTimeframe,
+      candleCondition,
+      // RSI section
+      rsiEnabled,
+      rsiTimeframe,
+      rsiPeriod,
+      rsiCondition,
+      rsiLevel,
+      // EMA section
+      emaEnabled,
+      emaTimeframe,
+      emaFastPeriod,
+      emaSlowPeriod,
+      emaCondition,
+      // Volume Spike section
+      volumeEnabled,
+      volumeSpikeMultiplier,
+      // Market filters
+      market,
+      exchange,
+      tradingPair,
+      minDailyVolume
     } = req.body;
 
     const alert = await Alert.findById(req.params.id);
@@ -129,14 +198,42 @@ const updateAlert = async (req, res) => {
     if (symbol) alert.symbol = symbol;
     if (direction) alert.direction = direction;
     if (targetType) alert.targetType = targetType;
-    if (targetValue) alert.targetValue = targetValue;
+    if (targetValue !== undefined) alert.targetValue = parseFloat(targetValue);
     if (trackingMode) alert.trackingMode = trackingMode;
-    if (intervalMinutes && trackingMode === 'interval') alert.intervalMinutes = intervalMinutes;
-    if (volumeChangeRequired !== undefined) alert.volumeChangeRequired = volumeChangeRequired;
+    if (intervalMinutes !== undefined && trackingMode === 'interval') alert.intervalMinutes = parseInt(intervalMinutes);
+    if (volumeChangeRequired !== undefined) alert.volumeChangeRequired = parseFloat(volumeChangeRequired);
     if (alertTime) alert.alertTime = alertTime;
     if (isActive !== undefined) alert.isActive = isActive;
     if (comment !== undefined) alert.comment = comment;
     if (email) alert.email = email;
+    
+    // Update Candle section
+    if (candleTimeframe) alert.candleTimeframe = candleTimeframe;
+    if (candleCondition) alert.candleCondition = candleCondition;
+    
+    // Update RSI section
+    if (rsiEnabled !== undefined) alert.rsiEnabled = Boolean(rsiEnabled);
+    if (rsiTimeframe) alert.rsiTimeframe = rsiTimeframe;
+    if (rsiPeriod !== undefined) alert.rsiPeriod = parseInt(rsiPeriod);
+    if (rsiCondition) alert.rsiCondition = rsiCondition;
+    if (rsiLevel !== undefined) alert.rsiLevel = parseInt(rsiLevel);
+    
+    // Update EMA section
+    if (emaEnabled !== undefined) alert.emaEnabled = Boolean(emaEnabled);
+    if (emaTimeframe) alert.emaTimeframe = emaTimeframe;
+    if (emaFastPeriod !== undefined) alert.emaFastPeriod = parseInt(emaFastPeriod);
+    if (emaSlowPeriod !== undefined) alert.emaSlowPeriod = parseInt(emaSlowPeriod);
+    if (emaCondition) alert.emaCondition = emaCondition;
+    
+    // Update Volume Spike section
+    if (volumeEnabled !== undefined) alert.volumeEnabled = Boolean(volumeEnabled);
+    if (volumeSpikeMultiplier !== undefined) alert.volumeSpikeMultiplier = parseFloat(volumeSpikeMultiplier);
+    
+    // Update Market filters
+    if (market) alert.market = market;
+    if (exchange) alert.exchange = exchange;
+    if (tradingPair) alert.tradingPair = tradingPair;
+    if (minDailyVolume !== undefined) alert.minDailyVolume = parseFloat(minDailyVolume);
 
     // If symbol changed, update currentPrice
     if (symbol && symbol !== alert.symbol) {

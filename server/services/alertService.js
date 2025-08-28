@@ -3,6 +3,190 @@ const Crypto = require('../models/cryptoModel');
 const { sendAlertEmail } = require('../utils/emailService');
 
 /**
+ * Fetch candle data for a specific symbol and timeframe
+ * @param {string} symbol - Trading pair symbol
+ * @param {string} timeframe - Candle timeframe
+ * @returns {Promise<Object>} Candle data object
+ */
+async function fetchCandleData(symbol, timeframe) {
+  try {
+    // In a real implementation, this would call Binance API
+    // For now, return mock data
+    const mockCandles = {
+      '1HR': {
+        open: 25000,
+        high: 25500,
+        low: 24800,
+        close: 25200,
+        volume: 1500
+      },
+      '4HR': {
+        open: 24500,
+        high: 25700,
+        low: 24300,
+        close: 25200,
+        volume: 5500
+      },
+      'D': {
+        open: 24000,
+        high: 26000,
+        low: 23800,
+        close: 25200,
+        volume: 12000
+      }
+    };
+    
+    // Add previous values
+    mockCandles['1HR_previous'] = {
+      open: 24800,
+      high: 25200,
+      low: 24600,
+      close: 25000,
+      volume: 1200
+    };
+    
+    return mockCandles;
+  } catch (error) {
+    console.error(`Error fetching candle data for ${symbol}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch RSI data for a specific symbol, timeframe and period
+ * @param {string} symbol - Trading pair symbol
+ * @param {string} timeframe - RSI timeframe
+ * @param {number} period - RSI period 
+ * @returns {Promise<Object>} RSI data object
+ */
+async function fetchRsiData(symbol, timeframe, period) {
+  try {
+    // In a real implementation, this would call Binance API
+    // For now, return mock data
+    const mockRsiData = {
+      '1HR': 65,
+      '4HR': 58,
+      'D': 52,
+      '1HR_previous': 62,
+      '4HR_previous': 55,
+      'D_previous': 50
+    };
+    
+    return mockRsiData;
+  } catch (error) {
+    console.error(`Error fetching RSI data for ${symbol}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch EMA data for a specific symbol, timeframe and periods
+ * @param {string} symbol - Trading pair symbol
+ * @param {string} timeframe - EMA timeframe
+ * @param {Array<number>} periods - Array of periods to fetch
+ * @returns {Promise<Object>} EMA data object
+ */
+async function fetchEmaData(symbol, timeframe, periods) {
+  try {
+    // In a real implementation, this would call Binance API
+    // For now, return mock data
+    const mockEmaData = {
+      '1HR': {
+        9: 24950,
+        12: 24900,
+        26: 24850,
+        50: 24700,
+        200: 24000
+      },
+      '4HR': {
+        9: 24800,
+        12: 24750,
+        26: 24600,
+        50: 24400,
+        200: 23800
+      },
+      'D': {
+        9: 24600,
+        12: 24500,
+        26: 24300,
+        50: 23900,
+        200: 22500
+      },
+      '1HR_previous': {
+        9: 24930,
+        12: 24880,
+        26: 24830,
+        50: 24680,
+        200: 23980
+      },
+      '4HR_previous': {
+        9: 24780,
+        12: 24730,
+        26: 24580,
+        50: 24380,
+        200: 23780
+      },
+      'D_previous': {
+        9: 24580,
+        12: 24480,
+        26: 24280,
+        50: 23880,
+        200: 22480
+      }
+    };
+    
+    return mockEmaData;
+  } catch (error) {
+    console.error(`Error fetching EMA data for ${symbol}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch volume history for a specific symbol
+ * @param {string} symbol - Trading pair symbol
+ * @returns {Promise<Array<number>>} Array of historical volume values
+ */
+async function fetchVolumeHistory(symbol) {
+  try {
+    // In a real implementation, this would call Binance API
+    // For now, return mock data - last 10 volume values
+    return [1200, 1350, 1100, 980, 1420, 1580, 1250, 1300, 1150, 1400];
+  } catch (error) {
+    console.error(`Error fetching volume history for ${symbol}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Fetch market data for a specific symbol
+ * @param {string} symbol - Trading pair symbol
+ * @returns {Promise<Object>} Market data object
+ */
+async function fetchMarketData(symbol) {
+  try {
+    // In a real implementation, this would call Binance API
+    // For now, return mock data based on symbol
+    
+    // Extract trading pair from symbol
+    const tradingPair = symbol.includes('USDT') ? 'USDT' : 
+                       symbol.includes('BTC') ? 'BTC' : 
+                       symbol.includes('ETH') ? 'ETH' : 'OTHER';
+    
+    return {
+      market: symbol.includes('PERP') ? 'FUTURES' : 'SPOT',
+      exchange: 'BINANCE',
+      tradingPair: tradingPair,
+      dailyVolume: Math.random() * 50000000 + 5000000, // Random between 5M and 55M
+      priceChangePercent24h: (Math.random() * 10) - 5, // Random between -5% and +5%
+    };
+  } catch (error) {
+    console.error(`Error fetching market data for ${symbol}:`, error);
+    return null;
+  }
+}
+
+/**
  * Process alerts - check conditions and send notifications
  * @returns {Promise<Object>} Processing stats
  */
@@ -43,8 +227,37 @@ const processAlerts = async () => {
           previousData = crypto;
         }
 
+        // Fetch all necessary data for advanced alert conditions
+        // Get candle data (in real implementation, fetch from Binance API)
+        const candleData = await fetchCandleData(alert.symbol, alert.candleTimeframe);
+        
+        // Get RSI data (in real implementation, fetch from Binance API)
+        const rsiData = await fetchRsiData(alert.symbol, alert.rsiTimeframe, alert.rsiPeriod);
+        
+        // Get EMA data (in real implementation, fetch from Binance API)
+        const emaData = await fetchEmaData(alert.symbol, alert.emaTimeframe, [alert.emaFastPeriod, alert.emaSlowPeriod]);
+        
+        // Get volume history (in real implementation, fetch from Binance API)
+        const volumeHistory = await fetchVolumeHistory(alert.symbol);
+        
+        // Get market data (in real implementation, fetch from Binance API)
+        const marketData = await fetchMarketData(alert.symbol);
+        
+        // Structure data for shouldTrigger method
+        const data = {
+          currentPrice: crypto.price,
+          currentVolume: crypto.volume || 0,
+          previousPrice: previousData ? previousData.price : null,
+          previousVolume: previousData ? previousData.volume : null,
+          candle: candleData,
+          rsi: rsiData,
+          emaData: emaData,
+          volumeHistory: volumeHistory,
+          marketData: marketData
+        };
+        
         // Check if alert conditions are met
-        const shouldTrigger = alert.shouldTrigger(crypto, previousData);
+        const shouldTrigger = alert.shouldTrigger(data);
         
         if (shouldTrigger) {
           stats.triggered++;
