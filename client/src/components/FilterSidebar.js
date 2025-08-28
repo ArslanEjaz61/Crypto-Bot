@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -15,10 +15,13 @@ import {
   FormGroup,
   InputAdornment,
   Paper,
-  styled
+  styled,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import { useFilters } from '../context/FilterContext';
 import { useAlert } from '../context/AlertContext';
 import { useSocket } from '../context/SocketContext';
@@ -215,10 +218,12 @@ const DarkTypography = styled(Typography)({
   letterSpacing: '0.5px',
 });
 
-const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
+const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose }) => {
   const { filters: ctxFilters, setFilters: setCtxFilters } = useFilters();
   const { createAlert } = useAlert();
   const { showNotification } = useSocket();
+  const theme = useTheme();
+  const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Fallback to context if props not supplied
   filters = filters || ctxFilters;
@@ -251,6 +256,11 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
       }));
     }
   };
+
+  // Effect to adjust accordion state based on screen size
+  useEffect(() => {
+    // You can add logic here to collapse accordions on small screens if needed
+  }, [isSmall]);
 
   // Create alert using current sidebar filter selections
   const handleCreateAlert = async () => {
@@ -344,14 +354,21 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
   return (
     <Paper sx={{ 
       bgcolor: '#0d1117', 
-      borderRadius: '12px',
+      borderRadius: isSmall ? '0px' : '12px',
       height: '100%', 
-      p: 3,
+      p: isSmall ? 2 : 3,
       overflow: 'auto',
-      maxHeight: 'calc(100vh - 100px)',
+      maxHeight: isSmall ? '100vh' : 'calc(100vh - 100px)',
+      width: isSmall ? '100%' : 'auto',
       color: 'white',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+      border: isSmall ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+      boxShadow: isSmall ? 'none' : '0 4px 20px rgba(0, 0, 0, 0.3)',
+      position: isSmall ? 'fixed' : 'relative',
+      top: isSmall ? 0 : 'auto',
+      left: isSmall ? 0 : 'auto',
+      right: isSmall ? 0 : 'auto',
+      bottom: isSmall ? 0 : 'auto',
+      zIndex: isSmall ? 1300 : 'auto',
     }}>
       <Box component="aside" sx={{ 
         color: 'text.primary',
@@ -359,6 +376,36 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
           marginBottom: '4px',
         }
       }}>
+        {isSmall && (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mb: 2, 
+            pb: 2, 
+            borderBottom: '1px solid rgba(255,255,255,0.1)' 
+          }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: 'white' }}>
+              Filters
+            </Typography>
+            <Button 
+              onClick={onClose} 
+              sx={{ 
+                minWidth: '40px', 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '50%', 
+                p: 0, 
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(255,255,255,0.1)'
+                }
+              }}
+            >
+              <CloseIcon />
+            </Button>
+          </Box>
+        )}
         {/* Market Section */}
         <DarkAccordion defaultExpanded>
           <CustomAccordionSummary
@@ -1080,12 +1127,48 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol }) => {
             color="primary" 
             fullWidth 
             size="large"
-            sx={{ py: 1.5 }}
+            sx={{ 
+              py: 1.5,
+              mb: isSmall ? 2 : 0
+            }}
             onClick={handleCreateAlert}
           >
             New Alert
           </DarkButton>
         </Box>
+        
+        {/* Apply Button for mobile */}
+        {isSmall && (
+          <Box sx={{ 
+            mt: 3, 
+            position: 'sticky', 
+            bottom: 0, 
+            left: 0, 
+            right: 0, 
+            bgcolor: '#0d1117', 
+            pt: 1, 
+            pb: 2, 
+            zIndex: 5, 
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            px: 1 
+          }}>
+            <DarkButton 
+              variant="contained" 
+              color="primary" 
+              fullWidth 
+              onClick={() => {
+                handleCreateAlert();
+                if (onClose) onClose();
+              }}
+            >
+              Apply & Close
+            </DarkButton>
+          </Box>
+        )}
+        
+        {isSmall && (
+          <Box sx={{ height: '70px' }} /> /* Extra space at bottom for mobile */
+        )}
       </Box>
     </Paper>
   );

@@ -141,7 +141,13 @@ function App() {
           <ThemeProvider theme={darkTheme}>
             <CssBaseline />
             <FilterProvider>
-              <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                minHeight: '100vh', 
+                height: '100%', 
+                overflow: 'hidden' 
+              }}>
                 <Routes>
                   <Route path="/login" element={<Login />} />
                   
@@ -150,7 +156,13 @@ function App() {
                     <Route path="/dashboard" element={
                       <>
                         <Header />
-                        <Box component="main" sx={{ flexGrow: 1 }}>
+                        <Box component="main" sx={{ 
+                          flexGrow: 1, 
+                          overflow: 'auto', 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          height: 'calc(100vh - 64px)' // Subtract header height
+                        }}>
                           <Dashboard />
                         </Box>
                         <Notification />
