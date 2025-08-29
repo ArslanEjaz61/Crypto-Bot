@@ -169,7 +169,7 @@ export const CryptoProvider = ({ children }) => {
         console.log(`Attempt ${retries + 1}/${MAX_RETRIES} to fetch crypto data...`);
         
         try {
-          // Make a clean URL with explicit protocol and hostname to avoid proxy issues
+          // Get baseUrl and construct proper API URL
           const baseUrl = process.env.REACT_APP_API_URL || '';
           const endpoint = baseUrl ? `${baseUrl}/api/crypto` : '/api/crypto';
           
@@ -394,7 +394,11 @@ export const CryptoProvider = ({ children }) => {
     // If not in cache or cache expired, fetch from API
     try {
       console.log(`Fetching RSI data for ${symbol} (${timeframe})`);
-      const { data } = await axios.get(`/api/crypto/${symbol}/rsi`, {
+      // Use baseUrl to ensure we have the correct API endpoint
+      const baseUrl = process.env.REACT_APP_API_URL || '';
+      const endpoint = baseUrl ? `${baseUrl}/api/crypto/${symbol}/rsi` : `/api/crypto/${symbol}/rsi`;
+      
+      const { data } = await axios.get(endpoint, {
         params: { period, timeframe }
       });
       
@@ -420,7 +424,11 @@ export const CryptoProvider = ({ children }) => {
   const checkAlertConditions = useCallback(async (symbol, filters) => {
     try {
       console.log(`Making direct API call to check conditions for ${symbol}`);
-      const { data } = await axios.post(`/api/crypto/${symbol}/check-conditions`, { 
+      // Use baseUrl to ensure we have the correct API endpoint
+      const baseUrl = process.env.REACT_APP_API_URL || '';
+      const endpoint = baseUrl ? `${baseUrl}/api/crypto/${symbol}/check-conditions` : `/api/crypto/${symbol}/check-conditions`;
+      
+      const { data } = await axios.post(endpoint, { 
         filters, 
         forceRefresh: true // Always force fresh data when checking conditions
       });
@@ -486,40 +494,36 @@ export const AutoRefreshProvider = ({ children }) => {
       // If we've had multiple consecutive failures, increase the interval
       if (refreshAttempts.current >= maxConsecutiveFailures) {
         const newInterval = Math.min(refreshInterval * backoffMultiplier, 300000); // Max 5 minutes
-        console.log(`Too many consecutive failures. Increasing refresh interval to ${newInterval}ms`);
+        console.log(`Backing off refresh interval to ${newInterval}ms due to consecutive failures`);
         setRefreshInterval(newInterval);
-        refreshAttempts.current = 0; // Reset counter after backing off
       }
     } finally {
       refreshInProgress.current = false;
     }
   }, [loadCryptos, refreshInterval, initialRefreshInterval]);
   
-  // Set up interval to refresh data
   useEffect(() => {
-    console.log(`Setting up auto-refresh for crypto data (${refreshInterval}ms interval)`);
+    console.log(`Setting up auto-refresh at interval: ${refreshInterval}ms`);
     
-    // Initial load with slight delay to ensure app is fully mounted
-    const initialLoadTimeout = setTimeout(() => {
-      handleRefresh();
-    }, 1000); // 1 second delay for initial load
+    // Initial load
+    handleRefresh().catch(err => {
+      console.error('Error during initial auto-refresh load:', err);
+    });
     
-    // Set up interval for auto-refresh
-    const interval = setInterval(handleRefresh, refreshInterval);
+    // Set up timer for regular refreshes
+    const timer = setInterval(() => {
+      console.log('Auto-refresh timer triggered');
+      handleRefresh().catch(err => {
+        console.error('Error during scheduled auto-refresh:', err);
+      });
+    }, refreshInterval);
     
-    // Clean up interval on component unmount or when interval changes
+    // Clean up the timer when unmounting
     return () => {
-      console.log('Cleaning up auto-refresh interval');
-      clearTimeout(initialLoadTimeout);
-      clearInterval(interval);
+      console.log('Cleaning up auto-refresh timer');
+      clearInterval(timer);
     };
   }, [handleRefresh, refreshInterval]);
   
-  // Add a direct route for manually triggering refresh
-  const triggerManualRefresh = React.useCallback(async () => {
-    console.log('Manual refresh triggered');
-    return handleRefresh();
-  }, [handleRefresh]);
-  
-  return children;
+  return <>{children}</>;
 };

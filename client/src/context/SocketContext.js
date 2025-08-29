@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useAlert } from './AlertContext';
 import { useCrypto } from './CryptoContext';
@@ -9,6 +9,8 @@ const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
   const [notification, setNotification] = useState({ open: false, message: '', type: 'info' });
+  const [notifications, setNotifications] = useState([]);
+  const [alertNotifications, setAlertNotifications] = useState([]);
   
   const { loadAlerts } = useAlert();
   const { loadCryptos } = useCrypto();
@@ -76,7 +78,8 @@ const SocketProvider = ({ children }) => {
 
     socketInstance.on('alert-triggered', (data) => {
       loadAlerts();
-      showNotification(`Alert triggered: ${data.symbol} at ${data.price}`, 'info');
+      const alertMessage = `Alert triggered: ${data.symbol} at ${data.price}`;
+      showNotification(alertMessage, 'info', true, data);
     });
 
     socketInstance.on('crypto-updated', () => {
@@ -94,8 +97,27 @@ const SocketProvider = ({ children }) => {
   }, [loadAlerts, loadCryptos]);
 
   // Show notification
-  const showNotification = (message, type = 'info') => {
+  const showNotification = (message, type = 'info', isAlertTriggered = false, alertData = null) => {
     setNotification({ open: true, message, type });
+
+    // Add to notifications list
+    const newNotification = {
+      id: Date.now().toString(),
+      message,
+      type,
+      read: false,
+      timestamp: new Date().toISOString(),
+      isAlertTriggered: isAlertTriggered,
+      alertData: alertData
+    };
+    
+    // Add to general notifications
+    setNotifications(prev => [newNotification, ...prev]);
+    
+    // Also add to alert notifications if it's a triggered alert
+    if (isAlertTriggered) {
+      setAlertNotifications(prev => [newNotification, ...prev]);
+    }
 
     // Auto hide after 5 seconds
     setTimeout(() => {
@@ -107,9 +129,36 @@ const SocketProvider = ({ children }) => {
   const hideNotification = () => {
     setNotification((prev) => ({ ...prev, open: false }));
   };
+  
+  // Mark notification as read
+  const markNotificationAsRead = useCallback((notificationId) => {
+    setNotifications(prev => prev.map(notif => 
+      notif.id === notificationId ? { ...notif, read: true } : notif
+    ));
+    
+    setAlertNotifications(prev => prev.map(notif => 
+      notif.id === notificationId ? { ...notif, read: true } : notif
+    ));
+  }, []);
+  
+  // Mark all notifications as read
+  const markAllNotificationsAsRead = useCallback(() => {
+    setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+    setAlertNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+  }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, connected, notification, showNotification, hideNotification }}>
+    <SocketContext.Provider value={{
+      socket,
+      connected,
+      notification,
+      notifications,
+      alertNotifications,
+      showNotification,
+      hideNotification,
+      markNotificationAsRead,
+      markAllNotificationsAsRead
+    }}>
       {children}
     </SocketContext.Provider>
   );
