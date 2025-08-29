@@ -57,8 +57,8 @@ const Dashboard = ({ children }) => {
   return (
     <Box sx={{ 
       width: '100%', 
-      height: '100%',
-      overflow: 'hidden', 
+      height: '110%',
+      overflow: 'auto', /* Changed from hidden to auto to enable scrolling */
       bgcolor: '#0A0E17', // Dark background color matching the image
       display: 'flex',
       flexDirection: 'column'
@@ -66,8 +66,8 @@ const Dashboard = ({ children }) => {
       <Grid container spacing={1} sx={{ 
         flexGrow: 1, 
         p: { xs: 0.5, sm: 1 },
-        overflow: 'hidden',
-        height: '100%'
+        overflow: 'auto',
+        minHeight: '100%'
       }}>
         {/* Left Section - Filters Sidebar */}
         <Grid item xs={12} md={3} lg={3} sx={{ 
