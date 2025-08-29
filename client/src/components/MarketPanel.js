@@ -82,12 +82,28 @@ const MarketPanel = ({ onSelectCoin }) => {
   useEffect(() => {
     console.log('MarketPanel: Fetching fresh crypto data from API');
     // Always force refresh for direct API call with silent loading (true)
-    loadCryptos(1, 50, true, true);
+    console.log('Attempting to load cryptos with params:', { page: 1, limit: 50, forceRefresh: true, silentLoading: true });
+    
+    // Add a try/catch to identify any errors
+    try {
+      loadCryptos(1, 50, true, true)
+        .then(result => {
+          console.log('Crypto loading succeeded:', result);
+        })
+        .catch(err => {
+          console.error('Failed to load cryptos from within MarketPanel:', err);
+        });
+    } catch (error) {
+      console.error('Error occurred while trying to call loadCryptos:', error);
+    }
   }, [loadCryptos, filters.market, filters.minVolume]);
   
   // Filter and sort cryptos based on view and search term
   useEffect(() => {
-    if (!cryptos) return;
+    if (!cryptos) {
+      console.log('No cryptos data available to filter');
+      return;
+    }
     
     console.log('Applying filters to', cryptos.length, 'cryptos');
 
@@ -164,6 +180,12 @@ const MarketPanel = ({ onSelectCoin }) => {
       display: 'flex',
       flexDirection: 'column'
     }}>
+      {/* Debug information banner */}
+      {error && (
+        <Box sx={{ mb: 1, p: 1, bgcolor: 'error.main', color: 'white', borderRadius: 1, fontSize: '0.75rem' }}>
+          Error: {typeof error === 'string' ? error : 'Failed to fetch crypto data. Check server connection.'}
+        </Box>
+      )}
       {/* Toggle buttons for Market/Favorites */}
       <ToggleButtonGroup
         value={view}
@@ -211,11 +233,22 @@ const MarketPanel = ({ onSelectCoin }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 3 }}>
             <ErrorOutlineIcon color="error" sx={{ fontSize: 48, mb: 2 }} />
             <Typography variant="subtitle1" align="center" color="error" gutterBottom>
-              Unable to load data
+              Server Connection Issue
             </Typography>
             <Typography variant="body2" align="center" color="text.secondary" sx={{ maxWidth: '80%' }}>
-              {error || 'There was an issue connecting to the Binance API. Please try again later.'}
+              {error || 'Failed to fetch market data. This could be due to:'}
             </Typography>
+            <Box sx={{ mt: 1, width: '100%', maxWidth: '90%' }}>
+              <Typography variant="body2" component="div" sx={{ mt: 1 }}>
+                • Server may be down or unreachable
+              </Typography>
+              <Typography variant="body2" component="div">
+                • Internet connection issue
+              </Typography>
+              <Typography variant="body2" component="div">
+                • API rate limits exceeded
+              </Typography>
+            </Box>
           </Box>
         ) : filteredCryptos.length === 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 3 }}>
@@ -227,8 +260,14 @@ const MarketPanel = ({ onSelectCoin }) => {
         ) : !cryptos || cryptos.length === 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 3 }}>
             <CurrencyExchangeIcon sx={{ fontSize: 48, mb: 2, color: 'text.secondary' }} />
-            <Typography align="center" variant="body2" color="text.secondary">
-              No cryptocurrency data available
+            <Typography align="center" variant="subtitle1" color="text.secondary">
+              No Market Data Available
+            </Typography>
+            <Typography align="center" variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Unable to load cryptocurrency data from the server.
+            </Typography>
+            <Typography align="center" variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Please check that the API server is running correctly.
             </Typography>
           </Box>
         ) : (

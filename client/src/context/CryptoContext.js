@@ -145,10 +145,13 @@ export const CryptoProvider = ({ children }) => {
     console.log('Initiating crypto data fetch with retry mechanism...');
     
     while (retries < MAX_RETRIES) {
+      // Create a controller for this attempt
+      const controller = new AbortController();
+      let timeoutId = null;
+      
       try {
-        // Create a controller for this attempt
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
+        // Set timeout for request
+        timeoutId = setTimeout(() => {
           console.log(`Request timeout after ${REQUEST_TIMEOUT}ms, aborting...`);
           controller.abort();
         }, REQUEST_TIMEOUT);
@@ -169,14 +172,17 @@ export const CryptoProvider = ({ children }) => {
         console.log(`Attempt ${retries + 1}/${MAX_RETRIES} to fetch crypto data...`);
         
         try {
-          // Get baseUrl and construct proper API URL
+          // Get baseUrl and construct proper API URL with query parameters for force refresh
           const baseUrl = process.env.REACT_APP_API_URL || '';
-          const endpoint = baseUrl ? `${baseUrl}/api/crypto` : '/api/crypto';
+          const skipRefreshParam = forceRefresh ? '' : '?skipRefresh=true';
+          const endpoint = baseUrl ? `${baseUrl}/api/crypto${skipRefreshParam}` : `/api/crypto${skipRefreshParam}`;
+          
+          console.log(`Attempting to fetch crypto data from: ${endpoint}`);
           
           const { data } = await axios.get(endpoint, axiosConfig);
           
           // Clear timeout if request succeeded
-          clearTimeout(timeoutId);
+          if (timeoutId) clearTimeout(timeoutId);
           
           console.log(`Success! Crypto data received: ${data.cryptos ? data.cryptos.length : 0} items`);
           
@@ -233,67 +239,104 @@ export const CryptoProvider = ({ children }) => {
             hasMore: paginationInfo.hasMore || (cryptosArray.length === limit)
           };
         } catch (requestError) {
-          clearTimeout(timeoutId);
+          if (timeoutId) clearTimeout(timeoutId);
           throw requestError;
         }
       } catch (error) {
+        // Clear timeout to prevent double rejection
+        if (timeoutId) clearTimeout(timeoutId);
+        
+        console.error(`Error fetching crypto data:`, error);
+        console.log('Error details:', { 
+          message: error.message, 
+          code: error.code,
+          isAxiosError: error.isAxiosError || false,
+          response: error.response ? `Status: ${error.response.status}` : 'No response'
+        });
+        
+        // Increment retries
+        retries++;
+        
+        // Store the last error
         lastError = error;
-        console.warn(`Attempt ${retries + 1} failed:`, error.message);
         
-        // Don't retry if it's a 4xx error (client error)
-        if (error.response && error.response.status >= 400 && error.response.status < 500) {
-          console.error('Client error, not retrying:', error.response.status);
-          break;
-        }
-        
-        // Try to use cached data if all else fails and we're on the last retry
-        if (retries === MAX_RETRIES - 1) {
-          console.log('Final retry failed. Checking for cached data...');
+        // If we've exhausted retries, check for cached data before giving up
+        if (retries >= MAX_RETRIES) {
+          console.log(`All ${MAX_RETRIES} attempts failed, checking for cached data...`);
+          
           const cachedData = getLocalStorageWithExpiry(CACHE_KEY);
           
           if (cachedData) {
-            console.log('Using cached data from local storage');
-            const data = cachedData.data;
+            console.log(`Found cached data from ${new Date(cachedData.timestamp).toLocaleTimeString()}, using as fallback`);
             
-            if (page === 1) {
-              // First page - replace existing cryptos
-              const cryptosArray = data.cryptos || [];
-              const paginationInfo = data.pagination || { total: cryptosArray.length };
-              
+            // Use cached data as fallback
+            const cryptosArray = cachedData.data.cryptos || [];
+            const paginationInfo = cachedData.data.pagination || { total: cryptosArray.length };
+            
+            if (silentLoading) {
+              // Silent loading - don't show loading state
               dispatch({ 
-                type: 'GET_CRYPTOS', 
+                type: 'GET_CRYPTOS',
                 payload: {
                   cryptos: cryptosArray,
                   pagination: {
-                    page,
-                    limit,
-                    total: paginationInfo.total,
-                    hasMore: paginationInfo.hasMore || (cryptosArray.length === limit)
+                    page: paginationInfo.page || 1,
+                    limit: paginationInfo.limit || cryptosArray.length,
+                    total: paginationInfo.total || cryptosArray.length,
+                    hasMore: false
                   },
-                  timestamp: now,
-                  usingCachedData: true
+                  timestamp: cachedData.timestamp
                 }
               });
-              
-              return {
-                total: paginationInfo.total,
-                hasMore: paginationInfo.hasMore || (cryptosArray.length === limit),
-                usingCachedData: true
-              };
             }
+            
+            return {
+              cryptos: cryptosArray,
+              pagination: paginationInfo,
+              fromCache: true
+            };
           }
-        }
-        
-        retries++;
-        if (retries < MAX_RETRIES) {
+          
+          // If no cached data, return empty array and show error
+          if (!silentLoading) {
+            console.log('No cached data available. Showing empty state...');
+            
+            // Dispatch empty array with error flag
+            dispatch({ 
+              type: 'GET_CRYPTOS',
+              payload: {
+                cryptos: [],
+                pagination: { page: 1, limit: 0, total: 0, hasMore: false },
+                timestamp: Date.now(),
+                error: 'No data available. Server connection may be down.'
+              }
+            });
+            
+            return {
+              cryptos: [],
+              pagination: { page: 1, limit: 0, total: 0 },
+              error: true
+            };
+          }
+        } else if (retries < MAX_RETRIES) {
           console.log(`Retrying in ${RETRY_DELAY}ms...`);
           await delay(RETRY_DELAY);
+        } else {
+          // All retries failed and no cached data
+          console.error('All retry attempts failed. No cached data available. Last error:', lastError);
+          
+          // Set error state if not silent loading
+          if (!silentLoading) {
+            dispatch({ 
+              type: 'CRYPTOS_ERROR', 
+              payload: lastError ? `Server error: ${lastError.message}` : 'Failed to load cryptocurrency data' 
+            });
+          }
+          
+          throw lastError || new Error('Failed to load cryptocurrency data');
         }
       }
     }
-    
-    // All retries failed
-    console.error('All retry attempts failed. Last error:', lastError);
     
     // Format detailed error message for user
     let errorMessage = 'Failed to load crypto data after multiple attempts';
