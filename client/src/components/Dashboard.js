@@ -8,12 +8,16 @@ import CoinPriceHeader from './CoinPriceHeader';
 import ChartSummary from './ChartSummary';
 import { useAlert } from '../context/AlertContext';
 import { useCrypto } from '../context/CryptoContext';
+import { useSelectedPair } from '../context/SelectedPairContext';
 
 const Dashboard = ({ children }) => {
   const { alerts } = useAlert();
   const { cryptos } = useCrypto();
-  const [selectedCoin, setSelectedCoin] = useState('BTCUSDT');
-  const [selectedTimeframe, setSelectedTimeframe] = useState('1h');
+  const { selectedSymbol, selectedTimeframe, selectSymbol, selectTimeframe } = useSelectedPair();
+  
+  // Keep local state for backward compatibility, but sync with context
+  const [selectedCoin, setSelectedCoin] = useState(selectedSymbol);
+  const [localTimeframe, setLocalTimeframe] = useState(selectedTimeframe);
   
   // Get crypto coins that have alerts
   const coinsWithAlerts = useMemo(() => {
@@ -49,9 +53,18 @@ const Dashboard = ({ children }) => {
 
   // No tab change handler needed since we only have one tab
 
+  // Handle coin selection from market panel
+  const handleCoinSelect = (symbol) => {
+    console.log(`Dashboard: Coin selected from market panel: ${symbol}`);
+    setSelectedCoin(symbol);
+    selectSymbol(symbol); // Update global context
+  };
+
   // Handle timeframe change
   const handleTimeframeChange = (newTimeframe) => {
-    setSelectedTimeframe(newTimeframe);
+    console.log(`Dashboard: Timeframe changed to: ${newTimeframe}`);
+    setLocalTimeframe(newTimeframe);
+    selectTimeframe(newTimeframe); // Update global context
   };
 
   return (
@@ -102,7 +115,7 @@ const Dashboard = ({ children }) => {
             {/* LineChart with selected coin */}
             <LineChart 
               symbol={selectedCoin} 
-              timeframe={selectedTimeframe}
+              timeframe={localTimeframe}
               onTimeframeChange={handleTimeframeChange}
             />
             
@@ -148,7 +161,7 @@ const Dashboard = ({ children }) => {
           display: { xs: 'none', md: 'block' } // Hide on mobile, show on tablet+
         }}>
           <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 2 }}>
-            <MarketPanel onSelectCoin={(symbol) => setSelectedCoin(symbol)} />
+            <MarketPanel onSelectCoin={handleCoinSelect} />
           </Paper>
         </Grid>
         

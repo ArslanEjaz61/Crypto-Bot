@@ -41,7 +41,9 @@ app.set('io', io);
 
 // Routes
 app.use('/api/crypto', require('./routes/cryptoRoutes'));
+app.use('/api/indicators', require('./routes/indicatorRoutes'));
 app.use('/api/alerts', require('./routes/alertRoutes'));
+app.use('/api/telegram', require('./routes/telegramRoutes'));
 
 // Start cron jobs
 setupCronJobs(io);

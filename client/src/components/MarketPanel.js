@@ -78,25 +78,22 @@ const MarketPanel = ({ onSelectCoin }) => {
 
   /* Filter functionality is handled directly in the component through the context */
 
-  // Fetch fresh data and then filter cryptos
+  // Only load initial data if no cryptos exist yet (prevent duplicate requests)
   useEffect(() => {
-    console.log('MarketPanel: Fetching fresh crypto data from API');
-    // Always force refresh for direct API call with silent loading (true)
-    console.log('Attempting to load cryptos with params:', { page: 1, limit: 50, forceRefresh: true, silentLoading: true });
-    
-    // Add a try/catch to identify any errors
-    try {
+    // Only fetch if we don't have any cryptos data yet
+    if (!cryptos || cryptos.length === 0) {
+      console.log('MarketPanel: No crypto data found, requesting initial load');
       loadCryptos(1, 50, true, true)
         .then(result => {
-          console.log('Crypto loading succeeded:', result);
+          console.log('Initial crypto loading succeeded:', result);
         })
         .catch(err => {
-          console.error('Failed to load cryptos from within MarketPanel:', err);
+          console.error('Failed to load initial cryptos:', err);
         });
-    } catch (error) {
-      console.error('Error occurred while trying to call loadCryptos:', error);
+    } else {
+      console.log('MarketPanel: Crypto data already available, skipping duplicate request');
     }
-  }, [loadCryptos, filters.market, filters.minVolume]);
+  }, []); // Remove dependencies to prevent re-fetching on every filter change
   
   // Filter and sort cryptos based on view and search term
   useEffect(() => {

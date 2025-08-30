@@ -59,7 +59,7 @@ const alertSchema = mongoose.Schema(
     },
     rsiPeriod: {
       type: Number,
-      default: 14,
+      default: 0,
     },
     rsiCondition: {
       type: String,
@@ -68,8 +68,8 @@ const alertSchema = mongoose.Schema(
     },
     rsiLevel: {
       type: Number,
-      default: 70,
-      min: 1,
+      default: 0,
+      min: 0,
       max: 100,
     },
     
@@ -85,11 +85,11 @@ const alertSchema = mongoose.Schema(
     },
     emaFastPeriod: {
       type: Number,
-      default: 12,
+      default: 0,
     },
     emaSlowPeriod: {
       type: Number,
-      default: 26,
+      default: 0,
     },
     emaCondition: {
       type: String,
@@ -108,7 +108,7 @@ const alertSchema = mongoose.Schema(
     },
     volumeSpikeMultiplier: {
       type: Number,
-      default: 2, // Default k value for volume spike (k × avg)
+      default: 0, // 0 means no volume spike checking
     },
     
     // Market filters
@@ -176,6 +176,13 @@ const alertSchema = mongoose.Schema(
     email: {
       type: String,
       required: true,
+    },
+    
+    // Notification tracking
+    notificationStatus: {
+      type: Object,
+      default: {},
+      // Structure: { telegram: { sent: Boolean, sentAt: Date, error: String } }
     },
   },
   {
@@ -375,6 +382,22 @@ alertSchema.methods.shouldTrigger = function(data) {
          rsiConditionMet && 
          emaConditionMet && 
          volumeConditionMet;
+};
+
+// Method to mark notification as sent
+alertSchema.methods.markNotificationSent = function(type, error = null) {
+  if (!this.notificationStatus) {
+    this.notificationStatus = {};
+  }
+  
+  this.notificationStatus[type] = {
+    sent: error ? false : true,
+    sentAt: new Date(),
+    error: error ? error.message : null
+  };
+  
+  // Update lastTriggered timestamp
+  this.lastTriggered = new Date();
 };
 
 const Alert = mongoose.model('Alert', alertSchema);

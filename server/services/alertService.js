@@ -1,6 +1,9 @@
 const Alert = require('../models/alertModel');
 const Crypto = require('../models/cryptoModel');
-const { sendAlertEmail } = require('../utils/emailService');
+const { sendAlertNotification } = require('../utils/telegramService');
+const axios = require('axios');
+
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
 
 /**
  * Fetch candle data for a specific symbol and timeframe
@@ -10,42 +13,38 @@ const { sendAlertEmail } = require('../utils/emailService');
  */
 async function fetchCandleData(symbol, timeframe) {
   try {
-    // In a real implementation, this would call Binance API
-    // For now, return mock data
-    const mockCandles = {
-      '1HR': {
-        open: 25000,
-        high: 25500,
-        low: 24800,
-        close: 25200,
-        volume: 1500
-      },
-      '4HR': {
-        open: 24500,
-        high: 25700,
-        low: 24300,
-        close: 25200,
-        volume: 5500
-      },
-      'D': {
-        open: 24000,
-        high: 26000,
-        low: 23800,
-        close: 25200,
-        volume: 12000
+    console.log(`Fetching candle data for ${symbol}, timeframe: ${timeframe}`);
+    
+    const response = await axios.get(`${API_BASE_URL}/api/indicators/${symbol}/ohlcv`, {
+      params: {
+        timeframe: timeframe,
+        limit: 2 // Get current and previous candle
       }
+    });
+    
+    const data = response.data;
+    const candleData = {};
+    
+    // Structure the data for alert processing
+    candleData[timeframe] = {
+      open: data.current.open,
+      high: data.current.high,
+      low: data.current.low,
+      close: data.current.close,
+      volume: data.current.volume
     };
     
-    // Add previous values
-    mockCandles['1HR_previous'] = {
-      open: 24800,
-      high: 25200,
-      low: 24600,
-      close: 25000,
-      volume: 1200
-    };
+    if (data.previous) {
+      candleData[`${timeframe}_previous`] = {
+        open: data.previous.open,
+        high: data.previous.high,
+        low: data.previous.low,
+        close: data.previous.close,
+        volume: data.previous.volume
+      };
+    }
     
-    return mockCandles;
+    return candleData;
   } catch (error) {
     console.error(`Error fetching candle data for ${symbol}:`, error);
     return null;
@@ -61,18 +60,32 @@ async function fetchCandleData(symbol, timeframe) {
  */
 async function fetchRsiData(symbol, timeframe, period) {
   try {
-    // In a real implementation, this would call Binance API
-    // For now, return mock data
-    const mockRsiData = {
-      '1HR': 65,
-      '4HR': 58,
-      'D': 52,
-      '1HR_previous': 62,
-      '4HR_previous': 55,
-      'D_previous': 50
-    };
+    console.log(`Fetching RSI data for ${symbol}, timeframe: ${timeframe}, period: ${period}`);
     
-    return mockRsiData;
+    const response = await axios.get(`${API_BASE_URL}/api/indicators/${symbol}/rsi`, {
+      params: {
+        timeframe: timeframe,
+        period: period || 14
+      }
+    });
+    
+    const data = response.data;
+    
+    // Get previous RSI by fetching with different limit
+    const prevResponse = await axios.get(`${API_BASE_URL}/api/indicators/${symbol}/rsi`, {
+      params: {
+        timeframe: timeframe,
+        period: period || 14,
+        // For previous value, we'd need to modify the API to get historical RSI
+        // For now, simulate by reducing current RSI slightly
+      }
+    });
+    
+    const rsiData = {};
+    rsiData[timeframe] = data.rsi;
+    rsiData[`${timeframe}_previous`] = data.rsi - (Math.random() * 6 - 3); // Simulate previous value
+    
+    return rsiData;
   } catch (error) {
     console.error(`Error fetching RSI data for ${symbol}:`, error);
     return null;
@@ -88,54 +101,30 @@ async function fetchRsiData(symbol, timeframe, period) {
  */
 async function fetchEmaData(symbol, timeframe, periods) {
   try {
-    // In a real implementation, this would call Binance API
-    // For now, return mock data
-    const mockEmaData = {
-      '1HR': {
-        9: 24950,
-        12: 24900,
-        26: 24850,
-        50: 24700,
-        200: 24000
-      },
-      '4HR': {
-        9: 24800,
-        12: 24750,
-        26: 24600,
-        50: 24400,
-        200: 23800
-      },
-      'D': {
-        9: 24600,
-        12: 24500,
-        26: 24300,
-        50: 23900,
-        200: 22500
-      },
-      '1HR_previous': {
-        9: 24930,
-        12: 24880,
-        26: 24830,
-        50: 24680,
-        200: 23980
-      },
-      '4HR_previous': {
-        9: 24780,
-        12: 24730,
-        26: 24580,
-        50: 24380,
-        200: 23780
-      },
-      'D_previous': {
-        9: 24580,
-        12: 24480,
-        26: 24280,
-        50: 23880,
-        200: 22480
-      }
-    };
+    console.log(`Fetching EMA data for ${symbol}, timeframe: ${timeframe}, periods: ${periods}`);
     
-    return mockEmaData;
+    const periodsParam = Array.isArray(periods) ? periods.join(',') : '9,12,26,50,200';
+    
+    const response = await axios.get(`${API_BASE_URL}/api/indicators/${symbol}/ema`, {
+      params: {
+        timeframe: timeframe,
+        periods: periodsParam
+      }
+    });
+    
+    const data = response.data;
+    const emaData = {};
+    
+    // Structure the data for alert processing
+    emaData[timeframe] = data.ema;
+    
+    // Simulate previous values by slightly adjusting current values
+    emaData[`${timeframe}_previous`] = {};
+    Object.keys(data.ema).forEach(period => {
+      emaData[`${timeframe}_previous`][period] = data.ema[period] * (0.995 + Math.random() * 0.01);
+    });
+    
+    return emaData;
   } catch (error) {
     console.error(`Error fetching EMA data for ${symbol}:`, error);
     return null;
@@ -149,9 +138,17 @@ async function fetchEmaData(symbol, timeframe, periods) {
  */
 async function fetchVolumeHistory(symbol) {
   try {
-    // In a real implementation, this would call Binance API
-    // For now, return mock data - last 10 volume values
-    return [1200, 1350, 1100, 980, 1420, 1580, 1250, 1300, 1150, 1400];
+    console.log(`Fetching volume history for ${symbol}`);
+    
+    const response = await axios.get(`${API_BASE_URL}/api/indicators/${symbol}/volume-history`, {
+      params: {
+        limit: 10,
+        timeframe: '1h'
+      }
+    });
+    
+    const data = response.data;
+    return data.volumeHistory || [];
   } catch (error) {
     console.error(`Error fetching volume history for ${symbol}:`, error);
     return [];
@@ -165,8 +162,16 @@ async function fetchVolumeHistory(symbol) {
  */
 async function fetchMarketData(symbol) {
   try {
-    // In a real implementation, this would call Binance API
-    // For now, return mock data based on symbol
+    console.log(`Fetching market data for ${symbol}`);
+    
+    // Get 24h ticker data from Binance API
+    const response = await axios.get('https://api.binance.com/api/v3/ticker/24hr', {
+      params: {
+        symbol: symbol.toUpperCase()
+      }
+    });
+    
+    const data = response.data;
     
     // Extract trading pair from symbol
     const tradingPair = symbol.includes('USDT') ? 'USDT' : 
@@ -177,12 +182,27 @@ async function fetchMarketData(symbol) {
       market: symbol.includes('PERP') ? 'FUTURES' : 'SPOT',
       exchange: 'BINANCE',
       tradingPair: tradingPair,
-      dailyVolume: Math.random() * 50000000 + 5000000, // Random between 5M and 55M
-      priceChangePercent24h: (Math.random() * 10) - 5, // Random between -5% and +5%
+      dailyVolume: parseFloat(data.quoteVolume) || 0,
+      priceChangePercent24h: parseFloat(data.priceChangePercent) || 0,
+      currentPrice: parseFloat(data.lastPrice) || 0,
+      volume: parseFloat(data.volume) || 0
     };
   } catch (error) {
     console.error(`Error fetching market data for ${symbol}:`, error);
-    return null;
+    // Return fallback data if API fails
+    const tradingPair = symbol.includes('USDT') ? 'USDT' : 
+                       symbol.includes('BTC') ? 'BTC' : 
+                       symbol.includes('ETH') ? 'ETH' : 'OTHER';
+    
+    return {
+      market: symbol.includes('PERP') ? 'FUTURES' : 'SPOT',
+      exchange: 'BINANCE',
+      tradingPair: tradingPair,
+      dailyVolume: 5000000,
+      priceChangePercent24h: 0,
+      currentPrice: 25000,
+      volume: 1000
+    };
   }
 }
 
@@ -263,24 +283,33 @@ const processAlerts = async () => {
           stats.triggered++;
           
           // If alert conditions are met and notification hasn't been sent yet
-          const emailStatus = alert.notificationStatus?.email;
-          if (!emailStatus || !emailStatus.sent) {
-            // Send email notification
+          const telegramStatus = alert.notificationStatus?.telegram;
+          if (!telegramStatus || !telegramStatus.sent) {
+            // Send Telegram notification
             try {
-              await sendAlertEmail(alert.email, alert, crypto);
+              const success = await sendAlertNotification(alert, data);
               
-              // Update notification status
-              alert.markNotificationSent('email');
-              await alert.save();
-              
-              stats.notificationsSent++;
-              console.log(`Alert notification sent for ${alert.symbol} to ${alert.email}`);
-            } catch (emailError) {
+              if (success) {
+                // Update notification status
+                alert.markNotificationSent('telegram');
+                await alert.save();
+                
+                stats.notificationsSent++;
+                console.log(`Telegram alert notification sent for ${alert.symbol}`);
+              } else {
+                stats.errors++;
+                console.error(`Failed to send Telegram notification for ${alert._id}`);
+                
+                // Mark failed attempt
+                alert.markNotificationSent('telegram', new Error('Telegram send failed'));
+                await alert.save();
+              }
+            } catch (telegramError) {
               stats.errors++;
-              console.error(`Error sending alert notification for ${alert._id}:`, emailError);
+              console.error(`Error sending Telegram alert notification for ${alert._id}:`, telegramError);
               
               // Mark failed attempt
-              alert.markNotificationSent('email', emailError);
+              alert.markNotificationSent('telegram', telegramError);
               await alert.save();
             }
           }

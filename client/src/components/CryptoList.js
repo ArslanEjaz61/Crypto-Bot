@@ -49,6 +49,9 @@ const CryptoList = ({ cryptos = [] }) => {
   
   // Format price with commas
   const formatPrice = (price) => {
+    if (price === undefined || price === null || isNaN(price)) {
+      return '0.00';
+    }
     if (price >= 1000) {
       return price.toLocaleString('en-US', { 
         minimumFractionDigits: 2,
@@ -127,14 +130,14 @@ const CryptoList = ({ cryptos = [] }) => {
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
                 <Chip 
                   label={
-                    `${crypto.priceChange >= 0 ? '+' : ''}${crypto.priceChange.toFixed(2)}%`
+                    `${(crypto.priceChange || 0) >= 0 ? '+' : ''}${(crypto.priceChange || 0).toFixed(2)}%`
                   }
                   size="small"
                   sx={{
                     borderRadius: 1,
                     fontWeight: 500,
                     fontSize: '0.75rem',
-                    bgcolor: crypto.priceChange >= 0 ? '#10B981' : '#E11D48',
+                    bgcolor: (crypto.priceChange || 0) >= 0 ? '#10B981' : '#E11D48',
                     color: 'white',
                     height: '22px'
                   }}
