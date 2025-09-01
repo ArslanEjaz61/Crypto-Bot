@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import axios from 'axios';
-import { setLocalStorageWithExpiry, getLocalStorageWithExpiry, clearExpiredLocalStorage } from './CryptoUtils';
 
 // Initial state
 const initialState = {
@@ -121,7 +120,7 @@ export const CryptoProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cryptoReducer, initialState);
 
   // Ultra-simple request handling - NO cancellation, NO deduplication, NO retries
-  const loadCryptos = useCallback(async (page = 1, limit = 50, forceRefresh = true, silentLoading = false) => {
+  const loadCryptos = useCallback(async (page = 1, limit = 50, forceRefresh = true, silentLoading = false, spotOnly = true) => {
     // Only dispatch loading state if not in silent mode
     if (!silentLoading) {
       dispatch({ type: 'CRYPTO_REQUEST' });
@@ -134,11 +133,11 @@ export const CryptoProvider = ({ children }) => {
       const baseUrl = process.env.REACT_APP_API_URL || '';
       const endpoint = `${baseUrl}/api/crypto`;
       
-      console.log(`Fetching from: ${endpoint}`);
+      console.log(`Fetching from: ${endpoint} with spotOnly=${spotOnly}`);
       
       // Minimal axios configuration - NO timeout, NO abort signal, NO headers
       const { data } = await axios.get(endpoint, {
-        params: { page, limit }
+        params: { page, limit, spotOnly }
       });
       
       console.log(`Success! Received ${data.cryptos ? data.cryptos.length : 0} items`);
@@ -182,8 +181,118 @@ export const CryptoProvider = ({ children }) => {
     dispatch({ type: 'UPDATE_FILTER', payload: filterUpdate });
   }, []);
 
+  // Create alert from current filter conditions
+  const createAlertFromFilters = useCallback(async (symbol, filters) => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_URL || '';
+      const alertEndpoint = baseUrl ? `${baseUrl}/api/alerts` : `/api/alerts`;
+      
+      // Convert filter conditions to alert payload
+      const alertData = {
+        symbol: symbol,
+        direction: '>',  // Default direction
+        targetType: 'percentage',
+        targetValue: parseFloat(filters.percentageValue) || 5,
+        trackingMode: 'current',
+        intervalMinutes: 0,
+        volumeChangeRequired: 0,
+        alertTime: new Date(),
+        comment: `Auto-created alert from favorite for ${symbol}`,
+        email: '', // Could be populated from user preferences
+        
+        // Change percentage conditions
+        changePercentTimeframe: filters.changePercent ? Object.keys(filters.changePercent).find(tf => filters.changePercent[tf]) : '1MIN',
+        changePercentValue: parseFloat(filters.percentageValue) || 5,
+        
+        // Candle conditions
+        candleTimeframe: filters.candle ? Object.keys(filters.candle).find(tf => filters.candle[tf]) || '5MIN' : '5MIN',
+        candleCondition: (() => {
+          const condition = filters.candleCondition || 'NONE';
+          // Map frontend values to backend enum values
+          const conditionMap = {
+            'Candle Above Open': 'ABOVE_OPEN',
+            'Candle Below Open': 'BELOW_OPEN',
+            'Green Candle': 'GREEN_CANDLE',
+            'Red Candle': 'RED_CANDLE',
+            'Bullish Hammer': 'BULLISH_HAMMER',
+            'Bearish Hammer': 'BEARISH_HAMMER',
+            'Doji': 'DOJI',
+            'Long Upper Wick': 'LONG_UPPER_WICK',
+            'Long Lower Wick': 'LONG_LOWER_WICK',
+            'None': 'NONE'
+          };
+          return conditionMap[condition] || 'NONE';
+        })(),
+        
+        // RSI conditions
+        rsiEnabled: filters.rsiRange && Object.keys(filters.rsiRange).some(tf => filters.rsiRange[tf]),
+        rsiTimeframe: filters.rsiRange ? Object.keys(filters.rsiRange).find(tf => filters.rsiRange[tf]) || '1HR' : '1HR',
+        rsiPeriod: parseInt(filters.rsiPeriod) || 14,
+        rsiCondition: filters.rsiCondition || 'ABOVE',
+        rsiLevel: parseInt(filters.rsiLevel) || 70,
+        
+        // EMA conditions
+        emaEnabled: filters.ema && Object.keys(filters.ema).some(tf => filters.ema[tf]),
+        emaTimeframe: filters.ema ? Object.keys(filters.ema).find(tf => filters.ema[tf]) || '1HR' : '1HR',
+        emaFastPeriod: parseInt(filters.emaFast) || 12,
+        emaSlowPeriod: parseInt(filters.emaSlow) || 26,
+        emaCondition: (() => {
+          const condition = filters.emaCondition || 'ABOVE';
+          if (condition === 'Fast Above Slow') return 'ABOVE';
+          if (condition === 'Fast Below Slow') return 'BELOW';
+          if (condition === 'Fast Crossing Up') return 'CROSSING_UP';
+          if (condition === 'Fast Crossing Down') return 'CROSSING_DOWN';
+          return 'ABOVE';
+        })()
+      };
+      
+      console.log('Creating alert with data:', alertData);
+      
+      const response = await axios.post(alertEndpoint, alertData);
+      console.log('Alert created successfully:', response.data);
+      
+    } catch (error) {
+      console.error('Error creating alert from filters:', error);
+      if (error.response) {
+        console.error('Server response:', error.response.data);
+      }
+    }
+  }, []);
+
+  // Delete auto-created alerts for a symbol
+  const deleteAutoCreatedAlerts = useCallback(async (symbol) => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_URL || '';
+      const alertsEndpoint = baseUrl ? `${baseUrl}/api/alerts` : `/api/alerts`;
+      
+      // Get all alerts for this symbol
+      const response = await axios.get(`${alertsEndpoint}?symbol=${symbol}`);
+      const alerts = response.data;
+      
+      // Find auto-created alerts (those with specific comment pattern)
+      const autoCreatedAlerts = alerts.filter(alert => 
+        alert.comment && alert.comment.includes('Auto-created alert from favorite')
+      );
+      
+      // Delete each auto-created alert
+      for (const alert of autoCreatedAlerts) {
+        try {
+          await axios.delete(`${alertsEndpoint}/${alert._id}`);
+          console.log(`Deleted auto-created alert ${alert._id} for ${symbol}`);
+        } catch (deleteError) {
+          console.error(`Error deleting alert ${alert._id}:`, deleteError);
+        }
+      }
+      
+      console.log(`Deleted ${autoCreatedAlerts.length} auto-created alerts for ${symbol}`);
+    } catch (error) {
+      console.error(`Error fetching/deleting alerts for ${symbol}:`, error);
+      // Don't throw error here as we don't want to prevent favorite removal
+    }
+  }, []);
+
   // Toggle favorite status
-  const toggleFavorite = useCallback(async (symbol) => {
+  const toggleFavorite = useCallback(async (symbol, filterConditions = null) => {
     try {
       const crypto = state.cryptos.find((c) => c.symbol === symbol);
       if (!crypto) {
@@ -199,6 +308,18 @@ export const CryptoProvider = ({ children }) => {
       const endpoint = baseUrl ? `${baseUrl}/api/crypto/${symbol}/favorite` : `/api/crypto/${symbol}/favorite`;
       
       await axios.put(endpoint, { isFavorite: newStatus });
+      
+      // If adding to favorites and filter conditions are provided, create alert
+      if (newStatus && filterConditions) {
+        console.log(`Creating alert for ${symbol} with filter conditions:`, filterConditions);
+        await createAlertFromFilters(symbol, filterConditions);
+      }
+      
+      // If removing from favorites, delete any auto-created alerts for this symbol
+      if (!newStatus) {
+        console.log(`Removing from favorites: deleting auto-created alerts for ${symbol}`);
+        await deleteAutoCreatedAlerts(symbol);
+      }
       
       // Immediately update the UI state without waiting for a full data refresh
       dispatch({ 
@@ -222,7 +343,7 @@ export const CryptoProvider = ({ children }) => {
         payload: errorMessage,
       });
     }
-  }, [state.cryptos, dispatch]);
+  }, [state.cryptos, dispatch, createAlertFromFilters, deleteAutoCreatedAlerts]);
 
   // Cache for RSI data to prevent redundant API calls
   const rsiCache = React.useRef({});

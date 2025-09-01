@@ -17,12 +17,17 @@ import {
   InputLabel,
   FormControl,
   Grid,
-  Tooltip
+  Tooltip,
+  Button,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import StopIcon from '@mui/icons-material/Stop';
 import { useAlert } from '../context/AlertContext';
 import { useCrypto } from '../context/CryptoContext';
 import EditAlertDialog from './EditAlertDialog';
@@ -40,6 +45,7 @@ const AlertsList = () => {
   });
   const [editAlert, setEditAlert] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // Load alerts when component mounts
   useEffect(() => {
@@ -154,12 +160,79 @@ const AlertsList = () => {
     return crypto?.isFavorite || false;
   };
 
+  // Handle start all alerts
+  const handleStartAllAlerts = async () => {
+    try {
+      const response = await fetch('/api/alerts/start-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        setSnackbar({ open: true, message: 'All alerts started successfully!', severity: 'success' });
+        loadAlerts(1, 20, true); // Refresh alerts
+      } else {
+        throw new Error('Failed to start all alerts');
+      }
+    } catch (error) {
+      console.error('Error starting all alerts:', error);
+      setSnackbar({ open: true, message: 'Failed to start all alerts', severity: 'error' });
+    }
+  };
+
+  // Handle stop all alerts
+  const handleStopAllAlerts = async () => {
+    try {
+      const response = await fetch('/api/alerts/stop-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        setSnackbar({ open: true, message: 'All alerts stopped successfully!', severity: 'success' });
+        loadAlerts(1, 20, true); // Refresh alerts
+      } else {
+        throw new Error('Failed to stop all alerts');
+      }
+    } catch (error) {
+      console.error('Error stopping all alerts:', error);
+      setSnackbar({ open: true, message: 'Failed to stop all alerts', severity: 'error' });
+    }
+  };
+
+  // Close snackbar
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
   return (
     <>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" component="h2" gutterBottom>
           Your Alerts
         </Typography>
+        
+        {/* Start/Stop All Alerts Buttons */}
+        <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<PlayArrowIcon />}
+            onClick={handleStartAllAlerts}
+            sx={{ minWidth: 140 }}
+          >
+            Start All Alerts
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<StopIcon />}
+            onClick={handleStopAllAlerts}
+            sx={{ minWidth: 140 }}
+          >
+            Stop All Alerts
+          </Button>
+        </Box>
         
         {/* Filters */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -319,6 +392,18 @@ const AlertsList = () => {
         onConfirm={confirmDeleteAlert}
         onCancel={() => setConfirmDelete(null)}
       />
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 };

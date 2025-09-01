@@ -290,10 +290,62 @@ const deleteAlert = async (req, res) => {
   }
 };
 
+// @desc    Start all alerts
+// @route   POST /api/alerts/start-all
+// @access  Public
+const startAllAlerts = async (req, res) => {
+  try {
+    console.log('Starting all alerts');
+    const result = await Alert.updateMany({}, { isActive: true });
+    console.log(`Started ${result.modifiedCount} alerts`);
+    
+    // Emit event to socket.io for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('alerts-started', { count: result.modifiedCount });
+    }
+    
+    res.json({ 
+      message: `${result.modifiedCount} alerts started successfully`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error starting all alerts:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Stop all alerts
+// @route   POST /api/alerts/stop-all
+// @access  Public
+const stopAllAlerts = async (req, res) => {
+  try {
+    console.log('Stopping all alerts');
+    const result = await Alert.updateMany({}, { isActive: false });
+    console.log(`Stopped ${result.modifiedCount} alerts`);
+    
+    // Emit event to socket.io for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('alerts-stopped', { count: result.modifiedCount });
+    }
+    
+    res.json({ 
+      message: `${result.modifiedCount} alerts stopped successfully`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error stopping all alerts:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 module.exports = {
   getAlerts,
   createAlert,
   getAlertById,
   updateAlert,
-  deleteAlert
+  deleteAlert,
+  startAllAlerts,
+  stopAllAlerts
 };

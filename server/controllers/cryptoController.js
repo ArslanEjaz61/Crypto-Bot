@@ -100,8 +100,8 @@ const fetchWithRetry = async (apiCall, retries = 3, delay = 1000) => {
       }
     }
   }
-  
-  // If we get here, all retries failed
+  console.log("hello")
+  // If we get here, all retries failed 
   throw lastError;
 };
 
@@ -167,7 +167,7 @@ const calculateRSIValue = (prices, period = 14) => {
 };
 
 // Function to refresh all crypto data at once from Binance API
-const refreshCryptoData = async () => {
+const refreshCryptoData = async (req = {}) => {
   try {
     console.log('Starting Binance API data refresh with caching and throttling');
     
@@ -227,9 +227,37 @@ const refreshCryptoData = async () => {
     let operations = [];
     
     try {
-      operations = tickerResponse.data
-        .filter(ticker => ticker && ticker.symbol && ticker.symbol.endsWith('USDT'))
-        .map(ticker => {
+      // Filter trading pairs based on spot filter parameter
+      const spotOnly = req.query.spotOnly === 'true';
+      
+      let filteredPairs = tickerResponse.data;
+      
+      if (spotOnly) {
+        // Filter for Binance spot trading pairs only (exclude futures, margin, etc.)
+        filteredPairs = tickerResponse.data
+          .filter(ticker => {
+            if (!ticker || !ticker.symbol) return false;
+            
+            // Include only USDT, BUSD, and BTC spot pairs
+            const validQuotes = ['USDT', 'BUSD', 'BTC', 'ETH', 'BNB'];
+            const hasValidQuote = validQuotes.some(quote => ticker.symbol.endsWith(quote));
+            
+            // Exclude futures and margin trading pairs
+            const excludePatterns = ['_PERP', 'UP', 'DOWN', 'BULL', 'BEAR'];
+            const isExcluded = excludePatterns.some(pattern => ticker.symbol.includes(pattern));
+            
+            return hasValidQuote && !isExcluded;
+          });
+      } else {
+        // Include all pairs, just filter out invalid ones
+        filteredPairs = tickerResponse.data
+          .filter(ticker => ticker && ticker.symbol);
+      }
+      
+      // Sort alphabetically
+      const sortedPairs = filteredPairs.sort((a, b) => a.symbol.localeCompare(b.symbol));
+      
+      operations = sortedPairs.map(ticker => {
           try {
             const stats = statsMap[ticker.symbol] || { volume: 0, priceChangePercent: 0 };
             return {
@@ -306,9 +334,9 @@ const getCryptoList = async (req, res) => {
     clearTimeout(responseTimeout); // Clear timeout if response sent normally
     
     try {
-      // Get all cryptos without pagination, sorted by volume
+      // Get all cryptos without pagination, sorted alphabetically by symbol
       const cryptos = await Crypto.find({})
-        .sort({ volume24h: -1 });
+        .sort({ symbol: 1 });
         
       console.log(`Returning all ${cryptos.length} cryptos in a single response`);
       
@@ -342,7 +370,7 @@ const getCryptoList = async (req, res) => {
         // Start refreshing data but don't await it directly
         console.log('Starting crypto data refresh in background');
         // This runs in the background - we'll get data from DB regardless
-        refreshCryptoData().catch(err => {
+        refreshCryptoData(req).catch(err => {
           console.error('Background refresh failed:', err.message);
         });
       } catch (refreshError) {

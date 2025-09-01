@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { AppBar, Toolbar, Typography, Box, useTheme, IconButton, Menu, MenuItem, Button, Badge, Popover } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, useTheme, IconButton, Menu, MenuItem, Button, Badge, Popover, Chip } from '@mui/material';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AddIcon from '@mui/icons-material/Add';
 import AlertIcon from '@mui/icons-material/NotificationImportant';
+import MarkAsUnreadIcon from '@mui/icons-material/MarkAsUnread';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const Header = () => {
   const theme = useTheme();
-  const { connected, alertNotifications } = useSocket();
+  const { connected } = useSocket();
   const { user, logout } = useAuth();
   const { createAlert } = useAlert();
   const navigate = useNavigate();
@@ -55,19 +58,96 @@ const Header = () => {
     setNotificationAnchorEl(null);
   };
 
-  // Update notification count when new alert notifications arrive
-  useEffect(() => {
-    if (alertNotifications && alertNotifications.length > 0) {
-      // Get unread count
-      const unreadCount = alertNotifications.filter(notif => !notif.read).length;
-      setNotificationCount(unreadCount);
-      setNotificationList(alertNotifications);
-    } else {
-      // Reset if no alert notifications
-      setNotificationCount(0);
-      setNotificationList([]);
+  // Fetch notifications from API
+  const fetchNotifications = async () => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_URL || '';
+      const response = await axios.get(`${baseUrl}/api/notifications?limit=10`);
+      const data = response.data;
+      
+      if (data.notifications) {
+        setNotificationList(data.notifications);
+        setNotificationCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
     }
-  }, [alertNotifications]);
+  };
+
+  // Mark notification as read
+  const markAsRead = async (notificationId) => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_URL || '';
+      await axios.put(`${baseUrl}/api/notifications/${notificationId}/read`);
+      
+      // Update local state
+      setNotificationList(prev => 
+        prev.map(notif => 
+          notif._id === notificationId 
+            ? { ...notif, isRead: true, readAt: new Date() }
+            : notif
+        )
+      );
+      
+      // Update count
+      setNotificationCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // Delete notification
+  const deleteNotification = async (notificationId) => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_URL || '';
+      await axios.delete(`${baseUrl}/api/notifications/${notificationId}`);
+      
+      // Update local state
+      const deletedNotification = notificationList.find(n => n._id === notificationId);
+      setNotificationList(prev => prev.filter(notif => notif._id !== notificationId));
+      
+      // Update count if deleted notification was unread
+      if (deletedNotification && !deletedNotification.isRead) {
+        setNotificationCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
+  // Mark all as read
+  const markAllAsRead = async () => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_URL || '';
+      await axios.put(`${baseUrl}/api/notifications/read-all`);
+      
+      // Update local state
+      setNotificationList(prev => 
+        prev.map(notif => ({ ...notif, isRead: true, readAt: new Date() }))
+      );
+      setNotificationCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  // Fetch notifications on component mount
+  useEffect(() => {
+    fetchNotifications();
+    
+    // Set up periodic refresh
+    const interval = setInterval(fetchNotifications, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Listen for real-time notifications via Socket.IO
+  useEffect(() => {
+    if (connected) {
+      // Re-fetch notifications when we get a new notification event
+      fetchNotifications();
+    }
+  }, [connected]);
 
   return (
     <>
@@ -137,29 +217,93 @@ const Header = () => {
               horizontal: 'right',
             }}
           >
-            <Box sx={{ p: 2, width: 300, maxHeight: 400, overflow: 'auto' }}>
-              <Typography variant="h6" sx={{ mb: 1 }}>Alert Notifications</Typography>
+            <Box sx={{ p: 2, width: 350, maxHeight: 500, overflow: 'auto' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">Alert Notifications</Typography>
+                {notificationCount > 0 && (
+                  <Button
+                    size="small"
+                    startIcon={<MarkAsUnreadIcon />}
+                    onClick={markAllAsRead}
+                    sx={{ fontSize: '0.75rem' }}
+                  >
+                    Mark All Read
+                  </Button>
+                )}
+              </Box>
+              
               {notificationList.length > 0 ? (
-                notificationList.map((notification, index) => (
-                  <Box key={index} sx={{ 
-                    p: 1, 
-                    mb: 1, 
+                notificationList.map((notification) => (
+                  <Box key={notification._id} sx={{ 
+                    p: 1.5, 
+                    mb: 1.5, 
                     borderRadius: 1,
-                    bgcolor: notification.read ? 'transparent' : 'rgba(25, 118, 210, 0.08)',
-                    borderLeft: `3px solid ${notification.read ? 'transparent' : theme.palette.primary.main}`
+                    bgcolor: notification.isRead ? 'transparent' : 'rgba(25, 118, 210, 0.08)',
+                    borderLeft: `3px solid ${notification.isRead ? 'transparent' : theme.palette.primary.main}`,
+                    position: 'relative',
+                    '&:hover': {
+                      bgcolor: 'rgba(0, 0, 0, 0.04)'
+                    }
                   }}>
-                    <Typography variant="body2" sx={{ fontWeight: notification.read ? 'normal' : 'bold' }}>
-                      {notification.message}
-                    </Typography>
-                    {notification.timestamp && (
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(notification.timestamp).toLocaleString()}
-                      </Typography>
-                    )}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box sx={{ flex: 1, cursor: 'pointer' }} onClick={() => !notification.isRead && markAsRead(notification._id)}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                          <Chip
+                            label={notification.symbol}
+                            size="small"
+                            color="primary"
+                            sx={{ mr: 1, fontSize: '0.7rem' }}
+                          />
+                          <Chip
+                            label={notification.type}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.7rem' }}
+                          />
+                        </Box>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            fontWeight: notification.isRead ? 'normal' : 'bold',
+                            mb: 0.5,
+                            lineHeight: 1.3
+                          }}
+                        >
+                          {notification.message}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(notification.createdAt).toLocaleString()}
+                        </Typography>
+                        
+                        {notification.triggerData && (
+                          <Box sx={{ mt: 0.5, fontSize: '0.75rem', color: 'text.secondary' }}>
+                            Price: ${notification.triggerData.currentPrice?.toFixed(4) || 'N/A'}
+                            {notification.triggerData.priceChangePercent && (
+                              <span style={{ marginLeft: '8px' }}>
+                                Change: {notification.triggerData.priceChangePercent.toFixed(2)}%
+                              </span>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                      
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(notification._id);
+                        }}
+                        sx={{ ml: 1, p: 0.5 }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Box>
                 ))
               ) : (
-                <Typography variant="body2" color="text.secondary">No notifications</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                  No notifications
+                </Typography>
               )}
             </Box>
           </Popover>

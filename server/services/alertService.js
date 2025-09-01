@@ -1,9 +1,61 @@
 const Alert = require('../models/alertModel');
 const Crypto = require('../models/cryptoModel');
+const Notification = require('../models/notificationModel');
 const { sendAlertNotification } = require('../utils/telegramService');
 const axios = require('axios');
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
+
+/**
+ * Fetch historical price data for percentage change calculations
+ * @param {string} symbol - Trading pair symbol
+ * @param {string} timeframe - Timeframe for historical data
+ * @param {number} limit - Number of historical points to fetch
+ * @returns {Promise<Array>} Array of price objects with timestamp and price
+ */
+async function fetchHistoricalPrices(symbol, timeframe = '1m', limit = 60) {
+  try {
+    console.log(`Fetching historical prices for ${symbol}, timeframe: ${timeframe}, limit: ${limit}`);
+    
+    // Map our timeframe format to Binance API format
+    const binanceTimeframe = {
+      '1MIN': '1m',
+      '5MIN': '5m', 
+      '15MIN': '15m',
+      '1HR': '1h'
+    }[timeframe] || '1m';
+    
+    const response = await axios.get(`${API_BASE_URL}/api/indicators/${symbol}/ohlcv`, {
+      params: {
+        timeframe: binanceTimeframe,
+        limit: limit
+      }
+    });
+    
+    const data = response.data;
+    
+    // Convert to historical price format
+    const historicalPrices = [];
+    
+    if (data.klines && Array.isArray(data.klines)) {
+      data.klines.forEach(kline => {
+        historicalPrices.push({
+          timestamp: kline.openTime,
+          price: parseFloat(kline.close)
+        });
+      });
+    }
+    
+    // Sort by timestamp (oldest first)
+    historicalPrices.sort((a, b) => a.timestamp - b.timestamp);
+    
+    console.log(`Retrieved ${historicalPrices.length} historical price points for ${symbol}`);
+    return historicalPrices;
+  } catch (error) {
+    console.error(`Error fetching historical prices for ${symbol}:`, error);
+    return [];
+  }
+}
 
 /**
  * Fetch candle data for a specific symbol and timeframe
@@ -248,14 +300,18 @@ const processAlerts = async () => {
         }
 
         // Fetch all necessary data for advanced alert conditions
-        // Get candle data (in real implementation, fetch from Binance API)
         const candleData = await fetchCandleData(alert.symbol, alert.candleTimeframe);
-        
-        // Get RSI data (in real implementation, fetch from Binance API)
         const rsiData = await fetchRsiData(alert.symbol, alert.rsiTimeframe, alert.rsiPeriod);
-        
-        // Get EMA data (in real implementation, fetch from Binance API)
         const emaData = await fetchEmaData(alert.symbol, alert.emaTimeframe, [alert.emaFastPeriod, alert.emaSlowPeriod]);
+        
+        // Fetch historical prices for percentage change calculations
+        let historicalPrices = [];
+        if (alert.changePercentValue > 0) {
+          // Calculate how much historical data we need based on timeframe
+          const timeframeMinutes = alert.getTimeframeInMinutes(alert.changePercentTimeframe);
+          const limit = Math.max(timeframeMinutes + 10, 60); // Get extra data points for accuracy
+          historicalPrices = await fetchHistoricalPrices(alert.symbol, alert.changePercentTimeframe, limit);
+        }
         
         // Get volume history (in real implementation, fetch from Binance API)
         const volumeHistory = await fetchVolumeHistory(alert.symbol);
@@ -273,7 +329,8 @@ const processAlerts = async () => {
           rsi: rsiData,
           emaData: emaData,
           volumeHistory: volumeHistory,
-          marketData: marketData
+          marketData: marketData,
+          historicalPrices: historicalPrices
         };
         
         // Check if alert conditions are met
@@ -281,6 +338,26 @@ const processAlerts = async () => {
         
         if (shouldTrigger) {
           stats.triggered++;
+          
+          // Create web notification for the triggered alert
+          try {
+            await Notification.createFromAlert(alert, data);
+            console.log(`Web notification created for ${alert.symbol}`);
+            
+            // Emit real-time notification via Socket.IO
+            const io = req?.app?.get('io');
+            if (io) {
+              io.emit('new-notification', {
+                symbol: alert.symbol,
+                message: `${alert.symbol} alert triggered`,
+                timestamp: new Date(),
+                type: 'ALERT_TRIGGERED'
+              });
+            }
+          } catch (webNotificationError) {
+            console.error(`Error creating web notification for ${alert._id}:`, webNotificationError);
+            // Don't increment errors as this shouldn't block other notifications
+          }
           
           // If alert conditions are met and notification hasn't been sent yet
           const telegramStatus = alert.notificationStatus?.telegram;

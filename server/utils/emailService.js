@@ -16,9 +16,10 @@ const createTransporter = () => {
  * @param {string} to - Recipient email
  * @param {object} alert - Alert data
  * @param {object} cryptoData - Crypto data including current price
+ * @param {object} technicalData - Technical analysis data (RSI, EMA, Candle)
  * @returns {Promise} - Email sending result
  */
-const sendAlertEmail = async (to, alert, cryptoData) => {
+const sendAlertEmail = async (to, alert, cryptoData, technicalData = {}) => {
   try {
     const transporter = createTransporter();
     
@@ -42,9 +43,18 @@ const sendAlertEmail = async (to, alert, cryptoData) => {
     // Determine if price went up or down
     const priceDirection = priceChangePercent >= 0 ? 'up' : 'down';
     
-    // Create email subject based on alert type
+    // Create email subject based on alert type and conditions
     let subject = `Binance Alert: ${alert.symbol} `;
     
+    if (alert.candleCondition !== 'NONE') {
+      subject += `candle condition met (${alert.candleCondition}) `;
+    }
+    if (alert.rsiEnabled) {
+      subject += `RSI condition met `;
+    }
+    if (alert.emaEnabled) {
+      subject += `EMA condition met `;
+    }
     if (alert.targetType === 'price') {
       subject += `hit target price of ${formatNumber(alert.targetValue)}`;
     } else {
@@ -79,7 +89,45 @@ const sendAlertEmail = async (to, alert, cryptoData) => {
             alert.targetType === 'price' ? `Target price of ${formatNumber(alert.targetValue)}` :
             `${formatPercent(alert.targetValue)} change from ${formatNumber(alert.currentPrice)}`
           }</p>
-          <p><strong>Created:</strong> ${new Date(alert.createdAt).toLocaleString()}</p>
+          
+          ${alert.candleCondition !== 'NONE' ? `
+          <div style="margin-top: 15px; padding: 10px; background-color: #2d3748; border-radius: 4px;">
+            <h4 style="color: #3875d7; margin: 0 0 8px 0;">Candle Analysis</h4>
+            <p><strong>Timeframe:</strong> ${alert.candleTimeframe}</p>
+            <p><strong>Pattern:</strong> ${alert.candleCondition.replace(/_/g, ' ')}</p>
+            ${technicalData.candle && technicalData.candle[alert.candleTimeframe] ? `
+            <p><strong>OHLC:</strong> 
+              O: ${formatNumber(technicalData.candle[alert.candleTimeframe].open)}, 
+              H: ${formatNumber(technicalData.candle[alert.candleTimeframe].high)}, 
+              L: ${formatNumber(technicalData.candle[alert.candleTimeframe].low)}, 
+              C: ${formatNumber(technicalData.candle[alert.candleTimeframe].close)}
+            </p>
+            ` : ''}
+          </div>
+          ` : ''}
+          
+          ${alert.rsiEnabled ? `
+          <div style="margin-top: 15px; padding: 10px; background-color: #2d3748; border-radius: 4px;">
+            <h4 style="color: #3875d7; margin: 0 0 8px 0;">RSI Analysis</h4>
+            <p><strong>Timeframe:</strong> ${alert.rsiTimeframe}</p>
+            <p><strong>Condition:</strong> ${alert.rsiCondition} ${alert.rsiLevel}</p>
+            ${technicalData.rsi && technicalData.rsi[alert.rsiTimeframe] ? `
+            <p><strong>Current RSI:</strong> ${technicalData.rsi[alert.rsiTimeframe].toFixed(2)}</p>
+            ` : ''}
+          </div>
+          ` : ''}
+          
+          ${alert.emaEnabled ? `
+          <div style="margin-top: 15px; padding: 10px; background-color: #2d3748; border-radius: 4px;">
+            <h4 style="color: #3875d7; margin: 0 0 8px 0;">EMA Analysis</h4>
+            <p><strong>Timeframe:</strong> ${alert.emaTimeframe}</p>
+            <p><strong>Fast EMA (${alert.emaFastPeriod}):</strong> ${technicalData.ema && technicalData.ema[alert.emaTimeframe] ? formatNumber(technicalData.ema[alert.emaTimeframe][alert.emaFastPeriod]) : 'N/A'}</p>
+            <p><strong>Slow EMA (${alert.emaSlowPeriod}):</strong> ${technicalData.ema && technicalData.ema[alert.emaTimeframe] ? formatNumber(technicalData.ema[alert.emaTimeframe][alert.emaSlowPeriod]) : 'N/A'}</p>
+            <p><strong>Condition:</strong> ${alert.emaCondition.replace(/_/g, ' ')}</p>
+          </div>
+          ` : ''}
+          
+          <p style="margin-top: 15px;"><strong>Created:</strong> ${new Date(alert.createdAt).toLocaleString()}</p>
         </div>
         <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #8c8c8c;">
           <p>This is an automated alert from your Binance Alerts system.</p>
@@ -88,6 +136,7 @@ const sendAlertEmail = async (to, alert, cryptoData) => {
     `;
     
     // Send email
+    console.log(`Sending email alert to ${to} for ${alert.symbol}`);
     const info = await transporter.sendMail({
       from: `"Binance Alerts" <${process.env.EMAIL_USERNAME}>`,
       to,
@@ -95,6 +144,7 @@ const sendAlertEmail = async (to, alert, cryptoData) => {
       html,
     });
     
+    console.log(`Email sent successfully to ${to}:`, info.messageId);
     return info;
   } catch (error) {
     console.error('Error sending email:', error);

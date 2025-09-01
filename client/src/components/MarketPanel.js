@@ -78,23 +78,13 @@ const MarketPanel = ({ onSelectCoin }) => {
 
   /* Filter functionality is handled directly in the component through the context */
 
-  // Only load initial data if no cryptos exist yet (prevent duplicate requests)
+  // Load initial data based on spot filter
   useEffect(() => {
-    // Only fetch if we don't have any cryptos data yet
-    if (!cryptos || cryptos.length === 0) {
-      console.log('MarketPanel: No crypto data found, requesting initial load');
-      loadCryptos(1, 50, true, true)
-        .then(result => {
-          console.log('Initial crypto loading succeeded:', result);
-        })
-        .catch(err => {
-          console.error('Failed to load initial cryptos:', err);
-        });
-    } else {
-      console.log('MarketPanel: Crypto data already available, skipping duplicate request');
-    }
-  }, []); // Remove dependencies to prevent re-fetching on every filter change
-  
+    const spotOnly = filters.market?.SPOT || false;
+    console.log('MarketPanel: Loading cryptos with spotOnly =', spotOnly);
+    loadCryptos(1, 50, true, false, spotOnly);
+  }, [loadCryptos, filters.market?.SPOT]);
+
   // Filter and sort cryptos based on view and search term
   useEffect(() => {
     if (!cryptos) {
@@ -296,7 +286,8 @@ const MarketPanel = ({ onSelectCoin }) => {
                             size="small"
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleFavorite(crypto.symbol);
+                              // Pass current filter conditions when adding to favorites
+                              toggleFavorite(crypto.symbol, filters);
                             }}
                             sx={{ p: 0.5 }}
                           >

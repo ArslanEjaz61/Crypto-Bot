@@ -18,11 +18,6 @@ export const FilterProvider = ({ children }) => {
     // Min. Daily Section
     minDaily: { '10K': true },
     
-    // Volume Section
-    volume: { min: '0' },
-    
-    // Display Chart Section
-    displayChart: { '1HR': true },
     
     // Change % Section
     changePercent: { '1MIN': true },
@@ -47,8 +42,6 @@ export const FilterProvider = ({ children }) => {
     emaSlow: '26',
     emaCondition: 'CROSSING UP',
     
-    // Volume Spike Section
-    volumeSpikeK: '2'
   });
 
   // Apply filters to data
@@ -101,12 +94,6 @@ export const FilterProvider = ({ children }) => {
         }
       }
 
-      // Volume Min Filter
-      if (filters.volume?.min && parseFloat(filters.volume.min) > 0) {
-        if (item.volume < parseFloat(filters.volume.min)) {
-          return false;
-        }
-      }
 
       // RSI Range Filter
       if (filters.rsiRange && Object.keys(filters.rsiRange).some(timeframe => filters.rsiRange[timeframe])) {
@@ -168,15 +155,6 @@ export const FilterProvider = ({ children }) => {
         if (!hasValidEMA) return false;
       }
 
-      // Volume Spike Filter
-      if (filters.volumeSpikeK && parseFloat(filters.volumeSpikeK) > 0) {
-        const k = parseFloat(filters.volumeSpikeK);
-        const avgVolume = item.avgVolume || 0;
-        
-        if (item.volume < avgVolume * k) {
-          return false;
-        }
-      }
 
       // Add more filters as needed for candles, alert count, etc.
 
@@ -188,10 +166,6 @@ export const FilterProvider = ({ children }) => {
   const getValidationFilters = useCallback(() => {
     const validationFilters = {};
     
-    // Volume filter
-    if (filters.volume?.min) {
-      validationFilters.volume = { min: filters.volume.min };
-    }
     
     // RSI Range filter
     if (filters.rsiRange && Object.keys(filters.rsiRange).some(tf => filters.rsiRange[tf])) {

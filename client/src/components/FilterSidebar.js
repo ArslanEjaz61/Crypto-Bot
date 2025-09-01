@@ -17,7 +17,8 @@ import {
   Paper,
   styled,
   useMediaQuery,
-  useTheme
+  useTheme,
+  MenuItem
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
@@ -228,13 +229,12 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose 
   // Fallback to context if props not supplied
   filters = filters || ctxFilters;
   setFilters = setFilters || setCtxFilters;
-  // Handle checkbox change
+  // Handle checkbox change - single selection only (radio button behavior)
   const handleCheckboxChange = (category, value) => {
     setFilters(prev => ({
       ...prev,
       [category]: {
-        ...prev[category],
-        [value]: !prev[category]?.[value]
+        [value]: true // Only set the selected value to true, all others will be undefined/false
       }
     }));
   };
@@ -314,7 +314,22 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose 
         email: 'test@example.com',
         // Candle
         candleTimeframe,
-        candleCondition: (filters.candleCondition === 'Candle Below Open') ? 'BELOW_OPEN' : (filters.candleCondition === 'Candle Above Open') ? 'ABOVE_OPEN' : 'NONE',
+        candleCondition: (() => {
+          const condition = filters.candleCondition || 'NONE';
+          const conditionMap = {
+            'Candle Above Open': 'ABOVE_OPEN',
+            'Candle Below Open': 'BELOW_OPEN',
+            'Green Candle': 'GREEN_CANDLE',
+            'Red Candle': 'RED_CANDLE',
+            'Bullish Hammer': 'BULLISH_HAMMER',
+            'Bearish Hammer': 'BEARISH_HAMMER',
+            'Doji': 'DOJI',
+            'Long Upper Wick': 'LONG_UPPER_WICK',
+            'Long Lower Wick': 'LONG_LOWER_WICK',
+            'None': 'NONE'
+          };
+          return conditionMap[condition] || 'NONE';
+        })(),
         // RSI
         rsiEnabled: Boolean(filters.rsiRange && Object.values(filters.rsiRange).some(Boolean)),
         rsiTimeframe,
@@ -327,9 +342,6 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose 
         emaFastPeriod: parseInt(filters.emaFast || '12', 10),
         emaSlowPeriod: parseInt(filters.emaSlow || '26', 10),
         emaCondition: (filters.emaCondition || 'CROSSING UP').replace(' ', '_'),
-        // Volume Spike
-        volumeEnabled: Boolean(filters.volumeSpikeK && parseFloat(filters.volumeSpikeK) > 0),
-        volumeSpikeMultiplier: parseFloat(filters.volumeSpikeK || '2'),
         // Market filters
         market,
         exchange,
@@ -580,90 +592,7 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose 
           </AccordionDetails>
         </DarkAccordion>
 
-        {/* Volume Section */}
-        <DarkAccordion defaultExpanded>
-          <CustomAccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls="volume-content"
-            id="volume-header"
-          >
-            <DarkTypography>Volume</DarkTypography>
-          </CustomAccordionSummary>
-          <AccordionDetails>
-                         <Box sx={{ 
-               display: 'flex', 
-               alignItems: 'center', 
-               gap: 0.5,
-               padding: '1px 0'
-             }}>
-              <DarkTypography variant="body2" sx={{ minWidth: '40px', fontSize: '13px' }}>Min</DarkTypography>
-              <DarkTextField 
-                size="small"
-                variant="outlined"
-                fullWidth
-                placeholder="0"
-                value={filters.volume?.min || ''}
-                onChange={(e) => handleTextChange('volume', { ...filters.volume, min: e.target.value })}
-              />
-            </Box>
-          </AccordionDetails>
-        </DarkAccordion>
 
-        {/* Display Chart */}
-        <DarkAccordion defaultExpanded>
-          <CustomAccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls="display-chart-content"
-            id="display-chart-header"
-          >
-            <DarkTypography>Display Chart</DarkTypography>
-          </CustomAccordionSummary>
-                     <AccordionDetails>
-             <Box sx={{ 
-               display: 'grid', 
-               gridTemplateColumns: '1fr 1fr', 
-               gap: 0.5,
-               padding: '1px 0'
-             }}>
-               <StyledFormControlLabel
-                 control={
-                   <CustomCheckbox 
-                     checked={filters.displayChart?.['1HR'] || false} 
-                     onChange={() => handleCheckboxChange('displayChart', '1HR')}
-                   />
-                 }
-                 label="1HR"
-               />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.displayChart?.['4HR'] || false} 
-                    onChange={() => handleCheckboxChange('displayChart', '4HR')}
-                  />
-                }
-                label="4HR"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.displayChart?.D || false} 
-                    onChange={() => handleCheckboxChange('displayChart', 'D')}
-                  />
-                }
-                label="D"
-              />
-              <StyledFormControlLabel
-                control={
-                  <CustomCheckbox 
-                    checked={filters.displayChart?.W || false} 
-                    onChange={() => handleCheckboxChange('displayChart', 'W')}
-                  />
-                }
-                label="W"
-              />
-            </Box>
-          </AccordionDetails>
-        </DarkAccordion>
 
         {/* Change % */}
         <DarkAccordion defaultExpanded>
@@ -869,12 +798,24 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose 
             <Box sx={{ mt: 1 }}>
               <DarkTypography variant="body2" gutterBottom>Condition:</DarkTypography>
               <DarkTextField 
+                select
                 size="small"
                 variant="outlined"
                 fullWidth
                 value={filters.candleCondition || 'Candle Above Open'}
                 onChange={(e) => handleTextChange('candleCondition', e.target.value)}
-              />
+              >
+                <MenuItem value="Candle Above Open">Candle Above Open</MenuItem>
+                <MenuItem value="Candle Below Open">Candle Below Open</MenuItem>
+                <MenuItem value="Green Candle">Green Candle (Close &gt; Open)</MenuItem>
+                <MenuItem value="Red Candle">Red Candle (Close &lt; Open)</MenuItem>
+                <MenuItem value="Bullish Hammer">Bullish Hammer</MenuItem>
+                <MenuItem value="Bearish Hammer">Bearish Hammer</MenuItem>
+                <MenuItem value="Doji">Doji (Open ≈ Close)</MenuItem>
+                <MenuItem value="Long Upper Wick">Long Upper Wick</MenuItem>
+                <MenuItem value="Long Lower Wick">Long Lower Wick</MenuItem>
+                <MenuItem value="None">None</MenuItem>
+              </DarkTextField>
             </Box>
           </AccordionDetails>
         </DarkAccordion>
@@ -1152,28 +1093,6 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose 
           </AccordionDetails>
         </DarkAccordion>
 
-        {/* Volume Spike */}
-        <DarkAccordion defaultExpanded>
-          <CustomAccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls="volume-spike-content"
-            id="volume-spike-header"
-          >
-            <DarkTypography>Volume Spike ≥ k x avg</DarkTypography>
-          </CustomAccordionSummary>
-          <AccordionDetails>
-                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <DarkTypography variant="body2">k =</DarkTypography>
-              <DarkTextField 
-                size="small"
-                variant="outlined"
-                value={filters.volumeSpikeK || '2'}
-                onChange={(e) => handleTextChange('volumeSpikeK', e.target.value)}
-                sx={{ width: '100px' }}
-              />
-            </Box>
-          </AccordionDetails>
-        </DarkAccordion>
 
         {/* Add New Alert Button */}
         <Box sx={{ mt: 3 }}>

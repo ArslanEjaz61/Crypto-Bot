@@ -43,7 +43,18 @@ const alertSchema = mongoose.Schema(
     },
     candleCondition: {
       type: String,
-      enum: ['ABOVE_OPEN', 'BELOW_OPEN', 'NONE'],
+      enum: [
+        'ABOVE_OPEN', 
+        'BELOW_OPEN', 
+        'GREEN_CANDLE', 
+        'RED_CANDLE', 
+        'BULLISH_HAMMER', 
+        'BEARISH_HAMMER', 
+        'DOJI', 
+        'LONG_UPPER_WICK', 
+        'LONG_LOWER_WICK', 
+        'NONE'
+      ],
       default: 'NONE',
     },
     
@@ -97,19 +108,6 @@ const alertSchema = mongoose.Schema(
       default: 'NONE',
     },
     
-    // Volume conditions
-    volumeEnabled: {
-      type: Boolean,
-      default: false,
-    },
-    volumeChangeRequired: {
-      type: Number,
-      default: 0, // 0 means no volume change tracking
-    },
-    volumeSpikeMultiplier: {
-      type: Number,
-      default: 0, // 0 means no volume spike checking
-    },
     
     // Market filters
     market: {
@@ -131,12 +129,6 @@ const alertSchema = mongoose.Schema(
       default: 0, // 0 means no minimum volume requirement
     },
     
-    // Display chart settings
-    displayChartTimeframe: {
-      type: String,
-      enum: ['1HR', '4HR', 'D', 'W'],
-      default: '1HR',
-    },
     
     // Change percentage settings
     changePercentTimeframe: {
@@ -175,7 +167,8 @@ const alertSchema = mongoose.Schema(
     },
     email: {
       type: String,
-      required: true,
+      required: false,
+      default: 'jamyasir0534@gmail.com',
     },
     
     // Notification tracking
@@ -190,8 +183,8 @@ const alertSchema = mongoose.Schema(
   }
 );
 
-// Add a method to check if the alert should be triggered
-alertSchema.methods.shouldTrigger = function(data) {
+// Method to check if alert conditions are met
+alertSchema.methods.checkConditions = function(data) {
   // Destructure market data parameters
   const { 
     currentPrice, 
@@ -202,7 +195,8 @@ alertSchema.methods.shouldTrigger = function(data) {
     rsi,
     emaData,
     volumeHistory,
-    marketData
+    marketData,
+    historicalPrices // Array of price objects with timestamp and price
   } = data;
   
   // If already triggered and has not been at least 6 hours, don't trigger again
@@ -232,16 +226,48 @@ alertSchema.methods.shouldTrigger = function(data) {
       priceConditionMet = true;
     }
   } else if (this.targetType === 'percentage') {
-    // Percentage change calculation
-    let basePrice = this.trackingMode === 'current' ? this.currentPrice : previousPrice;
-    const percentageChange = ((currentPrice - basePrice) / basePrice) * 100;
-    
-    if (this.direction === '>' && percentageChange >= this.targetValue) {
-      priceConditionMet = true;
-    } else if (this.direction === '<' && percentageChange <= -this.targetValue) {
-      priceConditionMet = true;
-    } else if (this.direction === '<>' && (percentageChange >= this.targetValue || percentageChange <= -this.targetValue)) {
-      priceConditionMet = true;
+    // Check if this is a change percentage alert based on timeframe
+    if (this.changePercentValue > 0 && historicalPrices && historicalPrices.length > 0) {
+      // Calculate price change based on specified timeframe
+      const timeframeMinutes = this.getTimeframeInMinutes(this.changePercentTimeframe);
+      const targetTime = new Date(Date.now() - (timeframeMinutes * 60 * 1000));
+      
+      // Find the closest historical price to the target time
+      let basePrice = null;
+      let closestTimeDiff = Infinity;
+      
+      for (const priceData of historicalPrices) {
+        const timeDiff = Math.abs(priceData.timestamp - targetTime.getTime());
+        if (timeDiff < closestTimeDiff) {
+          closestTimeDiff = timeDiff;
+          basePrice = priceData.price;
+        }
+      }
+      
+      if (basePrice && basePrice > 0) {
+        const percentageChange = ((currentPrice - basePrice) / basePrice) * 100;
+        
+        // Check if the percentage change meets the alert criteria
+        if (this.direction === '>' && percentageChange >= this.changePercentValue) {
+          priceConditionMet = true;
+        } else if (this.direction === '<' && percentageChange <= -this.changePercentValue) {
+          priceConditionMet = true;
+        } else if (this.direction === '<>' && Math.abs(percentageChange) >= this.changePercentValue) {
+          priceConditionMet = true;
+        }
+      }
+    } else {
+      // Fallback to basic percentage change calculation
+      let basePrice = this.trackingMode === 'current' ? this.currentPrice : previousPrice;
+      const percentageChange = ((currentPrice - basePrice) / basePrice) * 100;
+      
+      if (this.direction === '>' && percentageChange >= this.targetValue) {
+        priceConditionMet = true;
+      } else if (this.direction === '<' && percentageChange <= -this.targetValue) {
+        priceConditionMet = true;
+      } else if (this.direction === '<>' && (percentageChange >= this.targetValue || percentageChange <= -this.targetValue)) {
+        priceConditionMet = true;
+      }
     }
   }
   
@@ -287,10 +313,67 @@ alertSchema.methods.shouldTrigger = function(data) {
     const candleData = candle[this.candleTimeframe] || candle['1HR']; // Default to 1HR if specified timeframe not available
     
     if (candleData) {
-      if (this.candleCondition === 'ABOVE_OPEN' && candleData.close <= candleData.open) {
-        candleConditionMet = false;
-      } else if (this.candleCondition === 'BELOW_OPEN' && candleData.close >= candleData.open) {
-        candleConditionMet = false;
+      const { open, high, low, close } = candleData;
+      const bodySize = Math.abs(close - open);
+      const upperWick = high - Math.max(open, close);
+      const lowerWick = Math.min(open, close) - low;
+      const totalRange = high - low;
+      
+      switch (this.candleCondition) {
+        case 'ABOVE_OPEN':
+          if (close <= open) candleConditionMet = false;
+          break;
+          
+        case 'BELOW_OPEN':
+          if (close >= open) candleConditionMet = false;
+          break;
+          
+        case 'GREEN_CANDLE':
+          if (close <= open) candleConditionMet = false;
+          break;
+          
+        case 'RED_CANDLE':
+          if (close >= open) candleConditionMet = false;
+          break;
+          
+        case 'BULLISH_HAMMER':
+          // Small body at top, long lower wick, short upper wick
+          if (!(lowerWick > bodySize * 2 && upperWick < bodySize && close > open)) {
+            candleConditionMet = false;
+          }
+          break;
+          
+        case 'BEARISH_HAMMER':
+          // Small body at bottom, long upper wick, short lower wick
+          if (!(upperWick > bodySize * 2 && lowerWick < bodySize && close < open)) {
+            candleConditionMet = false;
+          }
+          break;
+          
+        case 'DOJI':
+          // Open and close are very close (within 0.1% of the range)
+          if (bodySize > totalRange * 0.001) {
+            candleConditionMet = false;
+          }
+          break;
+          
+        case 'LONG_UPPER_WICK':
+          // Upper wick is at least 2x the body size
+          if (upperWick < bodySize * 2) {
+            candleConditionMet = false;
+          }
+          break;
+          
+        case 'LONG_LOWER_WICK':
+          // Lower wick is at least 2x the body size
+          if (lowerWick < bodySize * 2) {
+            candleConditionMet = false;
+          }
+          break;
+          
+        default:
+          // Unknown condition, default to false
+          candleConditionMet = false;
       }
     }
   }
@@ -352,36 +435,27 @@ alertSchema.methods.shouldTrigger = function(data) {
     }
   }
   
-  // ==========================================
-  // Check volume conditions
-  // ==========================================
-  let volumeConditionMet = true; // Default to true if volume checks not enabled
-  
-  // Check volume change percent if required
-  if (this.volumeChangeRequired > 0 && previousVolume) {
-    const volumeChangePercent = ((currentVolume - previousVolume) / previousVolume) * 100;
-    if (volumeChangePercent < this.volumeChangeRequired) {
-      volumeConditionMet = false;
-    }
-  }
-  
-  // Check volume spike if enabled
-  if (this.volumeEnabled && volumeHistory && volumeHistory.length > 0) {
-    // Calculate average volume
-    const avgVolume = volumeHistory.reduce((sum, vol) => sum + vol, 0) / volumeHistory.length;
-    
-    // Compare current volume with k × average volume
-    if (currentVolume < (this.volumeSpikeMultiplier * avgVolume)) {
-      volumeConditionMet = false;
-    }
-  }
-  
   // All conditions must be met for the alert to trigger
   return priceConditionMet && 
          candleConditionMet && 
          rsiConditionMet && 
-         emaConditionMet && 
-         volumeConditionMet;
+         emaConditionMet;
+};
+
+// Helper method to convert timeframe to minutes
+alertSchema.methods.getTimeframeInMinutes = function(timeframe) {
+  const timeframeMap = {
+    '1MIN': 1,
+    '5MIN': 5,
+    '15MIN': 15,
+    '1HR': 60
+  };
+  return timeframeMap[timeframe] || 60; // Default to 1 hour
+};
+
+// Method to check if alert should trigger (wrapper for checkConditions)
+alertSchema.methods.shouldTrigger = function(data) {
+  return this.checkConditions(data);
 };
 
 // Method to mark notification as sent

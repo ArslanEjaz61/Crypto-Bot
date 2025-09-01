@@ -39,11 +39,34 @@ io.on('connection', (socket) => {
 // Make io accessible to our routes
 app.set('io', io);
 
-// Routes
-app.use('/api/crypto', require('./routes/cryptoRoutes'));
-app.use('/api/indicators', require('./routes/indicatorRoutes'));
-app.use('/api/alerts', require('./routes/alertRoutes'));
-app.use('/api/telegram', require('./routes/telegramRoutes'));
+// Routes - with error handling for each route registration
+try {
+  console.log('Registering routes...');
+  app.use('/api/crypto', require('./routes/cryptoRoutes'));
+  console.log('✓ Crypto routes registered');
+  
+  app.use('/api/alerts', require('./routes/alertRoutes'));
+  console.log('✓ Alert routes registered');
+  
+  app.use('/api/indicators', require('./routes/indicatorRoutes'));
+  console.log('✓ Indicator routes registered');
+  
+  app.use('/api/telegram', require('./routes/telegramRoutes'));
+  console.log('✓ Telegram routes registered');
+  
+  app.use('/api/notifications', require('./routes/notificationRoutes'));
+  console.log('✓ Notification routes registered');
+  
+  console.log('All routes registered successfully');
+} catch (error) {
+  console.error('Error registering routes:', error);
+  process.exit(1);
+}
+
+// Error handling middleware (must be after routes)
+const { notFound, errorHandler } = require('./utils/errorHandler');
+app.use(notFound);
+app.use(errorHandler);
 
 // Start cron jobs
 setupCronJobs(io);
