@@ -229,12 +229,13 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose 
   // Fallback to context if props not supplied
   filters = filters || ctxFilters;
   setFilters = setFilters || setCtxFilters;
-  // Handle checkbox change - single selection only (radio button behavior)
+  // Handle checkbox change - toggle behavior
   const handleCheckboxChange = (category, value) => {
     setFilters(prev => ({
       ...prev,
       [category]: {
-        [value]: true // Only set the selected value to true, all others will be undefined/false
+        ...prev[category],
+        [value]: !prev[category]?.[value] // Toggle the current value
       }
     }));
   };

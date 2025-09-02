@@ -161,22 +161,6 @@ const Header = () => {
           
           <Box sx={{ flexGrow: 1 }} />
           
-          {/* New Alert Button */}
-          <Button
-            variant="contained" 
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={handleCreateNew}
-            sx={{ 
-              mr: 2,
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 'medium',
-              px: 2
-            }}
-          >
-            New Alert
-          </Button>
           
           {/* Connection status indicator */}
           <Box 

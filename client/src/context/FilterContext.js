@@ -16,32 +16,31 @@ export const FilterProvider = ({ children }) => {
     pair: { USDT: true },
     
     // Min. Daily Section
-    minDaily: { '10K': true },
+    minDaily: { },
     
     
     // Change % Section
-    changePercent: { '1MIN': true },
+    changePercent: { },
     percentageValue: '',
     
     // Alert Count Section
-    alertCount: { '5MIN': true },
+    alertCount: { },
     
     // Candle Section
-    candle: { '5MIN': true },
+    candle: { },
     candleCondition: 'Candle Above Open',
     
     // RSI Range Section
-    rsiRange: { '1HR': true },
+    rsiRange: { },
     rsiPeriod: '14',
     rsiLevel: '70',
     rsiCondition: 'ABOVE',
     
     // EMA Section
-    ema: { '1HR': true },
+    ema: { },
     emaFast: '12',
     emaSlow: '26',
     emaCondition: 'CROSSING UP',
-    
   });
 
   // Apply filters to data
