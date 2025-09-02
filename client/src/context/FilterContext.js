@@ -15,32 +15,31 @@ export const FilterProvider = ({ children }) => {
     // Pair Section
     pair: { USDT: true },
     
-    // Min. Daily Section
-    minDaily: { },
+    // Min. Daily Section - Default to empty for null handling
+    minDaily: {},
     
+    // Change % Section - Default to empty for null handling
+    changePercent: {},
+    percentageValue: null,
     
-    // Change % Section
-    changePercent: { },
-    percentageValue: '',
-    
-    // Alert Count Section
-    alertCount: { },
+    // Alert Count Section - Default to empty for null handling
+    alertCount: {},
     
     // Candle Section
-    candle: { },
-    candleCondition: 'Candle Above Open',
+    candle: {},
+    candleCondition: 'NONE',
     
     // RSI Range Section
-    rsiRange: { },
-    rsiPeriod: '14',
-    rsiLevel: '70',
-    rsiCondition: 'ABOVE',
+    rsiRange: {},
+    rsiPeriod: null,
+    rsiLevel: null,
+    rsiCondition: 'NONE',
     
     // EMA Section
-    ema: { },
-    emaFast: '12',
-    emaSlow: '26',
-    emaCondition: 'CROSSING UP',
+    ema: {},
+    emaFast: null,
+    emaSlow: null,
+    emaCondition: 'NONE',
   });
 
   // Apply filters to data
@@ -68,7 +67,7 @@ export const FilterProvider = ({ children }) => {
         }
       }
 
-      // Min Daily Volume Filter
+      // Min Daily Volume Filter - Enhanced OHLCV integration
       if (filters.minDaily && Object.keys(filters.minDaily).some(volume => filters.minDaily[volume])) {
         const volumes = {
           '10K': 10000,
@@ -86,10 +85,30 @@ export const FilterProvider = ({ children }) => {
           .filter(vol => filters.minDaily[vol])
           .map(vol => volumes[vol]);
         
-        const minVolume = Math.min(...selectedVolumes);
+        if (selectedVolumes.length > 0) {
+          const minVolume = Math.min(...selectedVolumes);
+          // Use both volume and quoteVolume from OHLCV data
+          const itemVolume = item.volume || item.quoteVolume || 0;
+          if (itemVolume < minVolume) {
+            return false;
+          }
+        }
+      }
+
+      // Change % Filter - Enhanced with OHLCV price change calculation
+      if (filters.changePercent && Object.keys(filters.changePercent).some(tf => filters.changePercent[tf]) && filters.percentageValue) {
+        const timeframes = Object.keys(filters.changePercent).filter(tf => filters.changePercent[tf]);
+        const targetPercentage = parseFloat(filters.percentageValue);
         
-        if (item.volume < minVolume) {
-          return false;
+        if (timeframes.length > 0 && !isNaN(targetPercentage)) {
+          // Check if price change meets the percentage requirement for any selected timeframe
+          const hasValidChange = timeframes.some(timeframe => {
+            const changeKey = `priceChangePercent_${timeframe.toLowerCase()}`;
+            const priceChange = parseFloat(item[changeKey] || item.priceChangePercent || 0);
+            return Math.abs(priceChange) >= Math.abs(targetPercentage);
+          });
+          
+          if (!hasValidChange) return false;
         }
       }
 
@@ -165,42 +184,157 @@ export const FilterProvider = ({ children }) => {
   const getValidationFilters = useCallback(() => {
     const validationFilters = {};
     
+    // Min Daily Volume filter - OHLCV integration
+    if (filters.minDaily && Object.keys(filters.minDaily).some(vol => filters.minDaily[vol])) {
+      const volumes = {
+        '10K': 10000,
+        '100K': 100000,
+        '500K': 500000,
+        '1MN': 1000000,
+        '2MN': 2000000,
+        '5MN': 5000000,
+        '10MN': 10000000,
+        '25MN': 25000000,
+        '50MN_PLUS': 50000000
+      };
+      
+      const selectedVolumes = Object.keys(filters.minDaily)
+        .filter(vol => filters.minDaily[vol])
+        .map(vol => volumes[vol]);
+      
+      if (selectedVolumes.length > 0) {
+        validationFilters.minDailyVolume = Math.min(...selectedVolumes);
+      } else {
+        validationFilters.minDailyVolume = 0; // Default to 0 if none selected
+      }
+    } else {
+      validationFilters.minDailyVolume = 0; // Default to 0 if section not used
+    }
     
-    // RSI Range filter
-    if (filters.rsiRange && Object.keys(filters.rsiRange).some(tf => filters.rsiRange[tf])) {
+    // Change % filter - OHLCV price change integration
+    if (filters.changePercent && Object.keys(filters.changePercent).some(tf => filters.changePercent[tf]) && filters.percentageValue) {
+      const timeframes = Object.keys(filters.changePercent).filter(tf => filters.changePercent[tf]);
+      const percentageVal = parseFloat(filters.percentageValue);
+      if (timeframes.length > 0 && !isNaN(percentageVal)) {
+        validationFilters.change = {
+          timeframe: timeframes[0],
+          percentage: percentageVal
+        };
+      } else {
+        validationFilters.change = { timeframe: null, percentage: 0 };
+      }
+    } else {
+      validationFilters.change = { timeframe: null, percentage: 0 };
+    }
+    
+    // Alert Count filter - Timeframe-based alert frequency
+    if (filters.alertCount && Object.keys(filters.alertCount).some(tf => filters.alertCount[tf])) {
+      const timeframes = Object.keys(filters.alertCount).filter(tf => filters.alertCount[tf]);
+      if (timeframes.length > 0) {
+        validationFilters.alertCount = {
+          timeframe: timeframes[0],
+          enabled: true
+        };
+      } else {
+        validationFilters.alertCount = { timeframe: null, enabled: false };
+      }
+    } else {
+      validationFilters.alertCount = { timeframe: null, enabled: false };
+    }
+    
+    // RSI Range filter - Set to null if not selected
+    if (filters.rsiRange && Object.keys(filters.rsiRange).some(tf => filters.rsiRange[tf]) && filters.rsiPeriod && filters.rsiLevel) {
       const timeframes = Object.keys(filters.rsiRange).filter(tf => filters.rsiRange[tf]);
       if (timeframes.length > 0) {
         validationFilters.rsi = {
           timeframe: timeframes[0].toLowerCase(),
-          period: filters.rsiPeriod,
-          [filters.rsiCondition === 'ABOVE' ? 'min' : 'max']: filters.rsiLevel
+          period: parseInt(filters.rsiPeriod) || 14,
+          level: parseInt(filters.rsiLevel) || 70,
+          condition: filters.rsiCondition || 'NONE'
         };
+      } else {
+        validationFilters.rsi = null;
       }
+    } else {
+      validationFilters.rsi = null;
     }
     
-    // Change % filter
-    if (filters.changePercent && Object.keys(filters.changePercent).some(tf => filters.changePercent[tf])) {
-      const timeframes = Object.keys(filters.changePercent).filter(tf => filters.changePercent[tf]);
-      if (timeframes.length > 0 && filters.percentageValue) {
-        validationFilters.change = {
-          timeframe: timeframes[0],
-          min: parseFloat(filters.percentageValue)
+    // EMA filter - Set to null if not selected
+    if (filters.ema && Object.keys(filters.ema).some(tf => filters.ema[tf]) && filters.emaFast && filters.emaSlow) {
+      const timeframes = Object.keys(filters.ema).filter(tf => filters.ema[tf]);
+      if (timeframes.length > 0) {
+        validationFilters.ema = {
+          timeframe: timeframes[0].toLowerCase(),
+          fastPeriod: parseInt(filters.emaFast) || 12,
+          slowPeriod: parseInt(filters.emaSlow) || 26,
+          condition: filters.emaCondition || 'NONE'
         };
+      } else {
+        validationFilters.ema = null;
       }
+    } else {
+      validationFilters.ema = null;
     }
     
     return validationFilters;
   }, [filters]);
   
-  // Check if any filter is active
+  // Check if any filter is active (excluding always-active defaults)
   const hasActiveFilters = useMemo(() => {
+    const excludeDefaults = ['market', 'exchange', 'pair']; // Always active defaults
     return Object.keys(filters).some(key => {
+      if (excludeDefaults.includes(key)) return false;
+      
       const filter = filters[key];
-      if (typeof filter === 'object') {
+      if (typeof filter === 'object' && filter !== null) {
         return Object.values(filter).some(val => val === true);
       }
-      return false;
+      if (typeof filter === 'string' && filter !== '' && filter !== 'NONE') {
+        return true;
+      }
+      return filter !== null && filter !== 0 && filter !== '';
     });
+  }, [filters]);
+  
+  // Helper function to get selected filter values with null defaults
+  const getFilterValues = useCallback(() => {
+    const getValue = (sectionObj) => {
+      if (!sectionObj || typeof sectionObj !== 'object') return null;
+      const selectedKeys = Object.keys(sectionObj).filter(k => sectionObj[k]);
+      return selectedKeys.length > 0 ? selectedKeys[0] : null;
+    };
+    
+    return {
+      minDailyVolume: (() => {
+        const volumes = {
+          '10K': 10000, '100K': 100000, '500K': 500000, '1MN': 1000000,
+          '2MN': 2000000, '5MN': 5000000, '10MN': 10000000, '25MN': 25000000,
+          '50MN_PLUS': 50000000
+        };
+        const selected = getValue(filters.minDaily);
+        return selected ? volumes[selected] : 0;
+      })(),
+      changePercent: {
+        timeframe: getValue(filters.changePercent),
+        percentage: filters.percentageValue ? parseFloat(filters.percentageValue) : 0
+      },
+      alertCount: {
+        timeframe: getValue(filters.alertCount),
+        enabled: Boolean(getValue(filters.alertCount))
+      },
+      rsi: filters.rsiPeriod && filters.rsiLevel ? {
+        timeframe: getValue(filters.rsiRange),
+        period: parseInt(filters.rsiPeriod) || 0,
+        level: parseInt(filters.rsiLevel) || 0,
+        condition: filters.rsiCondition || 'NONE'
+      } : null,
+      ema: filters.emaFast && filters.emaSlow ? {
+        timeframe: getValue(filters.ema),
+        fastPeriod: parseInt(filters.emaFast) || 0,
+        slowPeriod: parseInt(filters.emaSlow) || 0,
+        condition: filters.emaCondition || 'NONE'
+      } : null
+    };
   }, [filters]);
 
   return (
@@ -210,7 +344,8 @@ export const FilterProvider = ({ children }) => {
         setFilters, 
         applyFilters, 
         getValidationFilters,
-        hasActiveFilters 
+        hasActiveFilters,
+        getFilterValues
       }}
     >
       {children}

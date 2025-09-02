@@ -220,7 +220,7 @@ const DarkTypography = styled(Typography)({
 });
 
 const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose }) => {
-  const { filters: ctxFilters, setFilters: setCtxFilters } = useFilters();
+  const { filters: ctxFilters, setFilters: setCtxFilters, getFilterValues } = useFilters();
   const { createAlert } = useAlert();
   const { showNotification } = useSocket();
   const theme = useTheme();
@@ -270,52 +270,58 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose 
       const pad = (n) => n.toString().padStart(2, '0');
       const alertTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
-      // Helpers to read first selected key from a section
+      // Get filter values with proper null/0 handling
+      const filterValues = getFilterValues();
+      
+      // Helpers to read first selected key from a section with null fallback
       const firstSelected = (sectionObj) => {
-        if (!sectionObj) return undefined;
+        if (!sectionObj || typeof sectionObj !== 'object') return null;
         const keys = Object.keys(sectionObj).filter((k) => sectionObj[k]);
-        return keys.length > 0 ? keys[0] : undefined;
+        return keys.length > 0 ? keys[0] : null;
       };
 
-      const market = firstSelected(filters.market) || 'ALL';
-      const exchange = firstSelected(filters.exchange) || 'ALL';
-      const tradingPair = firstSelected(filters.pair) || 'ALL';
-      const displayChartTimeframe = firstSelected(filters.displayChart) || '1HR';
-      const changePercentTimeframe = firstSelected(filters.changePercent) || '1MIN';
-      const alertCountTimeframe = firstSelected(filters.alertCount) || '5MIN';
-      const candleTimeframe = firstSelected(filters.candle) || '1HR';
-      const rsiTimeframe = firstSelected(filters.rsiRange) || '1HR';
-      const emaTimeframe = firstSelected(filters.ema) || '1HR';
-
-      const percentageValue = parseFloat(filters.percentageValue || '1');
-      const minDailyVolumeMap = {
-        '10K': 10000,
-        '100K': 100000,
-        '500K': 500000,
-        '1MN': 1000000,
-        '2MN': 2000000,
-        '5MN': 5000000,
-        '10MN': 10000000,
-        '25MN': 25000000,
-        '50MN_PLUS': 50000000,
-      };
-      const minDailyKey = firstSelected(filters.minDaily);
-      const minDailyVolume = minDailyKey ? (minDailyVolumeMap[minDailyKey] || 0) : 0;
+      const market = firstSelected(filters.market) || 'SPOT';
+      const exchange = firstSelected(filters.exchange) || 'BINANCE';
+      const tradingPair = firstSelected(filters.pair) || 'USDT';
+      
+      // Use filterValues for OHLCV-integrated data
+      const minDailyVolume = filterValues.minDailyVolume || 0;
+      const changePercentTimeframe = filterValues.changePercent.timeframe;
+      const changePercentValue = filterValues.changePercent.percentage || 0;
+      const alertCountTimeframe = filterValues.alertCount.timeframe;
+      const alertCountEnabled = filterValues.alertCount.enabled;
+      
+      // Technical indicators with null handling
+      const rsiConfig = filterValues.rsi;
+      const emaConfig = filterValues.ema;
+      const candleTimeframe = firstSelected(filters.candle) || null;
 
       const alertData = {
         symbol: selectedSymbol || 'BTCUSDT',
         direction: '>',
         targetType: 'percentage',
-        targetValue: isNaN(percentageValue) ? 1 : percentageValue,
+        targetValue: changePercentValue || 1, // Use filter percentage or default
         trackingMode: 'current',
         intervalMinutes: 60,
         volumeChangeRequired: 0,
         alertTime,
-        comment: '',
-        email: 'test@example.com',
-        // Candle
-        candleTimeframe,
-        candleCondition: (() => {
+        comment: `Alert created from filter: ${changePercentTimeframe || 'Manual'} timeframe`,
+        email: 'jamyasir0534@gmail.com', // Use your email from form
+        
+        // OHLCV-integrated Min Daily Volume
+        minDailyVolume,
+        
+        // OHLCV-integrated Change % with timeframe
+        changePercentTimeframe: changePercentTimeframe || null,
+        changePercentValue: changePercentValue || 0,
+        
+        // Alert Count configuration
+        alertCountTimeframe: alertCountTimeframe || null,
+        alertCountEnabled: alertCountEnabled || false,
+        
+        // Candle configuration - null if not selected
+        candleTimeframe: candleTimeframe || null,
+        candleCondition: candleTimeframe ? (() => {
           const condition = filters.candleCondition || 'NONE';
           const conditionMap = {
             'Candle Above Open': 'ABOVE_OPEN',
@@ -330,37 +336,60 @@ const FilterSidebar = ({ filters, setFilters, selectedSymbol, isMobile, onClose 
             'None': 'NONE'
           };
           return conditionMap[condition] || 'NONE';
-        })(),
-        // RSI
-        rsiEnabled: Boolean(filters.rsiRange && Object.values(filters.rsiRange).some(Boolean)),
-        rsiTimeframe,
-        rsiPeriod: parseInt(filters.rsiPeriod || '14', 10),
-        rsiCondition: (filters.rsiCondition || 'ABOVE').replace(' ', '_'),
-        rsiLevel: parseInt(filters.rsiLevel || '70', 10),
-        // EMA
-        emaEnabled: Boolean(filters.ema && Object.values(filters.ema).some(Boolean)),
-        emaTimeframe,
-        emaFastPeriod: parseInt(filters.emaFast || '12', 10),
-        emaSlowPeriod: parseInt(filters.emaSlow || '26', 10),
-        emaCondition: (filters.emaCondition || 'CROSSING UP').replace(' ', '_'),
-        // Market filters
+        })() : 'NONE',
+        
+        // RSI configuration - null if not selected
+        rsiEnabled: Boolean(rsiConfig),
+        rsiTimeframe: rsiConfig?.timeframe || null,
+        rsiPeriod: rsiConfig?.period || 0,
+        rsiCondition: rsiConfig?.condition?.replace(' ', '_') || 'NONE',
+        rsiLevel: rsiConfig?.level || 0,
+        
+        // EMA configuration - null if not selected
+        emaEnabled: Boolean(emaConfig),
+        emaTimeframe: emaConfig?.timeframe || null,
+        emaFastPeriod: emaConfig?.fastPeriod || 0,
+        emaSlowPeriod: emaConfig?.slowPeriod || 0,
+        emaCondition: emaConfig?.condition?.replace(' ', '_') || 'NONE',
+        
+        // Market filters (always active)
         market,
         exchange,
         tradingPair,
-        minDailyVolume,
-        // Extra fields used by model but not set in UI
-        displayChartTimeframe,
-        changePercentTimeframe,
-        changePercentValue: isNaN(percentageValue) ? 0 : percentageValue,
-        alertCountTimeframe,
       };
 
+      // Validate that essential data is present
+      if (!selectedSymbol) {
+        showNotification('Please select a trading pair first', 'error');
+        return;
+      }
+      
+      if (changePercentValue === 0 && !rsiConfig && !emaConfig && !candleTimeframe) {
+        showNotification('Please set at least one condition (Change %, RSI, EMA, or Candle)', 'warning');
+        return;
+      }
+      
+      console.log('Creating alert with OHLCV data:', {
+        symbol: alertData.symbol,
+        minDailyVolume: alertData.minDailyVolume,
+        changePercent: { timeframe: alertData.changePercentTimeframe, value: alertData.changePercentValue },
+        alertCount: { timeframe: alertData.alertCountTimeframe, enabled: alertData.alertCountEnabled },
+        rsi: rsiConfig,
+        ema: emaConfig
+      });
+      
       const created = await createAlert(alertData);
-      showNotification('Alert created successfully', 'success');
+      showNotification(`Alert created for ${alertData.symbol} with ${alertData.changePercentValue}% trigger`, 'success');
       eventBus.emit('ALERT_CREATED', created);
+      
+      // Reset percentage value after successful creation
+      setFilters(prev => ({
+        ...prev,
+        percentageValue: null
+      }));
     } catch (err) {
       console.error('Failed to create alert from sidebar:', err);
-      showNotification('Error creating alert', 'error');
+      showNotification(`Error creating alert: ${err.message || 'Unknown error'}`, 'error');
     }
   };
 

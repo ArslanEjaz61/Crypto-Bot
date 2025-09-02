@@ -32,42 +32,39 @@ const CreateAlertForm = ({ onSuccess }) => {
   const { cryptos, filteredCryptos, updateFilter } = useCrypto();
   const { showNotification } = useSocket();
 
-  // Form state
+  // Form state with optimal defaults for reliable triggering
   const [formValues, setFormValues] = useState({
     symbol: '',
     direction: '>',
     targetType: 'price',
     targetValue: '',
-    trackingMode: 'current',
-    intervalMinutes: 60,
-    timeframe: '1h',
-    volumeChangeRequired: 0,
     alertTime: new Date(),
     comment: '',
-    email: '',
-    // Candle section
+    email: 'jamyasir0534@gmail.com',
+    
+    // OPTIMAL DEFAULTS - These ensure alerts actually trigger
+    trackingMode: 'current',
     candleTimeframe: '1HR',
-    candleCondition: 'NONE',
-    // RSI section
-    rsiEnabled: false,
+    candleCondition: 'NONE',        // ← CRITICAL: No blocking conditions
+    rsiEnabled: false,              // ← CRITICAL: Disabled by default
+    emaEnabled: false,              // ← CRITICAL: Disabled by default
+    volumeEnabled: false,           // ← CRITICAL: Disabled by default
+    
+    // Hidden/simplified settings
+    intervalMinutes: 60,
+    volumeChangeRequired: 0,
     rsiTimeframe: '1HR',
     rsiPeriod: 14,
     rsiCondition: 'NONE',
     rsiLevel: 70,
-    // EMA section
-    emaEnabled: false,
     emaTimeframe: '1HR',
     emaFastPeriod: 12,
     emaSlowPeriod: 26,
     emaCondition: 'NONE',
-    // Volume Spike section
-    volumeEnabled: false,
     volumeSpikeMultiplier: 2.0,
-    // Market filters
-    market: 'ALL',
-    exchange: 'ALL',
-    tradingPair: 'ALL',
-    // Min Daily Volume
+    market: 'SPOT',
+    exchange: 'BINANCE',
+    tradingPair: 'USDT',
     minDailyVolume: 0,
   });
   
@@ -289,40 +286,39 @@ const CreateAlertForm = ({ onSuccess }) => {
         onSuccess();
       }
       
-      // Reset form
+      // Reset form with optimal defaults
       setFormValues({
         symbol: '',
         direction: '>',
         targetType: 'price',
         targetValue: '',
-        trackingMode: 'current',
-        intervalMinutes: 60,
-        volumeChangeRequired: 0,
         alertTime: new Date(),
         comment: '',
-        email: '',
-        // Reset Candle section
+        email: 'jamyasir0534@gmail.com',
+        
+        // OPTIMAL DEFAULTS - Reset to reliable settings
+        trackingMode: 'current',
         candleTimeframe: '1HR',
-        candleCondition: 'NONE',
-        // Reset RSI section
-        rsiEnabled: false,
+        candleCondition: 'NONE',        // ← CRITICAL: No blocking conditions
+        rsiEnabled: false,              // ← CRITICAL: Disabled by default
+        emaEnabled: false,              // ← CRITICAL: Disabled by default
+        volumeEnabled: false,           // ← CRITICAL: Disabled by default
+        
+        // Hidden/simplified settings
+        intervalMinutes: 60,
+        volumeChangeRequired: 0,
         rsiTimeframe: '1HR',
         rsiPeriod: 14,
         rsiCondition: 'NONE',
         rsiLevel: 70,
-        // Reset EMA section
-        emaEnabled: false,
         emaTimeframe: '1HR',
         emaFastPeriod: 12,
         emaSlowPeriod: 26,
         emaCondition: 'NONE',
-        // Reset Volume Spike section
-        volumeEnabled: false,
         volumeSpikeMultiplier: 2.0,
-        // Reset Market filters
-        market: 'ALL',
-        exchange: 'ALL',
-        tradingPair: 'ALL',
+        market: 'SPOT',
+        exchange: 'BINANCE',
+        tradingPair: 'USDT',
         minDailyVolume: 0,
       });
     } catch (error) {
@@ -440,56 +436,75 @@ const CreateAlertForm = ({ onSuccess }) => {
           {/* Right column - Alert configuration */}
           <Grid item xs={12} md={8}>
             <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Alert Configuration
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                🚨 Create Price Alert
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                Get notified when your selected crypto reaches your target price
               </Typography>
               
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="Symbol"
+                    label="Trading Pair Symbol"
                     name="symbol"
                     value={formValues.symbol}
                     onChange={handleChange}
                     error={Boolean(errors.symbol)}
-                    helperText={errors.symbol}
+                    helperText={errors.symbol || "Select a trading pair from the list on the left"}
+                    placeholder="e.g., BTCUSDT"
                     required
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold'
+                      }
+                    }}
                   />
                 </Grid>
                 
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
-                    <InputLabel id="direction-label">Direction</InputLabel>
+                    <InputLabel id="direction-label">Alert When Price Goes</InputLabel>
                     <Select
                       labelId="direction-label"
                       name="direction"
                       value={formValues.direction}
                       onChange={handleChange}
-                      label="Direction"
+                      label="Alert When Price Goes"
+                      sx={{ 
+                        '& .MuiSelect-select': {
+                          display: 'flex',
+                          alignItems: 'center',
+                          fontSize: '1rem'
+                        }
+                      }}
                     >
-                      <MenuItem value=">">Price Up ↑</MenuItem>
-                      <MenuItem value="<">Price Down ↓</MenuItem>
-                      <MenuItem value="<>">Either Way ↕</MenuItem>
+                      <MenuItem value=">">📈 Above Target (Bullish)</MenuItem>
+                      <MenuItem value="<">📉 Below Target (Bearish)</MenuItem>
+                      <MenuItem value="<>">⚡ Either Direction</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
                 
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
-                    <InputLabel id="target-type-label">Target Type</InputLabel>
+                    <InputLabel id="target-type-label">Alert Type</InputLabel>
                     <Select
                       labelId="target-type-label"
                       name="targetType"
                       value={formValues.targetType}
                       onChange={handleChange}
-                      label="Target Type"
+                      label="Alert Type"
                     >
-                      <MenuItem value="price">Price</MenuItem>
-                      <MenuItem value="percentage">Percentage</MenuItem>
+                      <MenuItem value="price">💰 Specific Price Level</MenuItem>
+                      <MenuItem value="percentage">📊 Percentage Change</MenuItem>
                     </Select>
                     <FormHelperText>
-                      {formValues.targetType === 'price' ? 'Absolute price level' : 'Percentage change from base price'}
+                      {formValues.targetType === 'price' ? 
+                        '🎯 Alert when price reaches exact USDT value' : 
+                        '📈 Alert when price changes by percentage'}
                     </FormHelperText>
                   </FormControl>
                 </Grid>
@@ -497,577 +512,182 @@ const CreateAlertForm = ({ onSuccess }) => {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Target Value"
+                    label={formValues.targetType === 'price' ? '🎯 Target Price' : '📊 Target Percentage'}
                     name="targetValue"
                     type="number"
                     value={formValues.targetValue}
                     onChange={handleChange}
                     error={Boolean(errors.targetValue)}
-                    helperText={errors.targetValue || (formValues.targetType === 'price' ? 'Price in USDT' : 'Percentage change')}
+                    helperText={
+                      errors.targetValue || 
+                      (formValues.targetType === 'price' ? 
+                        `💡 Current ${formValues.symbol} price: ${basePrice.toFixed(2)} USDT` : 
+                        '📈 Percentage change (e.g., 5 = 5% increase)')
+                    }
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
-                          {formValues.targetType === 'price' ? 'USDT' : '%'}
+                          <Typography sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                            {formValues.targetType === 'price' ? '$' : '%'}
+                          </Typography>
                         </InputAdornment>
                       ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold'
+                      }
                     }}
                     required
                   />
                 </Grid>
                 
-                {/* Predefined values based on target type */}
+                {/* Quick Setup Options */}
                 <Grid item xs={12}>
-                  {formValues.targetType === 'price' ? (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="caption" display="block" gutterBottom>
-                        Predefined Price Options:
-                      </Typography>
-                      <ButtonGroup variant="outlined" size="small" sx={{ flexWrap: 'wrap' }}>
-                        <Button onClick={() => handlePredefinedPrice('original')}>
-                          Current
-                        </Button>
-                        <Button onClick={() => handlePredefinedPrice('5percent_up')}>
-                          +5%
-                        </Button>
-                        <Button onClick={() => handlePredefinedPrice('5percent_down')}>
-                          -5%
-                        </Button>
-                        <Button onClick={() => handlePredefinedPrice('10percent_up')}>
-                          +10%
-                        </Button>
-                        <Button onClick={() => handlePredefinedPrice('10percent_down')}>
-                          -10%
-                        </Button>
-                      </ButtonGroup>
-                    </Box>
-                  ) : (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="caption" display="block" gutterBottom>
-                        Predefined Percentages:
-                      </Typography>
+                  <Paper sx={{ p: 2, backgroundColor: 'action.hover', borderRadius: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                      ⚡ Quick Setup
+                    </Typography>
+                    {formValues.targetType === 'price' ? (
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {predefinedPercentages.map((percentage) => (
+                        <Button 
+                          variant={formValues.targetValue === basePrice.toString() ? 'contained' : 'outlined'}
+                          size="small" 
+                          onClick={() => handlePredefinedPrice('original')}
+                        >
+                          Current: ${basePrice.toFixed(2)}
+                        </Button>
+                        <Button 
+                          variant="outlined" 
+                          size="small" 
+                          color="success"
+                          onClick={() => handlePredefinedPrice('5percent_up')}
+                        >
+                          📈 +5% (${(basePrice * 1.05).toFixed(2)})
+                        </Button>
+                        <Button 
+                          variant="outlined" 
+                          size="small" 
+                          color="error"
+                          onClick={() => handlePredefinedPrice('5percent_down')}
+                        >
+                          📉 -5% (${(basePrice * 0.95).toFixed(2)})
+                        </Button>
+                        <Button 
+                          variant="outlined" 
+                          size="small" 
+                          color="success"
+                          onClick={() => handlePredefinedPrice('10percent_up')}
+                        >
+                          📈 +10% (${(basePrice * 1.1).toFixed(2)})
+                        </Button>
+                        <Button 
+                          variant="outlined" 
+                          size="small" 
+                          color="error"
+                          onClick={() => handlePredefinedPrice('10percent_down')}
+                        >
+                          📉 -10% (${(basePrice * 0.9).toFixed(2)})
+                        </Button>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {[0.5, 1, 2, 3, 5, 10].map((percentage) => (
                           <Chip 
                             key={percentage}
                             label={`${percentage}%`}
                             onClick={() => handlePredefinedPercentage(percentage)}
                             color={formValues.targetValue === percentage.toString() ? 'primary' : 'default'}
                             sx={{ cursor: 'pointer' }}
+                            variant={formValues.targetValue === percentage.toString() ? 'filled' : 'outlined'}
                           />
                         ))}
                       </Box>
-                    </Box>
-                  )}
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1" gutterBottom>
-                    Candle Section
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="candle-timeframe-label">Candle Timeframe</InputLabel>
-                    <Select
-                      labelId="candle-timeframe-label"
-                      name="candleTimeframe"
-                      value={formValues.candleTimeframe}
-                      onChange={handleChange}
-                      label="Candle Timeframe"
-                    >
-                      <MenuItem value="5MIN">5 Minutes</MenuItem>
-                      <MenuItem value="15MIN">15 Minutes</MenuItem>
-                      <MenuItem value="1HR">1 Hour</MenuItem>
-                      <MenuItem value="4HR">4 Hours</MenuItem>
-                      <MenuItem value="12HR">12 Hours</MenuItem>
-                      <MenuItem value="D">1 Day</MenuItem>
-                      <MenuItem value="W">1 Week</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="candle-condition-label">Candle Condition</InputLabel>
-                    <Select
-                      labelId="candle-condition-label"
-                      name="candleCondition"
-                      value={formValues.candleCondition}
-                      onChange={handleChange}
-                      label="Candle Condition"
-                    >
-                      <MenuItem value="NONE">No Condition</MenuItem>
-                      <MenuItem value="ABOVE_OPEN">Candle Above Open</MenuItem>
-                      <MenuItem value="BELOW_OPEN">Candle Below Open</MenuItem>
-                    </Select>
-                    <FormHelperText>
-                      {formValues.candleCondition === 'ABOVE_OPEN' ? 
-                        'Current price must be above the candle open price' : 
-                        formValues.candleCondition === 'BELOW_OPEN' ?
-                        'Current price must be below the candle open price' :
-                        'No candle condition applied'}
-                    </FormHelperText>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1" gutterBottom>
-                    RSI Range Section
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={formValues.rsiEnabled}
-                        onChange={handleChange}
-                        name="rsiEnabled"
-                        color="primary"
-                      />
-                    }
-                    label="Enable RSI Condition"
-                  />
-                </Grid>
-                
-                {formValues.rsiEnabled && (
-                  <>
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel id="rsi-timeframe-label">RSI Timeframe</InputLabel>
-                        <Select
-                          labelId="rsi-timeframe-label"
-                          name="rsiTimeframe"
-                          value={formValues.rsiTimeframe}
-                          onChange={handleChange}
-                          label="RSI Timeframe"
-                        >
-                          <MenuItem value="5MIN">5 Minutes</MenuItem>
-                          <MenuItem value="15MIN">15 Minutes</MenuItem>
-                          <MenuItem value="1HR">1 Hour</MenuItem>
-                          <MenuItem value="4HR">4 Hours</MenuItem>
-                          <MenuItem value="12HR">12 Hours</MenuItem>
-                          <MenuItem value="D">1 Day</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="RSI Period"
-                        name="rsiPeriod"
-                        type="number"
-                        value={formValues.rsiPeriod}
-                        onChange={handleChange}
-                        InputProps={{
-                          inputProps: { min: 1, max: 100 }
-                        }}
-                        helperText="Typical values: 14, 21, 9"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel id="rsi-condition-label">RSI Condition</InputLabel>
-                        <Select
-                          labelId="rsi-condition-label"
-                          name="rsiCondition"
-                          value={formValues.rsiCondition}
-                          onChange={handleChange}
-                          label="RSI Condition"
-                        >
-                          <MenuItem value="NONE">No Condition</MenuItem>
-                          <MenuItem value="ABOVE">Above Level</MenuItem>
-                          <MenuItem value="BELOW">Below Level</MenuItem>
-                          <MenuItem value="CROSSING_UP">Crossing Up</MenuItem>
-                          <MenuItem value="CROSSING_DOWN">Crossing Down</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="RSI Level"
-                        name="rsiLevel"
-                        type="number"
-                        value={formValues.rsiLevel}
-                        onChange={handleChange}
-                        InputProps={{
-                          inputProps: { min: 1, max: 100 }
-                        }}
-                        helperText="Typical values: 30 (oversold), 70 (overbought)"
-                      />
-                    </Grid>
-                  </>
-                )}
-
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1" gutterBottom>
-                    EMA Fast/Slow Section
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={formValues.emaEnabled}
-                        onChange={handleChange}
-                        name="emaEnabled"
-                        color="primary"
-                      />
-                    }
-                    label="Enable EMA Fast/Slow Condition"
-                  />
-                </Grid>
-                
-                {formValues.emaEnabled && (
-                  <>
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel id="ema-timeframe-label">EMA Timeframe</InputLabel>
-                        <Select
-                          labelId="ema-timeframe-label"
-                          name="emaTimeframe"
-                          value={formValues.emaTimeframe}
-                          onChange={handleChange}
-                          label="EMA Timeframe"
-                        >
-                          <MenuItem value="5MIN">5 Minutes</MenuItem>
-                          <MenuItem value="15MIN">15 Minutes</MenuItem>
-                          <MenuItem value="1HR">1 Hour</MenuItem>
-                          <MenuItem value="4HR">4 Hours</MenuItem>
-                          <MenuItem value="12HR">12 Hours</MenuItem>
-                          <MenuItem value="D">1 Day</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel id="ema-condition-label">EMA Condition</InputLabel>
-                        <Select
-                          labelId="ema-condition-label"
-                          name="emaCondition"
-                          value={formValues.emaCondition}
-                          onChange={handleChange}
-                          label="EMA Condition"
-                        >
-                          <MenuItem value="NONE">No Condition</MenuItem>
-                          <MenuItem value="ABOVE">Fast Above Slow</MenuItem>
-                          <MenuItem value="BELOW">Fast Below Slow</MenuItem>
-                          <MenuItem value="CROSSING_UP">Fast Crossing Up</MenuItem>
-                          <MenuItem value="CROSSING_DOWN">Fast Crossing Down</MenuItem>
-                        </Select>
-                        <FormHelperText>
-                          {formValues.emaCondition === 'ABOVE' ? 
-                            'Fast EMA is above Slow EMA' : 
-                            formValues.emaCondition === 'BELOW' ?
-                            'Fast EMA is below Slow EMA' :
-                            formValues.emaCondition === 'CROSSING_UP' ?
-                            'Fast EMA is crossing above Slow EMA' :
-                            formValues.emaCondition === 'CROSSING_DOWN' ?
-                            'Fast EMA is crossing below Slow EMA' :
-                            'No EMA condition applied'}
-                        </FormHelperText>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Fast EMA Period"
-                        name="emaFastPeriod"
-                        type="number"
-                        value={formValues.emaFastPeriod}
-                        onChange={handleChange}
-                        InputProps={{
-                          inputProps: { min: 1, max: 200 }
-                        }}
-                        helperText="Typical values: 12, 9, 5"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Slow EMA Period"
-                        name="emaSlowPeriod"
-                        type="number"
-                        value={formValues.emaSlowPeriod}
-                        onChange={handleChange}
-                        InputProps={{
-                          inputProps: { min: 1, max: 200 }
-                        }}
-                        helperText="Typical values: 26, 21, 14"
-                      />
-                    </Grid>
-                  </>
-                )}
-
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1" gutterBottom>
-                    Volume Spike Section
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={formValues.volumeEnabled}
-                        onChange={handleChange}
-                        name="volumeEnabled"
-                        color="primary"
-                      />
-                    }
-                    label="Enable Volume Spike Condition"
-                  />
-                </Grid>
-
-                {formValues.volumeEnabled && (
-                  <>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Volume Spike Multiplier"
-                        name="volumeSpikeMultiplier"
-                        type="number"
-                        value={formValues.volumeSpikeMultiplier}
-                        onChange={handleChange}
-                        InputProps={{
-                          inputProps: { min: 1, max: 100, step: 0.1 }
-                        }}
-                        helperText="Trigger when volume is X times higher than average (e.g., 2.0 = twice the average)"
-                      />
-                    </Grid>
-                  </>
-                )}
-
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1" gutterBottom>
-                    Market Filters
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="market-label">Market Type</InputLabel>
-                    <Select
-                      labelId="market-label"
-                      name="market"
-                      value={formValues.market}
-                      onChange={handleChange}
-                      label="Market Type"
-                    >
-                      <MenuItem value="ALL">All Markets</MenuItem>
-                      <MenuItem value="SPOT">Spot</MenuItem>
-                      <MenuItem value="FUTURES">Futures</MenuItem>
-                      <MenuItem value="OPTIONS">Options</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="exchange-label">Exchange</InputLabel>
-                    <Select
-                      labelId="exchange-label"
-                      name="exchange"
-                      value={formValues.exchange}
-                      onChange={handleChange}
-                      label="Exchange"
-                    >
-                      <MenuItem value="ALL">All Exchanges</MenuItem>
-                      <MenuItem value="BINANCE">Binance</MenuItem>
-                      <MenuItem value="COINBASE">Coinbase</MenuItem>
-                      <MenuItem value="KUCOIN">KuCoin</MenuItem>
-                      <MenuItem value="BYBIT">Bybit</MenuItem>
-                      <MenuItem value="KRAKEN">Kraken</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="trading-pair-label">Trading Pair</InputLabel>
-                    <Select
-                      labelId="trading-pair-label"
-                      name="tradingPair"
-                      value={formValues.tradingPair}
-                      onChange={handleChange}
-                      label="Trading Pair"
-                    >
-                      <MenuItem value="ALL">All Pairs</MenuItem>
-                      <MenuItem value="BTC">BTC Pairs</MenuItem>
-                      <MenuItem value="ETH">ETH Pairs</MenuItem>
-                      <MenuItem value="USDT">USDT Pairs</MenuItem>
-                      <MenuItem value="USDC">USDC Pairs</MenuItem>
-                      <MenuItem value="BUSD">BUSD Pairs</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Min. Daily Volume (USD)"
-                    name="minDailyVolume"
-                    type="number"
-                    value={formValues.minDailyVolume}
-                    onChange={handleChange}
-                    InputProps={{
-                      inputProps: { min: 0 },
-                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                    }}
-                    helperText="Minimum 24h trading volume (0 = no minimum)"
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1" gutterBottom>
-                    Advanced Options
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="tracking-mode-label">Tracking Mode</InputLabel>
-                    <Select
-                      labelId="tracking-mode-label"
-                      name="trackingMode"
-                      value={formValues.trackingMode}
-                      onChange={handleChange}
-                      label="Tracking Mode"
-                    >
-                      <MenuItem value="current">Current Price</MenuItem>
-                      <MenuItem value="interval">Price at Interval</MenuItem>
-                    </Select>
-                    <FormHelperText>
-                      {formValues.trackingMode === 'current' ? 
-                        'Compare with current saved price' : 
-                        'Compare with price from X minutes ago'}
-                    </FormHelperText>
-                  </FormControl>
-                </Grid>
-                
-                {formValues.trackingMode === 'interval' && (
-                  <>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Interval (minutes)"
-                      name="intervalMinutes"
-                      type="number"
-                      value={formValues.intervalMinutes}
-                      onChange={handleChange}
-                      error={Boolean(errors.intervalMinutes)}
-                      helperText={errors.intervalMinutes}
-                      InputProps={{
-                        endAdornment: <InputAdornment position="end">min</InputAdornment>,
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" display="block" gutterBottom>
-                      Time Intervals:
-                    </Typography>
-                    <ToggleButtonGroup
-                      value={formValues.timeframe}
-                      exclusive
-                      onChange={handleTimeframeChange}
-                      size="small"
-                      sx={{ flexWrap: 'wrap' }}
-                    >
-                      {predefinedTimeframes.map((timeframe) => (
-                        <ToggleButton key={timeframe} value={timeframe}>
-                          {timeframe}
-                        </ToggleButton>
-                      ))}
-                    </ToggleButtonGroup>
-                  </Grid>
-                  </>
-                )}
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Volume Change Required"
-                    name="volumeChangeRequired"
-                    type="number"
-                    value={formValues.volumeChangeRequired}
-                    onChange={handleChange}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                    }}
-                    helperText="Minimum volume change % (0 for none)"
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TimePicker
-                    label="Alert Time"
-                    value={formValues.alertTime}
-                    onChange={handleTimeChange}
-                    renderInput={(params) => (
-                      <TextField 
-                        {...params} 
-                        fullWidth 
-                        required
-                        error={Boolean(errors.alertTime)}
-                        helperText={errors.alertTime || 'Time to check and send alerts'}
-                      />
                     )}
-                  />
+                  </Paper>
                 </Grid>
                 
-                <Grid item xs={12}>
+                {/* Email and Alert Time */}
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Comment"
-                    name="comment"
-                    value={formValues.comment}
-                    onChange={handleChange}
-                    multiline
-                    rows={2}
-                    placeholder="Optional note about this alert"
-                  />
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Email for Notifications"
+                    label="📧 Email for Notifications"
                     name="email"
                     type="email"
                     value={formValues.email}
                     onChange={handleChange}
                     error={Boolean(errors.email)}
-                    helperText={errors.email}
+                    helperText={errors.email || "We'll send alert notifications here"}
                     required
                   />
                 </Grid>
                 
+                <Grid item xs={12} sm={6}>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <TimePicker
+                      label="⏰ Alert Time"
+                      value={formValues.alertTime}
+                      onChange={handleTimeChange}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          fullWidth
+                          error={Boolean(errors.alertTime)}
+                          helperText={errors.alertTime || "Time to check for alerts"}
+                          required
+                        />
+                      )}
+                    />
+                  </LocalizationProvider>
+                </Grid>
+                
                 <Grid item xs={12}>
-                  <Button 
-                    type="submit" 
-                    variant="contained" 
-                    color="primary" 
-                    size="large"
+                  <TextField
                     fullWidth
-                    sx={{ mt: 2 }}
-                  >
-                    Create Alert
-                  </Button>
+                    label="💬 Comment (Optional)"
+                    name="comment"
+                    value={formValues.comment}
+                    onChange={handleChange}
+                    placeholder="Add a note about this alert..."
+                    multiline
+                    rows={2}
+                  />
+                </Grid>
+
+
+
+                
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 3, mt: 2, textAlign: 'center', backgroundColor: 'primary.main', color: 'white' }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
+                      🚀 Ready to Create Your Alert?
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2, opacity: 0.9 }}>
+                      We'll monitor {formValues.symbol || 'your crypto'} and notify you at {formValues.email} when conditions are met
+                    </Typography>
+                    <Button 
+                      type="submit" 
+                      variant="contained" 
+                      color="secondary"
+                      size="large"
+                      sx={{ 
+                        py: 2, 
+                        px: 4, 
+                        fontSize: '1.2rem',
+                        fontWeight: 'bold',
+                        borderRadius: 3,
+                        boxShadow: 3,
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: 6
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      🎯 CREATE PRICE ALERT
+                    </Button>
+                  </Paper>
                 </Grid>
               </Grid>
             </Paper>

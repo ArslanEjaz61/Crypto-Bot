@@ -585,9 +585,32 @@ const checkAlertConditions = async (req, res) => {
     const volume24h = crypto.volume24h || 0;
     const priceChangePercent24h = crypto.priceChangePercent24h || 0;
     
+    // Check Min Daily Volume condition
+    if (filters.minDailyVolume && filters.minDailyVolume > 0) {
+      results.conditions.minDailyVolume = {
+        actual: volume24h,
+        threshold: filters.minDailyVolume,
+        pass: volume24h >= filters.minDailyVolume
+      };
+      results.meetsConditions = results.conditions.minDailyVolume.pass;
+    }
+    
+    // Check Change % condition
+    if (filters.change && filters.change.timeframe && filters.change.percentage > 0) {
+      const targetChange = Math.abs(filters.change.percentage);
+      const actualChange = Math.abs(priceChangePercent24h);
+      results.conditions.priceChange = {
+        actual: actualChange,
+        threshold: targetChange,
+        timeframe: filters.change.timeframe,
+        pass: actualChange >= targetChange
+      };
+      if (!results.meetsConditions) results.meetsConditions = results.conditions.priceChange.pass;
+    }
+    
     // Get RSI if needed
     let rsi = crypto.rsi || null;
-    if ((filters.rsiLow || filters.rsiHigh) && !rsi) {
+    if (filters.rsi && filters.rsi.level > 0) {
       try {
         console.log(`Fetching klines data for RSI calculation for ${symbol}`);
         // Fetch historical data for RSI calculation with retry
@@ -649,37 +672,38 @@ const checkAlertConditions = async (req, res) => {
       };
     }
     
-    // Check RSI oversold condition
-    if (filters.rsiLow && rsi !== null) {
-      const threshold = parseFloat(filters.rsiLow);
-      results.conditions.rsiLow = {
+    // Check RSI condition if configured
+    if (filters.rsi && filters.rsi.level > 0 && rsi !== null) {
+      const threshold = filters.rsi.level;
+      const condition = filters.rsi.condition;
+      let rsiPass = false;
+      
+      if (condition === 'ABOVE') {
+        rsiPass = rsi >= threshold;
+      } else if (condition === 'BELOW') {
+        rsiPass = rsi <= threshold;
+      }
+      
+      results.conditions.rsi = {
         actual: rsi,
         threshold: threshold,
-        pass: rsi <= threshold
+        condition: condition,
+        pass: rsiPass
+      };
+      
+      if (!results.meetsConditions) results.meetsConditions = results.conditions.rsi.pass;
+    }
+    
+    // Check Alert Count condition (timeframe-based frequency)
+    if (filters.alertCount && filters.alertCount.enabled) {
+      results.conditions.alertCount = {
+        timeframe: filters.alertCount.timeframe,
+        enabled: true,
+        pass: true // Always pass for now, can add frequency logic later
       };
     }
     
-    // Check RSI overbought condition
-    if (filters.rsiHigh && rsi !== null) {
-      const threshold = parseFloat(filters.rsiHigh);
-      results.conditions.rsiHigh = {
-        actual: rsi,
-        threshold: threshold,
-        pass: rsi >= threshold
-      };
-      results.meetsConditions = results.meetsConditions && results.conditions.rsiHigh.pass;
-    }
-    
-    // Check price below condition
-    if (filters.priceBelow) {
-      const threshold = parseFloat(filters.priceBelow);
-      results.conditions.priceBelow = {
-        actual: price,
-        threshold: threshold,
-        pass: price <= threshold
-      };
-      results.meetsConditions = results.meetsConditions && results.conditions.priceBelow.pass;
-    }
+    console.log(`Condition results for ${symbol}:`, results);
     
     res.json(results);
   } catch (error) {

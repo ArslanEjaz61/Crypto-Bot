@@ -2,6 +2,7 @@ const Alert = require('../models/alertModel');
 const Crypto = require('../models/cryptoModel');
 const Notification = require('../models/notificationModel');
 const { sendAlertNotification } = require('../utils/telegramService');
+const { sendAlertEmail } = require('../utils/emailService');
 const axios = require('axios');
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
@@ -361,8 +362,39 @@ const processAlerts = async () => {
           
           // If alert conditions are met and notification hasn't been sent yet
           const telegramStatus = alert.notificationStatus?.telegram;
+          const emailStatus = alert.notificationStatus?.email;
+          
+          // Send Email notification (primary notification like before)
+          if (!emailStatus || !emailStatus.sent) {
+            try {
+              await sendAlertEmail(alert.email, alert, {
+                price: crypto.price,
+                volume24h: crypto.volume24h,
+                priceChangePercent24h: crypto.priceChangePercent24h
+              }, {
+                candle: candleData,
+                rsi: rsiData,
+                ema: emaData
+              });
+              
+              // Update notification status
+              alert.markNotificationSent('email');
+              await alert.save();
+              
+              stats.notificationsSent++;
+              console.log(`📧 Email alert notification sent to ${alert.email} for ${alert.symbol}`);
+            } catch (emailError) {
+              stats.errors++;
+              console.error(`Error sending email alert notification for ${alert._id}:`, emailError);
+              
+              // Mark failed attempt
+              alert.markNotificationSent('email', emailError);
+              await alert.save();
+            }
+          }
+          
+          // Send Telegram notification (secondary notification)
           if (!telegramStatus || !telegramStatus.sent) {
-            // Send Telegram notification
             try {
               const success = await sendAlertNotification(alert, data);
               
@@ -371,10 +403,8 @@ const processAlerts = async () => {
                 alert.markNotificationSent('telegram');
                 await alert.save();
                 
-                stats.notificationsSent++;
-                console.log(`Telegram alert notification sent for ${alert.symbol}`);
+                console.log(`📱 Telegram alert notification sent for ${alert.symbol}`);
               } else {
-                stats.errors++;
                 console.error(`Failed to send Telegram notification for ${alert._id}`);
                 
                 // Mark failed attempt
@@ -382,7 +412,6 @@ const processAlerts = async () => {
                 await alert.save();
               }
             } catch (telegramError) {
-              stats.errors++;
               console.error(`Error sending Telegram alert notification for ${alert._id}:`, telegramError);
               
               // Mark failed attempt
