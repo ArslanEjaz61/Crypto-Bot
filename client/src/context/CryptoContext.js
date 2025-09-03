@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { apiCache, getCacheKey } from '../utils/apiCache';
 
 // Initial state
 const initialState = {
@@ -119,14 +120,31 @@ const filterCryptos = (cryptos, filter) => {
 export const CryptoProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cryptoReducer, initialState);
 
-  // Ultra-simple request handling - NO cancellation, NO deduplication, NO retries
-  const loadCryptos = useCallback(async (page = 1, limit = 50, forceRefresh = true, silentLoading = false, spotOnly = true) => {
+  // Optimized request handling with caching
+  const loadCryptos = useCallback(async (page = 1, limit = 50, forceRefresh = false, silentLoading = false, spotOnly = true) => {
     // Only dispatch loading state if not in silent mode
     if (!silentLoading) {
       dispatch({ type: 'CRYPTO_REQUEST' });
     }
     
-    console.log('Making simple API request...');
+    // Check cache first unless forced refresh
+    const cacheKey = getCacheKey.cryptos(page, limit, spotOnly);
+    if (!forceRefresh) {
+      const cachedData = apiCache.get(cacheKey);
+      if (cachedData) {
+        console.log('Using cached crypto data');
+        dispatch({ 
+          type: 'GET_CRYPTOS', 
+          payload: {
+            ...cachedData,
+            timestamp: Date.now()
+          }
+        });
+        return cachedData.pagination;
+      }
+    }
+    
+    console.log('Making API request for fresh data...');
     
     try {
       // Get baseUrl and construct proper API URL
@@ -135,7 +153,7 @@ export const CryptoProvider = ({ children }) => {
       
       console.log(`Fetching from: ${endpoint} with spotOnly=${spotOnly}`);
       
-      // Minimal axios configuration - NO timeout, NO abort signal, NO headers
+      // Minimal axios configuration
       const { data } = await axios.get(endpoint, {
         params: { page, limit, spotOnly }
       });
@@ -145,18 +163,23 @@ export const CryptoProvider = ({ children }) => {
       const cryptosArray = data.cryptos || [];
       const paginationInfo = data.pagination || { total: cryptosArray.length };
       
+      const payload = {
+        cryptos: cryptosArray,
+        pagination: {
+          page,
+          limit,
+          total: paginationInfo.total,
+          hasMore: paginationInfo.hasMore || (cryptosArray.length === limit)
+        },
+        timestamp: Date.now()
+      };
+      
+      // Cache the result for 2 minutes
+      apiCache.set(cacheKey, payload, 2 * 60 * 1000);
+      
       dispatch({ 
         type: 'GET_CRYPTOS', 
-        payload: {
-          cryptos: cryptosArray,
-          pagination: {
-            page,
-            limit,
-            total: paginationInfo.total,
-            hasMore: paginationInfo.hasMore || (cryptosArray.length === limit)
-          },
-          timestamp: Date.now()
-        }
+        payload
       });
       
       return {
@@ -180,6 +203,12 @@ export const CryptoProvider = ({ children }) => {
   const updateFilter = useCallback((filterUpdate) => {
     dispatch({ type: 'UPDATE_FILTER', payload: filterUpdate });
   }, []);
+
+  // Memoized cryptos for better performance
+  const memoizedCryptos = useMemo(() => state.cryptos, [state.cryptos]);
+  const memoizedFilteredCryptos = useMemo(() => state.filteredCryptos, [state.filteredCryptos]);
+  const memoizedLoading = useMemo(() => state.loading, [state.loading]);
+  const memoizedError = useMemo(() => state.error, [state.error]);
 
   // Create alert from current filter conditions
   const createAlertFromFilters = useCallback(async (symbol, filters) => {
@@ -345,25 +374,18 @@ export const CryptoProvider = ({ children }) => {
     }
   }, [state.cryptos, dispatch, createAlertFromFilters, deleteAutoCreatedAlerts]);
 
-  // Cache for RSI data to prevent redundant API calls
-  const rsiCache = React.useRef({});
+  // RSI cache now handled by apiCache utility
   
-  // Get RSI data for a symbol with support for multiple timeframes
+  // Get RSI data for a symbol with improved caching
   const getRSI = useCallback(async (symbol, period = 14, timeframe = '1h') => {
     // Create a cache key using symbol, period and timeframe
-    const cacheKey = `${symbol}_${period}_${timeframe}`;
+    const cacheKey = getCacheKey.rsi(symbol, period, timeframe);
     
-    // Check if we have cached data that's less than 5 minutes old
-    if (rsiCache.current[cacheKey]) {
-      const cachedData = rsiCache.current[cacheKey];
-      const now = new Date().getTime();
-      const cacheTime = cachedData.timestamp;
-      
-      // Cache valid for 5 minutes
-      if (now - cacheTime < 5 * 60 * 1000) {
-        console.log(`Using cached RSI data for ${symbol} (${timeframe})`);
-        return cachedData.data;
-      }
+    // Check cache first
+    const cachedData = apiCache.get(cacheKey);
+    if (cachedData) {
+      console.log(`Using cached RSI data for ${symbol} (${timeframe})`);
+      return cachedData;
     }
     
     // If not in cache or cache expired, fetch from API
@@ -377,11 +399,8 @@ export const CryptoProvider = ({ children }) => {
         params: { period, timeframe }
       });
       
-      // Store in cache with timestamp
-      rsiCache.current[cacheKey] = {
-        data,
-        timestamp: new Date().getTime()
-      };
+      // Store in cache for 3 minutes
+      apiCache.set(cacheKey, data, 3 * 60 * 1000);
       
       return data;
     } catch (error) {
@@ -390,9 +409,9 @@ export const CryptoProvider = ({ children }) => {
     }
   }, []);
   
-  // Clear RSI cache when it gets too large
-  const clearRSICache = useCallback(() => {
-    rsiCache.current = {};
+  // Clear cache when needed
+  const clearCache = useCallback(() => {
+    apiCache.clear();
   }, []);
 
   // Check alert conditions for a symbol with direct API call
@@ -417,15 +436,22 @@ export const CryptoProvider = ({ children }) => {
 
   return (
     <CryptoContext.Provider
-      value={{
-        ...state,
+      value={useMemo(() => ({
+        cryptos: memoizedCryptos,
+        filteredCryptos: memoizedFilteredCryptos,
+        loading: memoizedLoading,
+        error: memoizedError,
+        filter: state.filter,
+        pagination: state.pagination,
+        lastFetch: state.lastFetch,
+        usingCachedData: state.usingCachedData,
         loadCryptos,
         updateFilter,
         toggleFavorite,
         getRSI,
-        clearRSICache,
+        clearCache,
         checkAlertConditions
-      }}
+      }), [memoizedCryptos, memoizedFilteredCryptos, memoizedLoading, memoizedError, state.filter, state.pagination, state.lastFetch, state.usingCachedData, loadCryptos, updateFilter, toggleFavorite, getRSI, clearCache, checkAlertConditions])}
     >
       {children}
     </CryptoContext.Provider>

@@ -37,7 +37,7 @@ const EditAlertDialog = ({ alert, open, onClose }) => {
     alertTime: null,
     isActive: true,
     comment: '',
-    email: ''
+    email: 'jamyasir0534@gmail.com'
   });
 
   // Form errors

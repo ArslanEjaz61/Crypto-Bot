@@ -337,17 +337,18 @@ export const FilterProvider = ({ children }) => {
     };
   }, [filters]);
 
+  // Memoize the provider value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    filters,
+    setFilters,
+    applyFilters,
+    getValidationFilters,
+    hasActiveFilters,
+    getFilterValues
+  }), [filters, setFilters, applyFilters, getValidationFilters, hasActiveFilters, getFilterValues]);
+
   return (
-    <FilterContext.Provider 
-      value={{ 
-        filters, 
-        setFilters, 
-        applyFilters, 
-        getValidationFilters,
-        hasActiveFilters,
-        getFilterValues
-      }}
-    >
+    <FilterContext.Provider value={contextValue}>
       {children}
     </FilterContext.Provider>
   );

@@ -1,20 +1,35 @@
-import React, { useEffect, useCallback, useState } from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { Box } from '@mui/material';
+import React, { useState, useEffect, Suspense } from 'react';
+import {
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+  Container,
+  Paper,
+  Box,
+  Typography,
+  CircularProgress,
+  Alert,
+  Fade,
+  Skeleton,
+  LinearProgress
+} from '@mui/material';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-// Components
+// Components - Lazy loaded for better performance
 import Header from './components/Header';
 import { useAlert } from './context/AlertContext';
 import { useCrypto } from './context/CryptoContext';
 import SocketProvider from './context/SocketContext';
-import Notification from './components/Notification';
-import Dashboard from './components/Dashboard';
+import LazyComponentLoader from './components/LazyComponentLoader';
 import { FilterProvider } from './context/FilterContext';
-import Login from './components/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { useCallback } from 'react';
+
+// Lazy load heavy components
+const Dashboard = React.lazy(() => import('./components/Dashboard'));
+const Login = React.lazy(() => import('./components/Login'));
+const Notification = React.lazy(() => import('./components/Notification'));
 
 const darkTheme = createTheme({
   palette: {
@@ -68,6 +83,7 @@ function App() {
   const { loadAlerts } = useAlert();
   const { loadCryptos } = useCrypto();
   const [isDataLoading, setIsDataLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Memoized function to load initial data
   const loadInitialData = useCallback(async (force = false) => {
@@ -78,7 +94,7 @@ function App() {
     const now = new Date().getTime();
     const lastLoadTime = parseInt(localStorage.getItem('lastDataLoadTime') || '0');
     const hasLoadedData = localStorage.getItem('initialDataLoaded');
-    const dataExpired = now - lastLoadTime > 5 * 60 * 1000; // 5 minute expiration
+    const dataExpired = now - lastLoadTime > 10 * 60 * 1000; // 10 minute expiration
     
     // Skip loading if data was loaded recently unless forced
     if (hasLoadedData && !dataExpired && !force) {
@@ -90,6 +106,7 @@ function App() {
     
     try {
       setIsDataLoading(true);
+      setLoading(true);
       console.log('Loading initial application data...');
       
       // Load data with slight delay between calls to reduce server load
@@ -109,6 +126,7 @@ function App() {
       console.error('Failed to load initial data:', error);
     } finally {
       setIsDataLoading(false);
+      setLoading(false);
     }
   }, [loadAlerts, loadCryptos, isDataLoading]);
 
@@ -118,14 +136,16 @@ function App() {
     const controller = new AbortController();
     
     console.log('App mounted, loading initial data...');
-    // Initial data load
-    loadInitialData(true); // Force refresh on initial load
+    // Initial data load with delay to avoid blocking UI
+    setTimeout(() => {
+      loadInitialData(true); // Force refresh on initial load
+    }, 100);
     
-    // Setup periodic data refresh (every 2 minutes)
+    // Setup periodic data refresh (every 10 minutes)
     const refreshInterval = setInterval(() => {
       console.log('Running scheduled data refresh...');
-      loadInitialData(true); // Force refresh
-    }, 2 * 60 * 1000); // Reduced to 2 minutes for testing
+      loadInitialData(false); // Don't force refresh for background updates
+    }, 10 * 60 * 1000); // 10 minutes for better performance
     
     // Cleanup function
     return () => {
@@ -141,6 +161,13 @@ function App() {
           <ThemeProvider theme={darkTheme}>
             <CssBaseline />
             <FilterProvider>
+              {loading && (
+                <Fade in={loading}>
+                  <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
+                    <LinearProgress color="primary" sx={{ height: 3 }} />
+                  </Box>
+                </Fade>
+              )}
               <Box sx={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
@@ -149,7 +176,11 @@ function App() {
                 overflow: 'hidden' 
               }}>
                 <Routes>
-                  <Route path="/login" element={<Login />} />
+                  <Route path="/login" element={
+                    <LazyComponentLoader height={400}>
+                      <Login />
+                    </LazyComponentLoader>
+                  } />
                   
                   {/* Protected routes */}
                   <Route element={<ProtectedRoute />}>
@@ -163,9 +194,13 @@ function App() {
                           flexDirection: 'column',
                           height: 'calc(100vh - 64px)' // Subtract header height
                         }}>
-                          <Dashboard />
+                          <LazyComponentLoader height={600}>
+                            <Dashboard />
+                          </LazyComponentLoader>
                         </Box>
-                        <Notification />
+                        <LazyComponentLoader height={100}>
+                          <Notification />
+                        </LazyComponentLoader>
                       </>
                     } />
                   </Route>

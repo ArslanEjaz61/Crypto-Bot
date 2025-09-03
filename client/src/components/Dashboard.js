@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Box, Grid, Paper, Typography, Button } from '@mui/material';
 import LineChart from './LineChart.js';
 import CryptoList from './CryptoList';
@@ -18,6 +18,9 @@ const Dashboard = ({ children }) => {
   // Keep local state for backward compatibility, but sync with context
   const [selectedCoin, setSelectedCoin] = useState(selectedSymbol);
   const [localTimeframe, setLocalTimeframe] = useState(selectedTimeframe);
+  
+  // Reference to FilterSidebar's createAlert function
+  const filterSidebarRef = useRef();
   
   // Get crypto coins that have alerts
   const coinsWithAlerts = useMemo(() => {
@@ -45,13 +48,20 @@ const Dashboard = ({ children }) => {
       }));
   }, [alerts, cryptos]);
 
+  // Handle creating alert when favorite is clicked
+  const handleCreateAlertFromFavorite = (symbol) => {
+    console.log('Creating alert for favorited symbol:', symbol);
+    // Trigger FilterSidebar's handleCreateAlert with the selected symbol
+    if (filterSidebarRef.current && filterSidebarRef.current.handleCreateAlert) {
+      filterSidebarRef.current.handleCreateAlert(symbol);
+    }
+  };
+
   // Log alerts for debugging
   useEffect(() => {
     console.log('Dashboard - Current alerts state:', alerts);
-  }, [alerts]);
-  
-
-  // No tab change handler needed since we only have one tab
+    console.log('Dashboard - Coins with alerts:', coinsWithAlerts);
+  }, [alerts, coinsWithAlerts]);
 
   // Handle coin selection from market panel
   const handleCoinSelect = (symbol) => {
@@ -89,7 +99,7 @@ const Dashboard = ({ children }) => {
           display: { xs: 'none', md: 'block' } // Hide on mobile, show on tablet+
         }}>
           <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 2 }}>
-            <FilterSidebar selectedSymbol={selectedCoin} />
+            <FilterSidebar ref={filterSidebarRef} selectedSymbol={selectedCoin} />
           </Paper>
         </Grid>
 
@@ -161,7 +171,7 @@ const Dashboard = ({ children }) => {
           display: { xs: 'none', md: 'block' } // Hide on mobile, show on tablet+
         }}>
           <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 2 }}>
-            <MarketPanel onSelectCoin={handleCoinSelect} />
+            <MarketPanel onSelectCoin={handleCoinSelect} onCreateAlert={handleCreateAlertFromFavorite} />
           </Paper>
         </Grid>
         
