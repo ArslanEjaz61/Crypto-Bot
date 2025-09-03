@@ -79,6 +79,7 @@ const createAlert = async (req, res) => {
       targetType,
       targetValue,
       currentPrice,
+      basePrice: currentPrice, // Store current price as base for future comparisons
       trackingMode,
       intervalMinutes: trackingMode === 'interval' ? intervalMinutes : 0,
       volumeChangeRequired: volumeChangeRequired || 0,

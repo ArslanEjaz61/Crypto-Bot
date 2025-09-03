@@ -30,9 +30,15 @@ const GroupedAlertsList = () => {
   const [isChecking, setIsChecking] = useState({});
   
   // Group alerts by symbol
-  // Check if a coin meets alert conditions
+  // Function to check if a symbol meets alert conditions - only for symbols with active alerts
   const checkSymbolConditions = useCallback(async (symbol) => {
-    if (!symbol || !filters) return;
+    // Only check if there are active alerts for this symbol
+    const hasActiveAlerts = alerts.some(alert => alert.symbol === symbol && alert.isActive);
+    
+    if (!hasActiveAlerts) {
+      console.log(`Skipping condition check for ${symbol} - no active alerts`);
+      return false;
+    }
     
     setIsChecking(prev => ({ ...prev, [symbol]: true }));
     
@@ -42,16 +48,17 @@ const GroupedAlertsList = () => {
         ...prev,
         [symbol]: result.meetsConditions
       }));
+      
+      console.log(`Condition check for ${symbol}:`, result.meetsConditions);
+      
+      return result.meetsConditions;
     } catch (error) {
       console.error(`Error checking conditions for ${symbol}:`, error);
-      setSymbolsWithAlerts(prev => ({
-        ...prev,
-        [symbol]: false
-      }));
+      return false;
     } finally {
       setIsChecking(prev => ({ ...prev, [symbol]: false }));
     }
-  }, [filters, checkAlertConditions]);
+  }, [filters, checkAlertConditions, alerts]);
   
   useEffect(() => {
     console.log('GroupedAlertsList - Alerts state:', alerts);

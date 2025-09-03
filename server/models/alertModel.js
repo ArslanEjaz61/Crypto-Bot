@@ -25,6 +25,10 @@ const alertSchema = mongoose.Schema(
       type: Number,
       required: true,
     },
+    basePrice: {
+      type: Number,
+      required: true, // Price when alert was created - used for percentage calculations
+    },
     // Tracking options
     trackingMode: {
       type: String,
@@ -226,39 +230,31 @@ alertSchema.methods.checkConditions = function(data) {
       priceConditionMet = true;
     }
   } else if (this.targetType === 'percentage') {
-    // Check if this is a change percentage alert based on timeframe
-    if (this.changePercentValue > 0 && historicalPrices && historicalPrices.length > 0) {
-      // Calculate price change based on specified timeframe
-      const timeframeMinutes = this.getTimeframeInMinutes(this.changePercentTimeframe);
-      const targetTime = new Date(Date.now() - (timeframeMinutes * 60 * 1000));
+    // Check percentage change from when alert was created (basePrice)
+    if (this.changePercentValue > 0) {
+      const basePrice = this.basePrice; // Price when alert was created
+      const percentageChange = ((currentPrice - basePrice) / basePrice) * 100;
       
-      // Find the closest historical price to the target time
-      let basePrice = null;
-      let closestTimeDiff = Infinity;
+      console.log(`Future Price Alert Check: ${this.symbol}`);
+      console.log(`Current Price: ${currentPrice}, Base Price (when alert created): ${basePrice}`);
+      console.log(`Calculated Change: ${percentageChange.toFixed(4)}%, Required: ${this.changePercentValue}%`);
       
-      for (const priceData of historicalPrices) {
-        const timeDiff = Math.abs(priceData.timestamp - targetTime.getTime());
-        if (timeDiff < closestTimeDiff) {
-          closestTimeDiff = timeDiff;
-          basePrice = priceData.price;
-        }
-      }
-      
-      if (basePrice && basePrice > 0) {
-        const percentageChange = ((currentPrice - basePrice) / basePrice) * 100;
-        
-        // Check if the percentage change meets the alert criteria
-        if (this.direction === '>' && percentageChange >= this.changePercentValue) {
-          priceConditionMet = true;
-        } else if (this.direction === '<' && percentageChange <= -this.changePercentValue) {
-          priceConditionMet = true;
-        } else if (this.direction === '<>' && Math.abs(percentageChange) >= this.changePercentValue) {
-          priceConditionMet = true;
-        }
+      // Check if the percentage change meets the alert criteria
+      if (this.direction === '>' && percentageChange >= this.changePercentValue) {
+        console.log(`✅ Alert triggered: Price increased by ${percentageChange.toFixed(4)}% (required: ${this.changePercentValue}%)`);
+        priceConditionMet = true;
+      } else if (this.direction === '<' && percentageChange <= -this.changePercentValue) {
+        console.log(`✅ Alert triggered: Price decreased by ${Math.abs(percentageChange).toFixed(4)}% (required: ${this.changePercentValue}%)`);
+        priceConditionMet = true;
+      } else if (this.direction === '<>' && Math.abs(percentageChange) >= this.changePercentValue) {
+        console.log(`✅ Alert triggered: Price changed by ${Math.abs(percentageChange).toFixed(4)}% (required: ${this.changePercentValue}%)`);
+        priceConditionMet = true;
+      } else {
+        console.log(`❌ Alert not triggered: Change ${percentageChange.toFixed(4)}% doesn't meet requirement ${this.changePercentValue}%`);
       }
     } else {
-      // Fallback to basic percentage change calculation
-      let basePrice = this.trackingMode === 'current' ? this.currentPrice : previousPrice;
+      // Fallback to basic percentage change calculation using basePrice
+      const basePrice = this.basePrice;
       const percentageChange = ((currentPrice - basePrice) / basePrice) * 100;
       
       if (this.direction === '>' && percentageChange >= this.targetValue) {

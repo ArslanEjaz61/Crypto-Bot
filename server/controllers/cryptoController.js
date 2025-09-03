@@ -491,7 +491,7 @@ const getChartData = async (req, res) => {
       '1d': '1d',
       '1w': '1w'
     };
-    
+     
     const interval = binanceTimeframeMap[timeframe] || '1h';
     
     // Fetch klines/candlestick data from Binance with retry
@@ -531,11 +531,19 @@ const getChartData = async (req, res) => {
 // @access  Public
 const checkAlertConditions = async (req, res) => {
   try {
-    const symbol = req.params.symbol;
-    const filters = req.body.filters || {};
-    const forceRefresh = req.body.forceRefresh === true;
+    const { symbol } = req.params;
+    const { filters, forceRefresh } = req.body;
     
-    console.log(`Checking alert conditions for ${symbol} with filters:`, filters);
+    // Clean up filters for logging (remove null values)
+    const cleanFilters = {};
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== null && !(typeof filters[key] === 'object' && Object.values(filters[key] || {}).every(v => v === null || v === false || v === 0))) {
+        cleanFilters[key] = filters[key];
+      }
+    });
+    
+    console.log(`Checking alert conditions for ${symbol}${Object.keys(cleanFilters).length > 0 ? ' with filters:' : ' (no active filters)'}`, 
+      Object.keys(cleanFilters).length > 0 ? cleanFilters : '');
     
     // If forceRefresh is true, get the latest data from Binance
     let crypto = await Crypto.findOne({ symbol });
@@ -703,7 +711,6 @@ const checkAlertConditions = async (req, res) => {
       };
     }
     
-    console.log(`Condition results for ${symbol}:`, results);
     
     res.json(results);
   } catch (error) {

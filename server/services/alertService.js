@@ -23,37 +23,55 @@ async function fetchHistoricalPrices(symbol, timeframe = '1m', limit = 60) {
       '1MIN': '1m',
       '5MIN': '5m', 
       '15MIN': '15m',
-      '1HR': '1h'
+      '30MIN': '30m',
+      '1HR': '1h',
+      '4HR': '4h',
+      '1D': '1d'
     }[timeframe] || '1m';
     
-    const response = await axios.get(`${API_BASE_URL}/api/indicators/${symbol}/ohlcv`, {
+    // Fetch real historical data directly from Binance API
+    const binanceUrl = `https://api.binance.com/api/v3/klines`;
+    const response = await axios.get(binanceUrl, {
       params: {
-        timeframe: binanceTimeframe,
+        symbol: symbol.toUpperCase(),
+        interval: binanceTimeframe,
         limit: limit
-      }
+      },
+      timeout: 10000
     });
     
-    const data = response.data;
+    const klines = response.data;
     
     // Convert to historical price format
     const historicalPrices = [];
     
-    if (data.klines && Array.isArray(data.klines)) {
-      data.klines.forEach(kline => {
+    if (klines && Array.isArray(klines)) {
+      klines.forEach(kline => {
         historicalPrices.push({
-          timestamp: kline.openTime,
-          price: parseFloat(kline.close)
+          timestamp: parseInt(kline[0]), // Open time
+          price: parseFloat(kline[4]), // Close price
+          open: parseFloat(kline[1]),
+          high: parseFloat(kline[2]),
+          low: parseFloat(kline[3]),
+          volume: parseFloat(kline[5])
         });
       });
     }
     
-    // Sort by timestamp (oldest first)
-    historicalPrices.sort((a, b) => a.timestamp - b.timestamp);
+    // Sort by timestamp (newest first for easier access)
+    historicalPrices.sort((a, b) => b.timestamp - a.timestamp);
     
     console.log(`Retrieved ${historicalPrices.length} historical price points for ${symbol}`);
+    if (historicalPrices.length > 0) {
+      const newest = new Date(historicalPrices[0].timestamp);
+      const oldest = new Date(historicalPrices[historicalPrices.length - 1].timestamp);
+      console.log(`Price range: ${historicalPrices[historicalPrices.length - 1].price} to ${historicalPrices[0].price}`);
+      console.log(`Time range: ${oldest.toISOString()} to ${newest.toISOString()}`);
+    }
+    
     return historicalPrices;
   } catch (error) {
-    console.error(`Error fetching historical prices for ${symbol}:`, error);
+    console.error(`Error fetching historical prices for ${symbol}:`, error.message);
     return [];
   }
 }
@@ -277,10 +295,15 @@ const processAlerts = async () => {
     stats.processed = activeAlerts.length;
     
     if (activeAlerts.length === 0) {
+      console.log('No active alerts to process');
       return stats;
     }
 
     console.log(`Processing ${activeAlerts.length} active alerts`);
+    
+    // Get unique symbols that have active alerts
+    const alertSymbols = [...new Set(activeAlerts.map(alert => alert.symbol))];
+    console.log(`Alert processing for symbols:`, alertSymbols);
     
     // Process each alert
     for (const alert of activeAlerts) {
@@ -305,14 +328,8 @@ const processAlerts = async () => {
         const rsiData = await fetchRsiData(alert.symbol, alert.rsiTimeframe, alert.rsiPeriod);
         const emaData = await fetchEmaData(alert.symbol, alert.emaTimeframe, [alert.emaFastPeriod, alert.emaSlowPeriod]);
         
-        // Fetch historical prices for percentage change calculations
+        // No need to fetch historical prices - using basePrice from alert creation
         let historicalPrices = [];
-        if (alert.changePercentValue > 0) {
-          // Calculate how much historical data we need based on timeframe
-          const timeframeMinutes = alert.getTimeframeInMinutes(alert.changePercentTimeframe);
-          const limit = Math.max(timeframeMinutes + 10, 60); // Get extra data points for accuracy
-          historicalPrices = await fetchHistoricalPrices(alert.symbol, alert.changePercentTimeframe, limit);
-        }
         
         // Get volume history (in real implementation, fetch from Binance API)
         const volumeHistory = await fetchVolumeHistory(alert.symbol);
@@ -330,8 +347,7 @@ const processAlerts = async () => {
           rsi: rsiData,
           emaData: emaData,
           volumeHistory: volumeHistory,
-          marketData: marketData,
-          historicalPrices: historicalPrices
+          marketData: marketData
         };
         
         // Check if alert conditions are met

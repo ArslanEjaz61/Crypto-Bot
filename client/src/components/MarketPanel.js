@@ -25,26 +25,50 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import { useCrypto } from '../context/CryptoContext';
 import { useFilters } from '../context/FilterContext';
+import { useAlert } from '../context/AlertContext';
 
 const MarketPanel = ({ onSelectCoin }) => {
   const { cryptos, error, toggleFavorite, checkAlertConditions, loadCryptos } = useCrypto();
   const { filters, getValidationFilters, hasActiveFilters } = useFilters();
+  const { alerts } = useAlert(); // Import to get active alerts
   const [view, setView] = useState('market');
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCryptos, setFilteredCryptos] = useState([]);
   const [meetingConditions, setMeetingConditions] = useState({});
   const [, setCheckingConditions] = useState(false);
 
-  // Check which coins meet the alert conditions
-  const checkCoinConditions = useCallback(async (coinList) => {
-    if (!coinList || coinList.length === 0) return;
+  // Check conditions only for coins with active alerts
+  const checkConditions = useCallback(async () => {
+    if (!hasActiveFilters) {
+      setMeetingConditions({});
+      return;
+    }
+    
     setCheckingConditions(true);
-    
     const results = {};
-    const validationFilters = getValidationFilters();
     
-    // Only proceed if there are actual filters to apply
-    if (Object.keys(validationFilters).length === 0) {
+    const validationFilters = getValidationFilters();
+    const coinList = view === 'favorites' ? cryptos.filter(crypto => crypto.isFavorite) : cryptos;
+    
+    if (!coinList || coinList.length === 0) {
+      setCheckingConditions(false);
+      return;
+    }
+    
+    // Get symbols with active alerts only
+    const alertSymbols = new Set(
+      alerts
+        .filter(alert => alert.isActive)
+        .map(alert => alert.symbol)
+    );
+    
+    // Only check conditions for coins that have active alerts
+    const coinsWithAlerts = coinList.filter(coin => alertSymbols.has(coin.symbol));
+    
+    console.log(`Checking conditions for ${coinsWithAlerts.length} coins with active alerts:`, 
+      coinsWithAlerts.map(c => c.symbol));
+    
+    if (coinsWithAlerts.length === 0) {
       setMeetingConditions({});
       setCheckingConditions(false);
       return;
@@ -54,8 +78,8 @@ const MarketPanel = ({ onSelectCoin }) => {
     
     // Process in batches to avoid too many simultaneous requests
     const batchSize = 5;
-    for (let i = 0; i < coinList.length; i += batchSize) {
-      const batch = coinList.slice(i, i + batchSize);
+    for (let i = 0; i < coinsWithAlerts.length; i += batchSize) {
+      const batch = coinsWithAlerts.slice(i, i + batchSize);
       const promises = batch.map(coin => 
         checkAlertConditions(coin.symbol, validationFilters)
           .then(result => {
@@ -74,7 +98,7 @@ const MarketPanel = ({ onSelectCoin }) => {
     
     setMeetingConditions(results);
     setCheckingConditions(false);
-  }, [getValidationFilters, checkAlertConditions]);
+  }, [getValidationFilters, checkAlertConditions, alerts, view, cryptos]);
 
   /* Filter functionality is handled directly in the component through the context */
 
@@ -125,11 +149,11 @@ const MarketPanel = ({ onSelectCoin }) => {
     
     // Check which coins meet alert conditions if we have filters set    
     if (hasActiveFilters) {
-      checkCoinConditions(filtered.slice(0, 20)); // Check top 20 coins initially
+      checkConditions(); // Check conditions for coins with alerts
     } else {
       setMeetingConditions({});
     }
-  }, [cryptos, view, searchTerm, filters, checkCoinConditions, hasActiveFilters]);
+  }, [cryptos, view, searchTerm, filters, checkConditions, hasActiveFilters]);
 
   // Handle view change
   const handleViewChange = (event, newView) => {

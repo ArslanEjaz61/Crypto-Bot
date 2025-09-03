@@ -37,8 +37,19 @@ const sendAlertEmail = async (to, alert, cryptoData, technicalData = {}) => {
       return `${(num * 100).toFixed(2)}%`;
     };
     
-    // Calculate price change percentage
-    const priceChangePercent = ((cryptoData.price - alert.currentPrice) / alert.currentPrice) * 100;
+    // Calculate price change percentage - Fix the calculation to use proper timeframe-based comparison
+    let priceChangePercent = 0;
+    let basePrice = alert.currentPrice;
+    
+    // If this is a timeframe-based alert, use historical price for accurate calculation
+    if (alert.changePercentTimeframe && alert.changePercentValue > 0) {
+      // Use the price from when alert was created or historical price based on timeframe
+      basePrice = alert.basePrice || alert.currentPrice;
+      priceChangePercent = ((cryptoData.price - basePrice) / basePrice) * 100;
+    } else {
+      // For other alert types, use the original price set when alert was created
+      priceChangePercent = ((cryptoData.price - alert.currentPrice) / alert.currentPrice) * 100;
+    }
     
     // Determine if price went up or down
     const priceDirection = priceChangePercent >= 0 ? 'up' : 'down';

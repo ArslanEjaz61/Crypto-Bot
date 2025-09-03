@@ -16,7 +16,7 @@ const getNotifications = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
-    
+     
     console.log(`Found ${notifications.length} notifications`);
     
     const total = await Notification.countDocuments(query);
