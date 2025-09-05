@@ -56,23 +56,28 @@ export const SelectedPairProvider = ({ children }) => {
 
   // Fetch indicators data for the selected symbol
   const fetchIndicators = useCallback(async (symbol = state.selectedSymbol) => {
-    console.log(`Fetching indicators for ${symbol}`);
+    // Ensure symbol is a string, not an object
+    const symbolStr = typeof symbol === 'object' ? 
+      (symbol.symbol || 'BTCUSDT') : // Extract symbol property if it's an object
+      String(symbol); // Convert to string otherwise
+    
+    console.log(`Fetching indicators for ${symbolStr}`);
     
     try {
       // Fetch RSI data
-      const rsiResponse = await fetch(`/api/crypto/${symbol}/rsi?period=14&timeframe=${state.selectedTimeframe}`);
+      const rsiResponse = await fetch(`/api/crypto/${symbolStr}/rsi?period=14&timeframe=${state.selectedTimeframe}`);
       const rsiData = rsiResponse.ok ? await rsiResponse.json() : null;
 
       // Fetch EMA data  
-      const emaResponse = await fetch(`/api/crypto/${symbol}/ema?periods=9,12,26,50,200&timeframe=${state.selectedTimeframe}`);
+      const emaResponse = await fetch(`/api/crypto/${symbolStr}/ema?periods=9,12,26,50,200&timeframe=${state.selectedTimeframe}`);
       const emaData = emaResponse.ok ? await emaResponse.json() : null;
 
       // Fetch volume history
-      const volumeResponse = await fetch(`/api/crypto/${symbol}/volume-history?limit=10`);
+      const volumeResponse = await fetch(`/api/crypto/${symbolStr}/volume-history?limit=10`);
       const volumeData = volumeResponse.ok ? await volumeResponse.json() : null;
 
       // Fetch OHLCV data
-      const ohlcvResponse = await fetch(`/api/crypto/${symbol}/ohlcv?timeframe=${state.selectedTimeframe}&limit=1`);
+      const ohlcvResponse = await fetch(`/api/crypto/${symbolStr}/ohlcv?timeframe=${state.selectedTimeframe}&limit=1`);
       const ohlcvData = ohlcvResponse.ok ? await ohlcvResponse.json() : null;
 
       // Update state with fetched indicators

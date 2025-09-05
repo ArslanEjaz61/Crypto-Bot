@@ -177,8 +177,10 @@ export const CryptoProvider = ({ children }) => {
       // Cache the result for 2 minutes
       apiCache.set(cacheKey, payload, 2 * 60 * 1000);
       
+      // Use ADD_CRYPTOS_BATCH for pagination (page > 1) to append to existing list
+      // Use GET_CRYPTOS for initial load (page 1) to replace the list
       dispatch({ 
-        type: 'GET_CRYPTOS', 
+        type: page > 1 ? 'ADD_CRYPTOS_BATCH' : 'GET_CRYPTOS', 
         payload
       });
       

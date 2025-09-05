@@ -229,10 +229,10 @@ const DarkTypography = styled(Typography)({
   letterSpacing: '0.5px',
 });
 
-const FilterSidebar = memo(forwardRef((props, ref) => {
+const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlertCreated }, ref) => {
+  const { filters, setFilters: setCtxFilters, getFilterValues } = useFilters();
+  const { getMarketData } = useCrypto();
   const { createAlert } = useAlert();
-  const { createAlert: cryptoCreateAlert } = useCrypto();
-  const { createAlert: alertCreateAlert } = useAlert();
   const [errorMessage, setErrorMessage] = useState('');
   const [percentageValue, setPercentageValue] = useState('');
   
@@ -247,8 +247,6 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
       console.log(`Event: ${event}`, data);
     }
   };
-  
-  const { filters: ctxFilters, setFilters: setCtxFilters, getFilterValues } = useFilters();
   const [successMessage, setSuccessMessage] = useState('');
   const [isExpanded, setIsExpanded] = useState(true);
   const [isCreatingAlert, setIsCreatingAlert] = useState(false);
@@ -257,8 +255,7 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Fallback to context if props not supplied
-  const filters = ctxFilters;
+  // No need for fallback since we already have filters from useFilters
 
   // Memoized event handlers to prevent re-renders
   const handleCheckboxChange = useCallback((category, value) => {
@@ -301,10 +298,21 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
   const handleCreateAlert = useCallback(async (selectedSymbol = null) => {
     // Allow creating alert with null/0 default values - no validation required
     const symbol = selectedSymbol || 'BTCUSDT';
+    console.log('handleCreateAlert called with symbol:', symbol);
 
     setIsCreatingAlert(true);
     setErrorMessage('');
     setSuccessMessage('');
+    
+    // Force default values for all required fields when called from favorite button
+    if (selectedSymbol) {
+      // Set some default filters to ensure alert creation works
+      setCtxFilters(prev => ({
+        ...prev,
+        changePercent: { '1h': true },
+        percentageValue: '1.0'
+      }));
+    }
 
     try {
       const now = new Date();
@@ -347,7 +355,7 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
         volumeChangeRequired: 0,
         alertTime,
         comment: `Alert created from filter for ${symbol}`,
-        email: 'jamyasir0534@gmail.com',
+        email: 'kainat.tasadaq3@gmail.com',
 
         // OHLCV-integrated Min Daily Volume
         minDailyVolume,
@@ -410,11 +418,17 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
         ema: emaConfig
       });
 
-      const created = await cryptoCreateAlert(alertData);
+      console.log('About to call createAlert with data:', alertData);
+      const created = await createAlert(alertData);
       console.log('Alert created successfully:', created);
       setSuccessMessage(`Alert created successfully for ${alertData.symbol}!`);
       setPercentageValue(''); // Reset after successful creation
       eventBus.emit('ALERT_CREATED', created);
+      
+      // Notify parent component if callback exists
+      if (onAlertCreated) {
+        onAlertCreated(created);
+      }
 
       // Reset percentage value after successful creation
       setCtxFilters(prev => ({
@@ -431,7 +445,7 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
     } finally {
       setIsCreatingAlert(false);
     }
-  }, [cryptoCreateAlert, getFilterValues, setCtxFilters, showNotification, eventBus, setPercentageValue]);
+  }, [createAlert, getFilterValues, setCtxFilters, showNotification, eventBus]);
 
   return (
     <Paper sx={{

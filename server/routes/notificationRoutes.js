@@ -14,6 +14,8 @@ const router = express.Router();
 router.use((req, res, next) => {
   console.log(`[NOTIFICATION ROUTE] ${req.method} ${req.originalUrl}`);
   console.log('[NOTIFICATION ROUTE] Query params:', req.query);
+  console.log('[NOTIFICATION ROUTE] Headers:', req.headers);
+  console.log('[NOTIFICATION ROUTE] IP:', req.ip);
   next();
 });
 
@@ -22,6 +24,20 @@ router.use((req, res, next) => {
 // @access  Public
 router.get('/', (req, res, next) => {
   console.log('[NOTIFICATION ROUTE] GET / handler called');
+  console.log('[NOTIFICATION ROUTE] Attempting to fetch notifications with params:', req.query);
+  
+  // Add a response interceptor to log the response
+  const originalJson = res.json;
+  res.json = function(body) {
+    console.log('[NOTIFICATION ROUTE] Response data:', 
+      body ? { 
+        totalNotifications: body.totalNotifications,
+        unreadCount: body.unreadCount,
+        notificationsCount: body.notifications?.length
+      } : 'No data');
+    return originalJson.call(this, body);
+  };
+  
   getNotifications(req, res, next);
 });
 

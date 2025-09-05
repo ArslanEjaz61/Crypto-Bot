@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AppBar, Toolbar, Typography, Box, useTheme, IconButton, Menu, MenuItem, Button, Badge, Popover, Chip } from '@mui/material';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
-import AddIcon from '@mui/icons-material/Add';
-import AlertIcon from '@mui/icons-material/NotificationImportant';
-import MarkAsUnreadIcon from '@mui/icons-material/MarkAsUnread';
-import DeleteIcon from '@mui/icons-material/Delete';
+  
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
@@ -19,9 +16,7 @@ const Header = () => {
   const { createAlert } = useAlert();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
-  const [notificationList, setNotificationList] = useState([]);
+ 
 
   const handleOpenUserMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -50,104 +45,11 @@ const Header = () => {
     });
   };
 
-  const handleOpenNotifications = (event) => {
-    setNotificationAnchorEl(event.currentTarget);
-  };
+ 
+ 
 
-  const handleCloseNotifications = () => {
-    setNotificationAnchorEl(null);
-  };
 
-  // Fetch notifications from API
-  const fetchNotifications = async () => {
-    try {
-      const baseUrl = process.env.REACT_APP_API_URL || '';
-      const response = await axios.get(`${baseUrl}/api/notifications?limit=10`);
-      const data = response.data;
-      
-      if (data.notifications) {
-        setNotificationList(data.notifications);
-        setNotificationCount(data.unreadCount || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    }
-  };
-
-  // Mark notification as read
-  const markAsRead = async (notificationId) => {
-    try {
-      const baseUrl = process.env.REACT_APP_API_URL || '';
-      await axios.put(`${baseUrl}/api/notifications/${notificationId}/read`);
-      
-      // Update local state
-      setNotificationList(prev => 
-        prev.map(notif => 
-          notif._id === notificationId 
-            ? { ...notif, isRead: true, readAt: new Date() }
-            : notif
-        )
-      );
-      
-      // Update count
-      setNotificationCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
-  };
-
-  // Delete notification
-  const deleteNotification = async (notificationId) => {
-    try {
-      const baseUrl = process.env.REACT_APP_API_URL || '';
-      await axios.delete(`${baseUrl}/api/notifications/${notificationId}`);
-      
-      // Update local state
-      const deletedNotification = notificationList.find(n => n._id === notificationId);
-      setNotificationList(prev => prev.filter(notif => notif._id !== notificationId));
-      
-      // Update count if deleted notification was unread
-      if (deletedNotification && !deletedNotification.isRead) {
-        setNotificationCount(prev => Math.max(0, prev - 1));
-      }
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-    }
-  };
-
-  // Mark all as read
-  const markAllAsRead = async () => {
-    try {
-      const baseUrl = process.env.REACT_APP_API_URL || '';
-      await axios.put(`${baseUrl}/api/notifications/read-all`);
-      
-      // Update local state
-      setNotificationList(prev => 
-        prev.map(notif => ({ ...notif, isRead: true, readAt: new Date() }))
-      );
-      setNotificationCount(0);
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-    }
-  };
-
-  // Fetch notifications on component mount
-  useEffect(() => {
-    fetchNotifications();
-    
-    // Set up periodic refresh
-    const interval = setInterval(fetchNotifications, 30000); // Refresh every 30 seconds
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  // Listen for real-time notifications via Socket.IO
-  useEffect(() => {
-    if (connected) {
-      // Re-fetch notifications when we get a new notification event
-      fetchNotifications();
-    }
-  }, [connected]);
+ 
 
   return (
     <>
@@ -179,7 +81,7 @@ const Header = () => {
           </Typography>
           
           {/* Alert Notifications Bell */}
-          <IconButton 
+          {/* <IconButton 
             color="inherit" 
             onClick={handleOpenNotifications}
             sx={{ mr: 1 }}
@@ -290,7 +192,7 @@ const Header = () => {
                 </Typography>
               )}
             </Box>
-          </Popover>
+          </Popover> */}
           
           {/* User menu */}
           {user && (

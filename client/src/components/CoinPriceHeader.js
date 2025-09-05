@@ -7,11 +7,18 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 const CoinPriceHeader = ({ symbol }) => {
   const { cryptos } = useCrypto();
   
+  // Ensure symbol is a string, not an object
+  const symbolStr = React.useMemo(() => {
+    return typeof symbol === 'object' ? 
+      (symbol.symbol || 'BTCUSDT') : // Extract symbol property if it's an object
+      String(symbol); // Convert to string otherwise
+  }, [symbol]);
+  
   // Find the selected crypto data
   const crypto = React.useMemo(() => {
-    if (!cryptos || cryptos.length === 0 || !symbol) return null;
-    return cryptos.find(c => c.symbol === symbol) || null;
-  }, [cryptos, symbol]);
+    if (!cryptos || cryptos.length === 0 || !symbolStr) return null;
+    return cryptos.find(c => c.symbol === symbolStr) || null;
+  }, [cryptos, symbolStr]);
   
   // If no crypto data is found
   if (!crypto) {
@@ -31,7 +38,7 @@ const CoinPriceHeader = ({ symbol }) => {
   
   // Get symbol display (BTC instead of BTCUSDT)
   const getDisplaySymbol = () => {
-    return symbol.replace('USDT', '');
+    return symbolStr.replace('USDT', '');
   };
   
   // Format the coin name based on symbol
@@ -44,7 +51,7 @@ const CoinPriceHeader = ({ symbol }) => {
       'DOTUSDT': 'Polkadot',
       'SOLUSDT': 'Solana'
     };
-    return names[symbol] || symbol.replace('USDT', '');
+    return names[symbolStr] || symbolStr.replace('USDT', '');
   };
   
   return (

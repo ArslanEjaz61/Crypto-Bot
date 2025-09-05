@@ -5,7 +5,6 @@ import CryptoList from './CryptoList';
 import MarketPanel from './MarketPanel';
 import FilterSidebar from './FilterSidebar';
 import CoinPriceHeader from './CoinPriceHeader';
-import ChartSummary from './ChartSummary';
 import { useAlert } from '../context/AlertContext';
 import { useCrypto } from '../context/CryptoContext';
 import { useSelectedPair } from '../context/SelectedPairContext';
@@ -65,9 +64,14 @@ const Dashboard = ({ children }) => {
 
   // Handle coin selection from market panel
   const handleCoinSelect = (symbol) => {
-    console.log(`Dashboard: Coin selected from market panel: ${symbol}`);
-    setSelectedCoin(symbol);
-    selectSymbol(symbol); // Update global context
+    // Ensure symbol is a string, not an object
+    const symbolStr = typeof symbol === 'object' ? 
+      (symbol.symbol || 'BTCUSDT') : // Extract symbol property if it's an object
+      String(symbol); // Convert to string otherwise
+      
+    console.log(`Dashboard: Coin selected from market panel: ${symbolStr}`);
+    setSelectedCoin(symbolStr);
+    selectSymbol(symbolStr); // Update global context
   };
 
   // Handle timeframe change
@@ -129,10 +133,7 @@ const Dashboard = ({ children }) => {
               onTimeframeChange={handleTimeframeChange}
             />
             
-            {/* Chart Summary - Shows price info below chart */}
-            {selectedCoin && (
-              <ChartSummary symbol={selectedCoin} />
-            )}
+            {/* Chart Summary removed as requested */}
             
             {/* Bottom area - Alerts List */}
             <Box sx={{ 

@@ -40,7 +40,7 @@ const CreateAlertForm = ({ onSuccess }) => {
     targetValue: '',
     alertTime: new Date(),
     comment: '',
-    email: 'jamyasir0534@gmail.com',
+    email: 'kainat.tasadaq3@gmail.com',
     
     // OPTIMAL DEFAULTS - These ensure alerts actually trigger
     trackingMode: 'current',
@@ -294,7 +294,7 @@ const CreateAlertForm = ({ onSuccess }) => {
         targetValue: '',
         alertTime: new Date(),
         comment: '',
-        email: 'jamyasir0534@gmail.com',
+        email: 'kainat.tasadaq3@gmail.com',
         
         // OPTIMAL DEFAULTS - Reset to reliable settings
         trackingMode: 'current',

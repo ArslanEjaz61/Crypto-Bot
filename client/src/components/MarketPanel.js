@@ -14,7 +14,8 @@ import {
   IconButton,
   alpha,
   Skeleton,
-  CircularProgress
+  CircularProgress,
+  Button
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
@@ -43,6 +44,9 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert }) => {
   // const [filteredCryptos, setFilteredCryptos] = useState([]);
   const [meetingConditions, setMeetingConditions] = useState({});
   const [, setCheckingConditions] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMorePairs, setHasMorePairs] = useState(true);
 
   // Throttled condition checking to prevent API spam
   const checkConditionsThrottled = useCallback(async () => {
@@ -117,7 +121,13 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert }) => {
     const spotOnly = filters.market?.SPOT || false;
     console.log('MarketPanel: Loading cryptos with spotOnly =', spotOnly);
     loadCryptos(1, 50, false, false, spotOnly); // Changed forceRefresh to false for initial load
+    setCurrentPage(1); // Reset current page when filter changes
   }, [loadCryptos, filters.market?.SPOT]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setHasMorePairs(true); // Always assume there are more pairs when filters change
+  }, [filters, searchTerm]);
 
   // Memoized filtered cryptos for better performance
   const filteredCryptos = useMemo(() => {
@@ -189,8 +199,40 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert }) => {
     // Set new timeout for debouncing the actual search
     searchTimeoutRef.current = setTimeout(() => {
       setSearchTerm(value);
+      setCurrentPage(1); // Reset to first page on search
+      setHasMorePairs(true); // Reset hasMorePairs on search
     }, 300);
   }, []);
+  
+  // Handle loading more pairs
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore) return;
+    
+    setLoadingMore(true);
+    const nextPage = currentPage + 1;
+    console.log(`Loading more pairs: page ${nextPage}`);
+    
+    try {
+      const spotOnly = filters.market?.SPOT || false;
+      const result = await loadCryptos(nextPage, 50, false, true, spotOnly);
+      
+      // Always assume there are more pairs unless explicitly told otherwise
+      // The backend might not be properly implementing pagination
+      const receivedData = result && result.total !== undefined;
+      const explicitlyNoMore = receivedData && result.hasMore === false;
+      
+      // Only set hasMorePairs to false if the API explicitly says there are no more
+      // or if we received less than the requested limit
+      setHasMorePairs(!explicitlyNoMore);
+      setCurrentPage(nextPage);
+      
+      console.log(`Loaded additional pairs. Assuming more pairs available.`);
+    } catch (error) {
+      console.error('Error loading more pairs:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [currentPage, loadingMore, loadCryptos, filters.market?.SPOT]);
 
   // Format number with abbreviations
   const formatNumber = (num) => {
@@ -331,10 +373,15 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert }) => {
                             size="small"
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleFavorite(crypto.symbol);
-                              // Create alert with current filter settings when favorited
-                              if (onCreateAlert) {
-                                onCreateAlert(crypto.symbol);
+                              
+                              // Only create alert if we're adding to favorites (not already a favorite)
+                              if (!crypto.isFavorite && onCreateAlert) {
+                                // Get validation filters for alert creation
+                                const filterConditions = getValidationFilters ? getValidationFilters() : null;
+                                toggleFavorite(crypto.symbol, filterConditions);
+                              } else {
+                                // Just toggle favorite status without creating alert
+                                toggleFavorite(crypto.symbol);
                               }
                             }}
                           >
@@ -394,6 +441,21 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert }) => {
             ))
           )}
         </List>
+        {/* Load More Button */}
+        {filteredCryptos.length > 0 && view === 'market' && (
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+            <Button 
+              variant="contained" 
+              color="primary"
+              disabled={loadingMore}
+              onClick={handleLoadMore}
+              startIcon={loadingMore && <CircularProgress size={20} color="inherit" />}
+              sx={{ width: '100%' }}
+            >
+              {loadingMore ? 'Loading...' : 'Load More Pairs'}
+            </Button>
+          </Box>
+        )}
       </SmoothTransition>
     </Paper>
   );

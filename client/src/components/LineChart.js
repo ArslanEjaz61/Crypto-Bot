@@ -4,13 +4,13 @@ import { createChart, LineSeries } from 'lightweight-charts';
 
 // Available timeframes
 const TIMEFRAMES = [
-  { value: '1m', label: '1M', limit: 200 },
+  { value: '1m', label: '1M', limit: 1000 },
   { value: '5m', label: '5M', limit: 200 },
   { value: '15m', label: '15M', limit: 200 },
   { value: '30m', label: '30M', limit: 200 },
-  { value: '1h', label: '1H', limit: 200 },
-  { value: '4h', label: '4H', limit: 150 },
-  { value: '1d', label: '1D', limit: 100 }
+  { value: '1h', label: '1H', limit: 1000 },
+  { value: '4h', label: '4H', limit: 1000 },
+  { value: '1d', label: '1D', limit: 365 }
 ];
 
 // Line chart component using named imports
@@ -88,8 +88,13 @@ const LineChart = ({ symbol, timeframe: propTimeframe = '1h', onTimeframeChange 
         // Get the limit for the selected timeframe
         const limit = currentTimeframeConfig.limit;
         
-        console.log(`Fetching data for ${symbol} (${selectedTimeframe}), limit: ${limit}...`);
-        const response = await fetch(`/api/crypto/${symbol}/chart?timeframe=${selectedTimeframe}&limit=${limit}`);
+        // Ensure symbol is a string, not an object
+        const symbolStr = typeof symbol === 'object' ? 
+          (symbol.symbol || 'BTCUSDT') : // Extract symbol property if it's an object
+          String(symbol); // Convert to string otherwise
+        
+        console.log(`Fetching data for ${symbolStr} (${selectedTimeframe}), limit: ${limit}...`);
+        const response = await fetch(`/api/crypto/${symbolStr}/chart?timeframe=${selectedTimeframe}&limit=${limit}`);
         
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);

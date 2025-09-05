@@ -172,7 +172,7 @@ const alertSchema = mongoose.Schema(
     email: {
       type: String,
       required: false,
-      default: 'jamyasir0534@gmail.com',
+      default: 'kainat.tasadaq3@gmail.com',
     },
     
     // Notification tracking
