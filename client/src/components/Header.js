@@ -11,7 +11,6 @@ import axios from 'axios';
 
 const Header = () => {
   const theme = useTheme();
-  const { connected } = useSocket();
   const { user, logout } = useAuth();
   const { createAlert } = useAlert();
   const navigate = useNavigate();
@@ -64,21 +63,7 @@ const Header = () => {
           <Box sx={{ flexGrow: 1 }} />
           
           
-          {/* Connection status indicator */}
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              alignItems: 'center',
-              backgroundColor: connected ? theme.palette.success.main : theme.palette.error.main,
-              borderRadius: '50%',
-              width: 10,
-              height: 10,
-              mr: 1
-            }}
-          />
-          <Typography variant="body2" color="textSecondary" sx={{ mr: 2 }}>
-            {connected ? 'Connected' : 'Disconnected'}
-          </Typography>
+     
           
           {/* Alert Notifications Bell */}
           {/* <IconButton 

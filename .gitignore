@@ -2,7 +2,7 @@ node_modules
 */node_modules
 client/node_modules
 server/node_modules
-
-.env
-
+index.js
+start.js
 client/.env
+.env
