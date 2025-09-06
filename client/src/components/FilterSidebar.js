@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, memo, forwardRef, useImperativeHandle, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -229,10 +229,10 @@ const DarkTypography = styled(Typography)({
   letterSpacing: '0.5px',
 });
 
-const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlertCreated }, ref) => {
-  const { filters, setFilters: setCtxFilters, getFilterValues } = useFilters();
-  const { getMarketData } = useCrypto();
+const FilterSidebar = memo(forwardRef((props, ref) => {
   const { createAlert } = useAlert();
+  const { createAlert: cryptoCreateAlert } = useCrypto();
+  const { createAlert: alertCreateAlert } = useAlert();
   const [errorMessage, setErrorMessage] = useState('');
   const [percentageValue, setPercentageValue] = useState('');
   
@@ -247,6 +247,8 @@ const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlert
       console.log(`Event: ${event}`, data);
     }
   };
+  
+  const { filters: ctxFilters, setFilters: setCtxFilters, getFilterValues } = useFilters();
   const [successMessage, setSuccessMessage] = useState('');
   const [isExpanded, setIsExpanded] = useState(true);
   const [isCreatingAlert, setIsCreatingAlert] = useState(false);
@@ -255,7 +257,8 @@ const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlert
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // No need for fallback since we already have filters from useFilters
+  // Fallback to context if props not supplied
+  const filters = ctxFilters;
 
   // Memoized event handlers to prevent re-renders
   const handleCheckboxChange = useCallback((category, value) => {
@@ -298,21 +301,10 @@ const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlert
   const handleCreateAlert = useCallback(async (selectedSymbol = null) => {
     // Allow creating alert with null/0 default values - no validation required
     const symbol = selectedSymbol || 'BTCUSDT';
-    console.log('handleCreateAlert called with symbol:', symbol);
 
     setIsCreatingAlert(true);
     setErrorMessage('');
     setSuccessMessage('');
-    
-    // Force default values for all required fields when called from favorite button
-    if (selectedSymbol) {
-      // Set some default filters to ensure alert creation works
-      setCtxFilters(prev => ({
-        ...prev,
-        changePercent: { '1h': true },
-        percentageValue: '1.0'
-      }));
-    }
 
     try {
       const now = new Date();
@@ -336,7 +328,7 @@ const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlert
       // Use filterValues for OHLCV-integrated data
       const minDailyVolume = filterValues.minDailyVolume || 0;
       const changePercentTimeframe = filterValues.changePercent.timeframe;
-      const changePercentValue = filterValues.changePercent.percentage || 0;
+      const changePercentValue = Number(filters.percentageValue) || 1; // Use the dropdown value directly
       const alertCountTimeframe = filterValues.alertCount.timeframe;
       const alertCountEnabled = filterValues.alertCount.enabled;
 
@@ -349,21 +341,20 @@ const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlert
         symbol: symbol,
         direction: '>',
         targetType: 'percentage',
-        targetValue: changePercentValue || 0, // Allow 0 as default
+        targetValue: changePercentValue, // Use the dropdown value directly
         trackingMode: 'current',
         intervalMinutes: 60,
         volumeChangeRequired: 0,
         alertTime,
         comment: `Alert created from filter for ${symbol}`,
-        email: 'kainat.tasadaq3@gmail.com',
+        email: 'jamyasir0534@gmail.com',
 
         // OHLCV-integrated Min Daily Volume
         minDailyVolume,
 
         // OHLCV-integrated Change % with timeframe
         changePercentTimeframe: changePercentTimeframe || null,
-        changePercentValue: changePercentValue || 0,
-
+        changePercentValue: changePercentValue, // Use the dropdown value directly
         // Alert Count configuration
         alertCountTimeframe: alertCountTimeframe || null,
         alertCountEnabled: alertCountEnabled || false,
@@ -418,17 +409,11 @@ const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlert
         ema: emaConfig
       });
 
-      console.log('About to call createAlert with data:', alertData);
-      const created = await createAlert(alertData);
+      const created = await cryptoCreateAlert(alertData);
       console.log('Alert created successfully:', created);
       setSuccessMessage(`Alert created successfully for ${alertData.symbol}!`);
       setPercentageValue(''); // Reset after successful creation
       eventBus.emit('ALERT_CREATED', created);
-      
-      // Notify parent component if callback exists
-      if (onAlertCreated) {
-        onAlertCreated(created);
-      }
 
       // Reset percentage value after successful creation
       setCtxFilters(prev => ({
@@ -445,7 +430,33 @@ const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlert
     } finally {
       setIsCreatingAlert(false);
     }
-  }, [createAlert, getFilterValues, setCtxFilters, showNotification, eventBus]);
+  }, [cryptoCreateAlert, getFilterValues, setCtxFilters, showNotification, eventBus, setPercentageValue]);
+
+  const percentageInputRef = useRef(null);
+
+  // Predefined percentage values for dropdown
+  const percentageOptions = useMemo(() => {
+    const options = [];
+    
+    // Add a default option
+    options.push({ value: 1, label: 'Select %', default: true });
+    
+    // Add negative values from -50 to -0.1
+    for (let i = 50; i >= 0.1; i = i >= 10 ? i - 5 : i >= 5 ? i - 1 : i >= 1 ? i - 0.5 : i - 0.1) {
+      // Round to 1 decimal place to avoid floating point issues
+      const value = Math.round(i * 10) / 10;
+      options.push({ value: -value, label: `-${value}%` });
+    }
+    
+    // Add positive values from 0.1 to 50
+    for (let i = 0.1; i <= 50; i = i < 1 ? i + 0.1 : i < 5 ? i + 0.5 : i < 10 ? i + 1 : i + 5) {
+      // Round to 1 decimal place to avoid floating point issues
+      const value = Math.round(i * 10) / 10;
+      options.push({ value: value, label: `+${value}%` });
+    }
+    
+    return options;
+  }, []);
 
   return (
     <Paper sx={{
@@ -739,13 +750,51 @@ const FilterSidebar = memo(forwardRef(({ selectedSymbol, onFilterChange, onAlert
             }}>
               <DarkTypography variant="body2" sx={{ fontSize: '13px', mb: 1 }}>Percentage %</DarkTypography>
               <DarkTextField
+                select
                 size="small"
                 variant="outlined"
                 fullWidth
-                placeholder="%"
-                value={filters.percentageValue || ''}
-                onChange={(e) => handleTextChange('percentageValue', e.target.value)}
-              />
+                placeholder="Select %"
+                value={filters.percentageValue || '1'}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  setPercentageValue(newValue);
+                  handleTextChange('percentageValue', newValue);
+                }}
+                SelectProps={{
+                  MenuProps: {
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                        backgroundColor: '#151b26',
+                        color: 'white'
+                      }
+                    }
+                  }
+                }}
+              >
+                {percentageOptions.map((option) => (
+                  <MenuItem 
+                    key={option.value} 
+                    value={option.value}
+                    sx={{
+                      color: option.default ? '#4f80ff' : 'white',
+                      fontWeight: option.default ? 'bold' : 'normal',
+                      '&:hover': {
+                        backgroundColor: 'rgba(79, 128, 255, 0.1)',
+                      },
+                      '&.Mui-selected': {
+                        backgroundColor: 'rgba(79, 128, 255, 0.2)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(79, 128, 255, 0.3)',
+                        }
+                      }
+                    }}
+                  >
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </DarkTextField>
             </Box>
           </AccordionDetails>
         </DarkAccordion>

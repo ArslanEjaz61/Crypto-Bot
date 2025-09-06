@@ -21,7 +21,7 @@ const getAlerts = async (req, res) => {
 // @access  Public
 const createAlert = async (req, res) => {
   try {
-    console.log('Creating new alert with body:', req.body);
+    console.log('Creating new alert with body:', JSON.stringify(req.body, null, 2));
     const {
       symbol,
       direction,
@@ -73,43 +73,73 @@ const createAlert = async (req, res) => {
     console.log(`Found crypto ${symbol} with price ${crypto.price}`);
     const currentPrice = crypto.price;
 
-    const alert = new Alert({
+    // Create base alert object with required fields
+    const alertData = {
       symbol,
-      direction,
-      targetType,
-      targetValue,
+      direction: direction || '>',
+      targetType: targetType || 'percentage',
+      // CRITICAL FIX: Ensure targetValue is properly parsed as a float and not defaulted to 0
+      targetValue: targetValue !== undefined ? Number(targetValue) : 1,
       currentPrice,
       basePrice: currentPrice, // Store current price as base for future comparisons
-      trackingMode,
+      trackingMode: trackingMode || 'current',
       intervalMinutes: trackingMode === 'interval' ? intervalMinutes : 0,
-      volumeChangeRequired: volumeChangeRequired || 0,
       alertTime,
-      comment,
-      email,
-      // Candle section
-      candleTimeframe: candleTimeframe || '1HR',
-      candleCondition: candleCondition || 'NONE',
-      // RSI section
-      rsiEnabled: Boolean(rsiEnabled),
-      rsiTimeframe: rsiTimeframe || '1HR',
-      rsiPeriod: parseInt(rsiPeriod) || 14,
-      rsiCondition: rsiCondition || 'NONE',
-      rsiLevel: parseInt(rsiLevel) || 70,
-      // EMA section
-      emaEnabled: Boolean(emaEnabled),
-      emaTimeframe: emaTimeframe || '1HR',
-      emaFastPeriod: parseInt(emaFastPeriod) || 12,
-      emaSlowPeriod: parseInt(emaSlowPeriod) || 26,
-      emaCondition: emaCondition || 'NONE',
-      // Volume Spike section
-      volumeEnabled: Boolean(volumeEnabled),
-      volumeSpikeMultiplier: parseFloat(volumeSpikeMultiplier) || 2.0,
-      // Market filters
+      comment: comment || `Auto-created alert for ${symbol}`,
+      email: email || 'jamyasir0534@gmail.com',
+      // Default market filters
       market: market || 'ALL',
       exchange: exchange || 'ALL',
+      
       tradingPair: tradingPair || 'ALL',
-      minDailyVolume: parseFloat(minDailyVolume) || 0
-    });
+      minDailyVolume: parseFloat(minDailyVolume) || 0,
+      // Default change percentage settings
+      changePercentTimeframe: req.body.changePercentTimeframe || '1MIN',
+      changePercentValue: req.body.changePercentValue !== undefined ? parseFloat(req.body.changePercentValue) : 1,
+      // Default alert count settings
+      alertCountTimeframe: req.body.alertCountTimeframe || '5MIN'
+    };
+    
+    // Only add candle conditions if explicitly enabled
+    if (candleCondition && candleCondition !== 'NONE') {
+      alertData.candleTimeframe = candleTimeframe || '1HR';
+      alertData.candleCondition = candleCondition;
+    } else {
+      alertData.candleCondition = 'NONE';
+    }
+    
+    // Only add RSI conditions if explicitly enabled
+    if (rsiEnabled) {
+      alertData.rsiEnabled = true;
+      alertData.rsiTimeframe = rsiTimeframe || '1HR';
+      alertData.rsiPeriod = parseInt(rsiPeriod) || 14;
+      alertData.rsiCondition = rsiCondition || 'ABOVE';
+      alertData.rsiLevel = parseInt(rsiLevel) || 70;
+    } else {
+      alertData.rsiEnabled = false;
+    }
+    
+    // Only add EMA conditions if explicitly enabled
+    if (emaEnabled) {
+      alertData.emaEnabled = true;
+      alertData.emaTimeframe = emaTimeframe || '1HR';
+      alertData.emaFastPeriod = parseInt(emaFastPeriod) || 12;
+      alertData.emaSlowPeriod = parseInt(emaSlowPeriod) || 26;
+      alertData.emaCondition = emaCondition || 'ABOVE';
+    } else {
+      alertData.emaEnabled = false;
+    }
+    
+    // Only add volume spike conditions if explicitly enabled
+    if (volumeEnabled) {
+      alertData.volumeEnabled = true;
+      alertData.volumeSpikeMultiplier = parseFloat(volumeSpikeMultiplier) || 2.0;
+    } else {
+      alertData.volumeEnabled = false;
+    }
+    
+    console.log('Creating alert with filtered conditions:', alertData);
+    const alert = new Alert(alertData);
 
     const createdAlert = await alert.save();
     

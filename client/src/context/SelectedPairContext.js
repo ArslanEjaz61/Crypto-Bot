@@ -65,20 +65,24 @@ export const SelectedPairProvider = ({ children }) => {
     
     try {
       // Fetch RSI data
-      const rsiResponse = await fetch(`/api/crypto/${symbolStr}/rsi?period=14&timeframe=${state.selectedTimeframe}`);
+      const rsiResponse = await fetch(`/api/indicators/${symbolStr}/rsi?period=14&timeframe=${state.selectedTimeframe}`);
       const rsiData = rsiResponse.ok ? await rsiResponse.json() : null;
+      console.log('RSI data fetched:', rsiData);
 
       // Fetch EMA data  
-      const emaResponse = await fetch(`/api/crypto/${symbolStr}/ema?periods=9,12,26,50,200&timeframe=${state.selectedTimeframe}`);
+      const emaResponse = await fetch(`/api/indicators/${symbolStr}/ema?periods=9,12,26,50,200&timeframe=${state.selectedTimeframe}`);
       const emaData = emaResponse.ok ? await emaResponse.json() : null;
+      console.log('EMA data fetched:', emaData);
 
       // Fetch volume history
-      const volumeResponse = await fetch(`/api/crypto/${symbolStr}/volume-history?limit=10`);
+      const volumeResponse = await fetch(`/api/indicators/${symbolStr}/volume-history?limit=10`);
       const volumeData = volumeResponse.ok ? await volumeResponse.json() : null;
+      console.log('Volume data fetched:', volumeData);
 
       // Fetch OHLCV data
-      const ohlcvResponse = await fetch(`/api/crypto/${symbolStr}/ohlcv?timeframe=${state.selectedTimeframe}&limit=1`);
+      const ohlcvResponse = await fetch(`/api/indicators/${symbolStr}/ohlcv?timeframe=${state.selectedTimeframe}&limit=1`);
       const ohlcvData = ohlcvResponse.ok ? await ohlcvResponse.json() : null;
+      console.log('OHLCV data fetched:', ohlcvData);
 
       // Update state with fetched indicators
       setState(prevState => ({

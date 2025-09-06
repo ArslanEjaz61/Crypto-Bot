@@ -69,15 +69,28 @@ const AlertsList = () => {
   // Filter alerts when alerts or filter changes
   useEffect(() => {
     console.log('Alerts changed in AlertsList, current alerts:', alerts);
-    if (!alerts || alerts.length === 0) {
+    if (!alerts) {
+      console.log('Alerts is undefined or null');
+      setFilteredAlerts([]);
+      return;
+    }
+    
+    // Ensure alerts is an array
+    const alertsArray = Array.isArray(alerts) ? alerts : [];
+    console.log(`Processing ${alertsArray.length} alerts for filtering`);
+    
+    if (alertsArray.length === 0) {
       console.log('No alerts to filter');
       setFilteredAlerts([]);
       return;
     }
 
-    const filtered = alerts.filter(alert => {
+    const filtered = alertsArray.filter(alert => {
+      // Skip null or undefined alerts
+      if (!alert) return false;
+      
       // Filter by symbol
-      if (filter.symbol && !alert.symbol.toLowerCase().includes(filter.symbol.toLowerCase())) {
+      if (filter.symbol && alert.symbol && !alert.symbol.toLowerCase().includes(filter.symbol.toLowerCase())) {
         return false;
       }
 
@@ -87,16 +100,17 @@ const AlertsList = () => {
       }
 
       // Filter by status
-      if (filter.status === 'active' && !alert.isActive) {
+      if (filter.status === 'active' && alert.isActive === false) {
         return false;
       }
-      if (filter.status === 'inactive' && alert.isActive) {
+      if (filter.status === 'inactive' && alert.isActive === true) {
         return false;
       }
 
       return true;
     });
 
+    console.log(`Filtered to ${filtered.length} alerts`);
     setFilteredAlerts(filtered);
   }, [alerts, filter]);
 
@@ -111,6 +125,10 @@ const AlertsList = () => {
 
   // Format price or percentage based on alert type
   const formatTarget = (alert) => {
+    if (!alert || alert.targetValue === undefined || alert.targetValue === null) {
+      return 'N/A';
+    }
+    
     if (alert.targetType === 'price') {
       return alert.targetValue.toLocaleString(undefined, {
         minimumFractionDigits: 2,
@@ -139,8 +157,23 @@ const AlertsList = () => {
   // Confirm delete
   const confirmDeleteAlert = async () => {
     if (confirmDelete) {
-      await deleteAlert(confirmDelete);
-      setConfirmDelete(null);
+      try {
+        await deleteAlert(confirmDelete);
+        setSnackbar({ 
+          open: true, 
+          message: 'Alert deleted successfully!', 
+          severity: 'success' 
+        });
+      } catch (error) {
+        console.error('Error deleting alert:', error);
+        setSnackbar({ 
+          open: true, 
+          message: 'Failed to delete alert. Please try again.', 
+          severity: 'error' 
+        });
+      } finally {
+        setConfirmDelete(null);
+      }
     }
   };
 
@@ -305,7 +338,7 @@ const AlertsList = () => {
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton 
                           size="small" 
-                          onClick={() => handleFavoriteToggle(alert.symbol)}
+                          onClick={() => handleFavoriteToggle(alert.symbol || '')}
                           sx={{ mr: 1 }}
                         >
                           {isFavorite(alert.symbol) ? (
@@ -314,17 +347,17 @@ const AlertsList = () => {
                             <StarBorderIcon fontSize="small" />
                           )}
                         </IconButton>
-                        {alert.symbol}
+                        {alert.symbol || 'Unknown'}
                         <Chip 
                           size="small" 
-                          label={formatDirection(alert.direction)} 
+                          label={formatDirection(alert.direction || '>')} 
                           color={alert.direction === '>' ? 'success' : alert.direction === '<' ? 'error' : 'primary'}
                           sx={{ ml: 1, minWidth: 30 }}
                         />
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Tooltip title={alert.targetType === 'price' ? 'Price target' : 'Percentage change'}>
+                      <Tooltip title={(alert.targetType === 'price' ? 'Price target' : 'Percentage change')}>
                         <Chip 
                           label={formatTarget(alert)} 
                           size="small" 
@@ -334,12 +367,13 @@ const AlertsList = () => {
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      {alert.currentPrice.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 8
-                      })}
+                      {(alert.currentPrice !== undefined && alert.currentPrice !== null) ? 
+                        alert.currentPrice.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 8
+                        }) : 'N/A'}
                     </TableCell>
-                    <TableCell>{alert.alertTime}</TableCell>
+                    <TableCell>{alert.alertTime || 'N/A'}</TableCell>
                     <TableCell>
                       <Chip 
                         label={alert.isActive ? 'Active' : 'Inactive'} 
@@ -350,12 +384,20 @@ const AlertsList = () => {
                     <TableCell>
                       {alert.lastTriggered ? new Date(alert.lastTriggered).toLocaleDateString() : 'Never'}
                     </TableCell>
-                    <TableCell>{alert.comment}</TableCell>
+                    <TableCell>{alert.comment || ''}</TableCell>
                     <TableCell align="right">
-                      <IconButton onClick={() => handleEdit(alert)} size="small">
+                      <IconButton onClick={() => handleEdit(alert)} size="small" title="Edit Alert">
                         <EditIcon fontSize="small" />
                       </IconButton>
-                      <IconButton onClick={() => handleDelete(alert._id)} size="small">
+                      <IconButton 
+                        onClick={() => handleDelete(alert._id)} 
+                        size="small" 
+                        title="Delete Alert"
+                        sx={{ 
+                          color: 'error.main',
+                          '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.08)' } 
+                        }}
+                      >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </TableCell>
@@ -388,9 +430,24 @@ const AlertsList = () => {
       <ConfirmDialog
         open={Boolean(confirmDelete)}
         title="Delete Alert"
-        content="Are you sure you want to delete this alert? This action cannot be undone."
+        content={
+          <>
+            <Typography variant="body1" gutterBottom>
+              Are you sure you want to delete this alert? This action cannot be undone.
+            </Typography>
+            <Typography variant="body2" color="error">
+              The alert will be permanently removed from the database.
+            </Typography>
+          </>
+        }
         onConfirm={confirmDeleteAlert}
         onCancel={() => setConfirmDelete(null)}
+        confirmButtonProps={{
+          color: 'error',
+          variant: 'contained',
+          startIcon: <DeleteIcon />
+        }}
+        confirmButtonText="Delete"
       />
 
       {/* Snackbar for notifications */}

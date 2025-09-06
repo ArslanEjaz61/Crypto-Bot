@@ -38,7 +38,7 @@ const Header = () => {
       symbol: 'BTCUSDT',
       direction: '>',
       targetType: 'percentage',
-      targetValue: 1,
+      targetValue: 0.001,
       trackingMode: 'current',
       intervalMinutes: 60
     });

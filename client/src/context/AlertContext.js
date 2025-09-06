@@ -94,8 +94,8 @@ export const AlertProvider = ({ children }) => {
     try {
       console.log('Loading alerts with params:', { page, limit, forceRefresh });
       
-      // Always bypass cache for debugging purposes
-      const bypassCache = true;
+      // Set bypassCache to false to allow proper caching
+      const bypassCache = false;
       
       // Check if we've recently fetched this page and have it cached
       const now = new Date().getTime();

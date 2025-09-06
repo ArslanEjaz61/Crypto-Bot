@@ -316,7 +316,7 @@ export const FilterProvider = ({ children }) => {
       })(),
       changePercent: {
         timeframe: getValue(filters.changePercent),
-        percentage: filters.percentageValue ? parseFloat(filters.percentageValue) : 0
+        percentage: filters.percentageValue !== undefined ? parseFloat(filters.percentageValue) : 0
       },
       alertCount: {
         timeframe: getValue(filters.alertCount),

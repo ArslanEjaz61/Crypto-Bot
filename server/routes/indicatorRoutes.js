@@ -97,7 +97,7 @@ function convertTimeframe(timeframe) {
   return timeframeMap[timeframe] || '1h';
 }
 
-// GET /api/crypto/:symbol/rsi
+// GET /api/indicators/:symbol/rsi
 router.get('/:symbol/rsi', async (req, res) => {
   try {
     const { symbol } = req.params;
@@ -132,7 +132,7 @@ router.get('/:symbol/rsi', async (req, res) => {
   }
 });
 
-// GET /api/crypto/:symbol/ema
+// GET /api/indicators/:symbol/ema
 router.get('/:symbol/ema', async (req, res) => {
   try {
     const { symbol } = req.params;
@@ -171,7 +171,7 @@ router.get('/:symbol/ema', async (req, res) => {
   }
 });
 
-// GET /api/crypto/:symbol/volume-history
+// GET /api/indicators/:symbol/volume-history
 router.get('/:symbol/volume-history', async (req, res) => {
   try {
     const { symbol } = req.params;
@@ -203,7 +203,7 @@ router.get('/:symbol/volume-history', async (req, res) => {
   }
 });
 
-// GET /api/crypto/:symbol/ohlcv
+// GET /api/indicators/:symbol/ohlcv
 router.get('/:symbol/ohlcv', async (req, res) => {
   try {
     const { symbol } = req.params;

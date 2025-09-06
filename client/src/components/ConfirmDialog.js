@@ -5,10 +5,21 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Button
+  Button,
+  Box
 } from '@mui/material';
 
-const ConfirmDialog = ({ open, title, content, onConfirm, onCancel }) => {
+const ConfirmDialog = ({ 
+  open, 
+  title, 
+  content, 
+  onConfirm, 
+  onCancel, 
+  confirmButtonProps = {},
+  cancelButtonProps = {},
+  confirmButtonText = 'Confirm',
+  cancelButtonText = 'Cancel'
+}) => {
   return (
     <Dialog
       open={open}
@@ -18,16 +29,32 @@ const ConfirmDialog = ({ open, title, content, onConfirm, onCancel }) => {
     >
       <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText id="confirm-dialog-description">
-          {content}
-        </DialogContentText>
+        {typeof content === 'string' ? (
+          <DialogContentText id="confirm-dialog-description">
+            {content}
+          </DialogContentText>
+        ) : (
+          <Box id="confirm-dialog-description">
+            {content}
+          </Box>
+        )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel} color="primary">
-          Cancel
+        <Button 
+          onClick={onCancel} 
+          color="primary"
+          {...cancelButtonProps}
+        >
+          {cancelButtonText}
         </Button>
-        <Button onClick={onConfirm} color="error" variant="contained" autoFocus>
-          Confirm
+        <Button 
+          onClick={onConfirm} 
+          color="error" 
+          variant="contained" 
+          autoFocus
+          {...confirmButtonProps}
+        >
+          {confirmButtonText}
         </Button>
       </DialogActions>
     </Dialog>

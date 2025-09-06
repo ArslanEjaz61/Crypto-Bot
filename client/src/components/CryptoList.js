@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Paper, 
@@ -7,10 +7,20 @@ import {
   Typography, 
   Button,
   Divider,
-  Chip
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { useAlert } from '../context/AlertContext';
 
 const CryptoList = ({ cryptos = [] }) => {
+  const { deleteAlert } = useAlert();
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deletingSymbol, setDeletingSymbol] = useState('');
   // Currency icons with background colors
   const getCurrencyIcon = (symbol) => {
     const firstLetter = symbol.charAt(0);
@@ -151,33 +161,33 @@ const CryptoList = ({ cryptos = [] }) => {
                 </Typography>
               </Box>
               
-              {/* View button */}
+              {/* Delete button */}
               <Box sx={{ flex: 0.8, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button
                   size="small"
                   variant="outlined"
+                  startIcon={<DeleteIcon fontSize="small" />}
                   onClick={() => {
-                    // Navigate to coin details or open a detail view
-                    console.log(`Viewing details for ${crypto.symbol}`);
-                    // You could navigate to a detail page or open a modal here
-                    window.location.hash = `#/coin/${crypto.symbol}`;
+                    // Open delete confirmation dialog
+                    setConfirmDelete(crypto.symbol);
+                    setDeletingSymbol(crypto.symbol);
                   }}
                   sx={{
                     borderRadius: 1,
-                    minWidth: '60px',
-                    height: '24px',
+                    minWidth: '80px',
+                    height: '28px',
                     textTransform: 'none',
                     fontSize: '0.75rem',
-                    color: '#0EA5E9',
-                    borderColor: 'rgba(14, 165, 233, 0.5)',
+                    color: '#ef4444',
+                    borderColor: 'rgba(239, 68, 68, 0.5)',
                     '&:hover': {
-                      borderColor: '#0EA5E9',
-                      bgcolor: 'rgba(14, 165, 233, 0.08)'
+                      borderColor: '#ef4444',
+                      bgcolor: 'rgba(239, 68, 68, 0.08)'
                     },
                     py: 0
                   }}
                 >
-                  View
+                  Delete
                 </Button>
               </Box>
             </ListItem>
@@ -187,6 +197,67 @@ const CryptoList = ({ cryptos = [] }) => {
           </React.Fragment>
         ))}
       </List>
+      
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+        PaperProps={{
+          style: {
+            backgroundColor: '#1E293B',
+            color: 'white'
+          }
+        }}
+      >
+        <DialogTitle id="alert-dialog-title">
+          Delete all alerts for {deletingSymbol}?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description" sx={{ color: '#94A3B8' }}>
+            This will permanently delete all alerts for {deletingSymbol}. This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setConfirmDelete(null)} 
+            sx={{ color: '#94A3B8' }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={async () => {
+              try {
+                // Get all alerts for this symbol from the API
+                const response = await fetch('/api/alerts');
+                const allAlerts = await response.json();
+                
+                // Filter alerts for the selected symbol
+                const symbolAlerts = allAlerts.filter(alert => alert.symbol === confirmDelete);
+                
+                // Delete each alert for this symbol
+                const deletePromises = symbolAlerts.map(alert => deleteAlert(alert._id));
+                await Promise.all(deletePromises);
+                
+                console.log(`Deleted all alerts for ${confirmDelete}`);
+              } catch (error) {
+                console.error(`Error deleting alerts for ${confirmDelete}:`, error);
+              } finally {
+                setConfirmDelete(null);
+              }
+            }} 
+            autoFocus
+            variant="contained"
+            sx={{ 
+              bgcolor: '#ef4444',
+              '&:hover': { bgcolor: '#dc2626' }
+            }}
+          >
+            Delete All
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 };

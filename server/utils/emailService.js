@@ -69,7 +69,7 @@ const sendAlertEmail = async (to, alert, cryptoData, technicalData = {}) => {
     if (alert.targetType === 'price') {
       subject += `hit target price of ${formatNumber(alert.targetValue)}`;
     } else {
-      subject += `moved ${formatPercent(Math.abs(alert.targetValue))} ${priceDirection === 'up' ? 'upward' : 'downward'}`;
+      subject += `moved ${formatPercent(priceChangePercent)} ${priceDirection === 'up' ? 'upward' : 'downward'}`;
     }
     
     // Create email content
@@ -98,7 +98,7 @@ const sendAlertEmail = async (to, alert, cryptoData, technicalData = {}) => {
           }</p>
           <p><strong>Alert Type:</strong> ${
             alert.targetType === 'price' ? `Target price of ${formatNumber(alert.targetValue)}` :
-            `${formatPercent(alert.targetValue)} change from ${formatNumber(alert.currentPrice)}`
+            `${formatPercent(priceChangePercent)} change from ${formatNumber(alert.currentPrice)}`
           }</p>
           
           ${alert.candleCondition !== 'NONE' ? `

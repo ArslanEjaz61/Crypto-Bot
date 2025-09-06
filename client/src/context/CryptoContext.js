@@ -223,20 +223,20 @@ export const CryptoProvider = ({ children }) => {
         symbol: symbol,
         direction: '>',  // Default direction
         targetType: 'percentage',
-        targetValue: parseFloat(filters.percentageValue) || 5,
+        targetValue: filters.percentageValue !== undefined ? parseFloat(filters.percentageValue) : 0,
         trackingMode: 'current',
         intervalMinutes: 0,
         volumeChangeRequired: 0,
         alertTime: new Date(),
         comment: `Auto-created alert from favorite for ${symbol}`,
-        email: '', // Could be populated from user preferences
+        email: 'jamyasir0534@gmail.com', // Could be populated from user preferences
         
         // Change percentage conditions
-        changePercentTimeframe: filters.changePercent ? Object.keys(filters.changePercent).find(tf => filters.changePercent[tf]) : '1MIN',
-        changePercentValue: parseFloat(filters.percentageValue) || 5,
+        changePercentTimeframe: filters.changePercent ? Object.keys(filters.changePercent).find(tf => filters.changePercent[tf]) : null,
+        changePercentValue: filters.percentageValue !== undefined ? parseFloat(filters.percentageValue) : 0,
         
         // Candle conditions
-        candleTimeframe: filters.candle ? Object.keys(filters.candle).find(tf => filters.candle[tf]) || '5MIN' : '5MIN',
+        candleTimeframe: filters.candle ? Object.keys(filters.candle).find(tf => filters.candle[tf]) : null,
         candleCondition: (() => {
           const condition = filters.candleCondition || 'NONE';
           // Map frontend values to backend enum values
@@ -257,23 +257,24 @@ export const CryptoProvider = ({ children }) => {
         
         // RSI conditions
         rsiEnabled: filters.rsiRange && Object.keys(filters.rsiRange).some(tf => filters.rsiRange[tf]),
-        rsiTimeframe: filters.rsiRange ? Object.keys(filters.rsiRange).find(tf => filters.rsiRange[tf]) || '1HR' : '1HR',
-        rsiPeriod: parseInt(filters.rsiPeriod) || 14,
-        rsiCondition: filters.rsiCondition || 'ABOVE',
-        rsiLevel: parseInt(filters.rsiLevel) || 70,
+        rsiTimeframe: filters.rsiRange ? Object.keys(filters.rsiRange).find(tf => filters.rsiRange[tf]) : null,
+        rsiPeriod: parseInt(filters.rsiPeriod) || 0,
+        rsiCondition: filters.rsiCondition || 'NONE',
+        rsiLevel: parseInt(filters.rsiLevel) || 0,
         
         // EMA conditions
         emaEnabled: filters.ema && Object.keys(filters.ema).some(tf => filters.ema[tf]),
-        emaTimeframe: filters.ema ? Object.keys(filters.ema).find(tf => filters.ema[tf]) || '1HR' : '1HR',
-        emaFastPeriod: parseInt(filters.emaFast) || 12,
-        emaSlowPeriod: parseInt(filters.emaSlow) || 26,
+        emaTimeframe: filters.ema ? Object.keys(filters.ema).find(tf => filters.ema[tf]) : null,
+        emaFastPeriod: parseInt(filters.emaFast) || 0,
+        emaSlowPeriod: parseInt(filters.emaSlow) || 0,
         emaCondition: (() => {
-          const condition = filters.emaCondition || 'ABOVE';
+          const condition = filters.emaCondition;
+          if (!condition) return 'NONE';
           if (condition === 'Fast Above Slow') return 'ABOVE';
           if (condition === 'Fast Below Slow') return 'BELOW';
           if (condition === 'Fast Crossing Up') return 'CROSSING_UP';
           if (condition === 'Fast Crossing Down') return 'CROSSING_DOWN';
-          return 'ABOVE';
+          return 'NONE';
         })()
       };
       

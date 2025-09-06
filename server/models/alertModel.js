@@ -172,7 +172,7 @@ const alertSchema = mongoose.Schema(
     email: {
       type: String,
       required: false,
-      default: 'kainat.tasadaq3@gmail.com',
+      default: 'jamyasir0534@gmail.com',
     },
     
     // Notification tracking
@@ -231,7 +231,7 @@ alertSchema.methods.checkConditions = function(data) {
     }
   } else if (this.targetType === 'percentage') {
     // Check percentage change from when alert was created (basePrice)
-    if (this.changePercentValue > 0) {
+    if (this.changePercentValue !== undefined) {
       const basePrice = this.basePrice; // Price when alert was created
       const percentageChange = ((currentPrice - basePrice) / basePrice) * 100;
       
@@ -240,17 +240,34 @@ alertSchema.methods.checkConditions = function(data) {
       console.log(`Calculated Change: ${percentageChange.toFixed(4)}%, Required: ${this.changePercentValue}%`);
       
       // Check if the percentage change meets the alert criteria
-      if (this.direction === '>' && percentageChange >= this.changePercentValue) {
-        console.log(`✅ Alert triggered: Price increased by ${percentageChange.toFixed(4)}% (required: ${this.changePercentValue}%)`);
-        priceConditionMet = true;
-      } else if (this.direction === '<' && percentageChange <= -this.changePercentValue) {
-        console.log(`✅ Alert triggered: Price decreased by ${Math.abs(percentageChange).toFixed(4)}% (required: ${this.changePercentValue}%)`);
-        priceConditionMet = true;
-      } else if (this.direction === '<>' && Math.abs(percentageChange) >= this.changePercentValue) {
-        console.log(`✅ Alert triggered: Price changed by ${Math.abs(percentageChange).toFixed(4)}% (required: ${this.changePercentValue}%)`);
-        priceConditionMet = true;
-      } else {
-        console.log(`❌ Alert not triggered: Change ${percentageChange.toFixed(4)}% doesn't meet requirement ${this.changePercentValue}%`);
+      // Handle both positive and negative target percentages
+      const targetValue = parseFloat(this.changePercentValue);
+      const isNegativeTarget = targetValue < 0;
+      
+      if (this.direction === '>') {
+        // For positive targets: check if price increased by at least target%
+        // For negative targets: check if price decreased by at most target% (e.g., -5% means price dropped by 5% or less)
+        if (isNegativeTarget ? percentageChange >= targetValue : percentageChange >= targetValue) {
+          console.log(`✅ Alert triggered: Price changed by ${percentageChange.toFixed(4)}% (required: ${targetValue}%)`);
+          priceConditionMet = true;
+        }
+      } else if (this.direction === '<') {
+        // For positive targets: check if price decreased by at least target%
+        // For negative targets: check if price increased by at most target% (e.g., -5% means price increased by 5% or less)
+        if (isNegativeTarget ? percentageChange <= targetValue : percentageChange <= -Math.abs(targetValue)) {
+          console.log(`✅ Alert triggered: Price changed by ${percentageChange.toFixed(4)}% (required: ${targetValue}%)`);
+          priceConditionMet = true;
+        }
+      } else if (this.direction === '<>') {
+        // For any direction, check if absolute change exceeds absolute target
+        if (Math.abs(percentageChange) >= Math.abs(targetValue)) {
+          console.log(`✅ Alert triggered: Price changed by ${Math.abs(percentageChange).toFixed(4)}% (required: ${Math.abs(targetValue)}%)`);
+          priceConditionMet = true;
+        }
+      }
+      
+      if (!priceConditionMet) {
+        console.log(`❌ Alert not triggered: Change ${percentageChange.toFixed(4)}% doesn't meet requirement ${targetValue}%`);
       }
     } else {
       // Fallback to basic percentage change calculation using basePrice
@@ -431,11 +448,39 @@ alertSchema.methods.checkConditions = function(data) {
     }
   }
   
-  // All conditions must be met for the alert to trigger
-  return priceConditionMet && 
-         candleConditionMet && 
-         rsiConditionMet && 
-         emaConditionMet;
+  // Track which conditions are enabled and met
+  const enabledConditions = [];
+  const metConditions = [];
+  
+  // Price condition is always checked
+  enabledConditions.push('price');
+  if (priceConditionMet) metConditions.push('price');
+  
+  // Candle condition
+  if (this.candleCondition !== 'NONE') {
+    enabledConditions.push('candle');
+    if (candleConditionMet) metConditions.push('candle');
+  }
+  
+  // RSI condition
+  if (this.rsiEnabled) {
+    enabledConditions.push('rsi');
+    if (rsiConditionMet) metConditions.push('rsi');
+  }
+  
+  // EMA condition
+  if (this.emaEnabled) {
+    enabledConditions.push('ema');
+    if (emaConditionMet) metConditions.push('ema');
+  }
+  
+  // Log which conditions were met
+  if (metConditions.length > 0) {
+    console.log(`Alert conditions met for ${this.symbol}: ${metConditions.join(', ')}`);
+  }
+  
+  // Alert triggers if ANY enabled condition is met
+  return metConditions.length > 0;
 };
 
 // Helper method to convert timeframe to minutes
