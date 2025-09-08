@@ -292,176 +292,71 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
     // You can add logic here to collapse accordions on small screens if needed
   }, [isSmall]);
 
-  // Enhanced form validation using FilterContext validation
+  // Validation function to check if minimum required fields are filled
   const validateAlertForm = useCallback(() => {
-    // Get validation results from FilterContext
-    const validationFilters = getValidationFilters();
-    const contextValidation = validationFilters._validation || { errors: [], warnings: [] };
+    const errors = [];
     
-    const errors = [...contextValidation.errors];
-    const warnings = [...contextValidation.warnings];
-    
-    // Get current filter values for additional validation
-    const filterValues = getFilterValues();
+    // Check if at least one condition is selected
     const hasChangePercent = Object.keys(filters.changePercent || {}).some(key => filters.changePercent[key]) && 
                              (percentageValue || filters.percentageValue);
     const hasRSI = Object.keys(filters.rsiRange || {}).some(key => filters.rsiRange[key]) && 
-                   filters.rsiPeriod && filters.rsiLevel && filters.rsiCondition !== 'NONE';
+                   filters.rsiPeriod && filters.rsiLevel;
     const hasEMA = Object.keys(filters.ema || {}).some(key => filters.ema[key]) && 
-                   filters.emaFast && filters.emaSlow && filters.emaCondition !== 'NONE';
-    const hasCandle = Object.keys(filters.candle || {}).some(key => filters.candle[key]) && 
-                      filters.candleCondition !== 'NONE';
-    const hasMinVolume = Object.keys(filters.minDaily || {}).some(key => filters.minDaily[key]);
-    const hasAlertCount = Object.keys(filters.alertCount || {}).some(key => filters.alertCount[key]);
+                   filters.emaFast && filters.emaSlow;
+    const hasCandle = Object.keys(filters.candle || {}).some(key => filters.candle[key]);
     
-    // At least one meaningful condition must be selected
     if (!hasChangePercent && !hasRSI && !hasEMA && !hasCandle) {
       errors.push('At least one condition must be selected (Change %, RSI, EMA, or Candle)');
     }
     
-    // Enhanced Change % validation with range checking
+    // Validate Change % specific requirements
     if (hasChangePercent) {
       if (!percentageValue && !filters.percentageValue) {
         errors.push('Percentage value is required when Change % timeframe is selected');
       } else {
         const percentValue = Number(percentageValue || filters.percentageValue);
-        if (isNaN(percentValue)) {
-          errors.push('Percentage value must be a valid number');
-        } else if (percentValue === 0) {
-          errors.push('Percentage value cannot be zero');
-        } else if (Math.abs(percentValue) > 100) {
-          warnings.push('Percentage value over 100% may rarely trigger');
-        } else if (Math.abs(percentValue) < 0.1) {
-          warnings.push('Very small percentage values may trigger frequently');
-        }
-        
-        // Check if timeframe is selected
-        const selectedTimeframes = Object.keys(filters.changePercent || {}).filter(key => filters.changePercent[key]);
-        if (selectedTimeframes.length === 0) {
-          errors.push('At least one timeframe must be selected for Change %');
+        if (isNaN(percentValue) || percentValue <= 0) {
+          errors.push('Percentage value must be a positive number');
         }
       }
     }
     
-    // Enhanced RSI validation with logical range checking
+    // Validate RSI specific requirements
     if (hasRSI) {
-      const selectedRSITimeframes = Object.keys(filters.rsiRange || {}).filter(key => filters.rsiRange[key]);
-      if (selectedRSITimeframes.length === 0) {
-        errors.push('At least one timeframe must be selected for RSI');
-      }
-      
       if (!filters.rsiPeriod || !filters.rsiLevel) {
         errors.push('RSI Period and Level are required when RSI timeframe is selected');
       } else {
         const period = Number(filters.rsiPeriod);
         const level = Number(filters.rsiLevel);
-        
         if (isNaN(period) || period <= 0) {
           errors.push('RSI Period must be a positive number');
-        } else if (period < 2) {
-          errors.push('RSI Period should be at least 2');
-        } else if (period > 100) {
-          warnings.push('RSI Period over 100 may be too slow for most strategies');
         }
-        
-        if (isNaN(level) || level < 0 || level > 100) {
-          errors.push('RSI Level must be between 0 and 100');
-        } else {
-          // Logical RSI level warnings based on condition
-          if (filters.rsiCondition === 'ABOVE' && level < 50) {
-            warnings.push('RSI ABOVE condition with level below 50 may trigger frequently');
-          } else if (filters.rsiCondition === 'BELOW' && level > 50) {
-            warnings.push('RSI BELOW condition with level above 50 may trigger frequently');
-          } else if ((filters.rsiCondition === 'ABOVE' || filters.rsiCondition === 'CROSSING_UP') && level < 30) {
-            warnings.push('RSI level below 30 for upward conditions may miss opportunities');
-          } else if ((filters.rsiCondition === 'BELOW' || filters.rsiCondition === 'CROSSING_DOWN') && level > 70) {
-            warnings.push('RSI level above 70 for downward conditions may miss opportunities');
-          }
-        }
-        
-        if (filters.rsiCondition === 'NONE') {
-          errors.push('RSI condition must be selected (ABOVE, BELOW, CROSSING UP, or CROSSING DOWN)');
+        if (isNaN(level) || level < 1 || level > 100) {
+          errors.push('RSI Level must be between 1 and 100');
         }
       }
     }
     
-    // Enhanced EMA validation with period relationship checking
+    // Validate EMA specific requirements
     if (hasEMA) {
-      const selectedEMATimeframes = Object.keys(filters.ema || {}).filter(key => filters.ema[key]);
-      if (selectedEMATimeframes.length === 0) {
-        errors.push('At least one timeframe must be selected for EMA');
-      }
-      
       if (!filters.emaFast || !filters.emaSlow) {
         errors.push('EMA Fast and Slow periods are required when EMA timeframe is selected');
       } else {
         const fast = Number(filters.emaFast);
         const slow = Number(filters.emaSlow);
-        
         if (isNaN(fast) || fast <= 0) {
           errors.push('EMA Fast period must be a positive number');
-        } else if (fast < 2) {
-          errors.push('EMA Fast period should be at least 2');
         }
-        
         if (isNaN(slow) || slow <= 0) {
           errors.push('EMA Slow period must be a positive number');
-        } else if (slow < 2) {
-          errors.push('EMA Slow period should be at least 2');
         }
-        
         if (fast >= slow) {
           errors.push('EMA Fast period must be less than Slow period');
-        } else {
-          const ratio = slow / fast;
-          if (ratio < 1.5) {
-            warnings.push('EMA periods are very close - consider wider separation for clearer signals');
-          } else if (ratio > 10) {
-            warnings.push('EMA periods are very far apart - may result in delayed signals');
-          }
-        }
-        
-        if (filters.emaCondition === 'NONE') {
-          errors.push('EMA condition must be selected (ABOVE, BELOW, CROSSING UP, or CROSSING DOWN)');
         }
       }
     }
     
-    // Enhanced Candle validation
-    if (hasCandle) {
-      const selectedCandleTimeframes = Object.keys(filters.candle || {}).filter(key => filters.candle[key]);
-      if (selectedCandleTimeframes.length === 0) {
-        errors.push('At least one timeframe must be selected for Candle patterns');
-      }
-      
-      if (filters.candleCondition === 'NONE') {
-        errors.push('Candle condition must be selected');
-      }
-    }
-    
-    // Volume filter validation
-    if (hasMinVolume) {
-      const selectedVolumes = Object.keys(filters.minDaily || {}).filter(key => filters.minDaily[key]);
-      if (selectedVolumes.length > 1) {
-        warnings.push('Multiple volume filters selected - only the minimum will be used');
-      }
-    }
-    
-    // Alert count validation
-    if (hasAlertCount) {
-      const selectedAlertTimeframes = Object.keys(filters.alertCount || {}).filter(key => filters.alertCount[key]);
-      if (selectedAlertTimeframes.length > 1) {
-        warnings.push('Multiple alert count timeframes selected - only the first will be used');
-      }
-    }
-    
-    // Cross-condition logic validation
-    if (hasChangePercent && hasRSI && hasEMA) {
-      warnings.push('Multiple technical indicators selected - ensure they complement each other');
-    }
-    
-    // Return both errors and warnings for better user feedback
-    return { errors, warnings };
+    return errors;
   }, [filters, percentageValue]);
 
   // Memoized create alert function
@@ -519,17 +414,11 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
     
     console.log('Final symbol for alert creation:', symbol);
     
-    // Validate form before proceeding with enhanced validation
-    const validation = validateAlertForm();
-    if (validation.errors.length > 0) {
-      setErrorMessage(validation.errors.join('. '));
+    // Validate form before proceeding
+    const validationErrors = validateAlertForm();
+    if (validationErrors.length > 0) {
+      setErrorMessage(validationErrors.join('. '));
       return;
-    }
-    
-    // Show warnings but don't block alert creation
-    if (validation.warnings.length > 0) {
-      console.warn('Alert creation warnings:', validation.warnings.join('. '));
-      // Could show warnings to user in a non-blocking way
     }
 
     setIsCreatingAlert(true);
@@ -1485,7 +1374,7 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
               mb: isSmall ? 2 : 0
             }}
             onClick={handleCreateAlert}
-            disabled={validateAlertForm().errors.length > 0}
+            disabled={validateAlertForm().length > 0}
             loading={isCreatingAlert}
             loadingText="Creating Alert..."
           >
@@ -1493,25 +1382,13 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
           </LoadingButton>
         </Box>
 
-        {/* Error, Warning, and Success Messages */}
+        {/* Error and Success Messages */}
         {errorMessage && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {errorMessage}
           </Alert>
         )}
-        {(() => {
-          const validation = validateAlertForm();
-          return validation.warnings.length > 0 && !errorMessage && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              <strong>Warnings:</strong>
-              <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-                {validation.warnings.map((warning, index) => (
-                  <li key={index}>{warning}</li>
-                ))}
-              </ul>
-            </Alert>
-          );
-        })()}
+        
         {successMessage && (
           <Alert severity="success" sx={{ mt: 2 }}>
             {successMessage}
@@ -1540,7 +1417,7 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
               onClick={() => {
                 handleCreateAlert();
               }}
-              disabled={validateAlertForm().errors.length > 0}
+              disabled={validateAlertForm().length > 0}
               loading={isCreatingAlert}
               loadingText="Creating Alert..."
             >

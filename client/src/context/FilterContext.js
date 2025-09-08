@@ -180,13 +180,11 @@ export const FilterProvider = ({ children }) => {
     });
   }, [filters]);
 
-  // Enhanced validation filters with comprehensive logic checking
+  // Convert filters to the format expected by the backend validation endpoint
   const getValidationFilters = useCallback(() => {
     const validationFilters = {};
-    const errors = [];
-    const warnings = [];
     
-    // Enhanced Min Daily Volume filter with validation
+    // Min Daily Volume filter - OHLCV integration
     if (filters.minDaily && Object.keys(filters.minDaily).some(vol => filters.minDaily[vol])) {
       const volumes = {
         '10K': 10000,
@@ -206,45 +204,23 @@ export const FilterProvider = ({ children }) => {
       
       if (selectedVolumes.length > 0) {
         validationFilters.minDailyVolume = Math.min(...selectedVolumes);
-        if (selectedVolumes.length > 1) {
-          warnings.push('Multiple volume filters selected - using minimum value');
-        }
-        if (validationFilters.minDailyVolume >= 50000000) {
-          warnings.push('Very high volume filter may result in few matches');
-        }
       } else {
-        validationFilters.minDailyVolume = 0;
+        validationFilters.minDailyVolume = 0; // Default to 0 if none selected
       }
     } else {
-      validationFilters.minDailyVolume = 0;
+      validationFilters.minDailyVolume = 0; // Default to 0 if section not used
     }
     
-    // Enhanced Change % filter with comprehensive validation
+    // Change % filter - OHLCV price change integration
     if (filters.changePercent && Object.keys(filters.changePercent).some(tf => filters.changePercent[tf]) && filters.percentageValue) {
       const timeframes = Object.keys(filters.changePercent).filter(tf => filters.changePercent[tf]);
       const percentageVal = parseFloat(filters.percentageValue);
-      
       if (timeframes.length > 0 && !isNaN(percentageVal)) {
-        if (percentageVal === 0) {
-          errors.push('Percentage value cannot be zero');
-        } else if (Math.abs(percentageVal) > 100) {
-          warnings.push('Percentage over 100% may rarely trigger');
-        } else if (Math.abs(percentageVal) < 0.1) {
-          warnings.push('Very small percentage may trigger frequently');
-        }
-        
         validationFilters.change = {
           timeframe: timeframes[0],
           percentage: percentageVal
         };
-        
-        if (timeframes.length > 1) {
-          warnings.push('Multiple Change % timeframes selected - using first one');
-        }
       } else {
-        if (timeframes.length > 0 && isNaN(percentageVal)) {
-          errors.push('Valid percentage value required for Change % filter');
-        }
         validationFilters.change = { timeframe: null, percentage: 0 };
       }
     } else {
@@ -266,45 +242,16 @@ export const FilterProvider = ({ children }) => {
       validationFilters.alertCount = { timeframe: null, enabled: false };
     }
     
-    // Enhanced RSI Range filter with logical validation
+    // RSI Range filter - Set to null if not selected
     if (filters.rsiRange && Object.keys(filters.rsiRange).some(tf => filters.rsiRange[tf]) && filters.rsiPeriod && filters.rsiLevel) {
       const timeframes = Object.keys(filters.rsiRange).filter(tf => filters.rsiRange[tf]);
-      const period = parseInt(filters.rsiPeriod);
-      const level = parseInt(filters.rsiLevel);
-      
       if (timeframes.length > 0) {
-        // Validate RSI parameters
-        if (isNaN(period) || period < 2) {
-          errors.push('RSI period must be at least 2');
-        } else if (period > 100) {
-          warnings.push('RSI period over 100 may be too slow');
-        }
-        
-        if (isNaN(level) || level < 0 || level > 100) {
-          errors.push('RSI level must be between 0 and 100');
-        } else {
-          // Logical RSI warnings based on condition
-          if (filters.rsiCondition === 'ABOVE' && level < 50) {
-            warnings.push('RSI ABOVE with level below 50 may trigger frequently');
-          } else if (filters.rsiCondition === 'BELOW' && level > 50) {
-            warnings.push('RSI BELOW with level above 50 may trigger frequently');
-          }
-        }
-        
-        if (!filters.rsiCondition || filters.rsiCondition === 'NONE') {
-          errors.push('RSI condition must be selected');
-        }
-        
         validationFilters.rsi = {
           timeframe: timeframes[0].toLowerCase(),
-          period: period || 14,
-          level: level || 70,
+          period: parseInt(filters.rsiPeriod) || 14,
+          level: parseInt(filters.rsiLevel) || 70,
           condition: filters.rsiCondition || 'NONE'
         };
-        
-        if (timeframes.length > 1) {
-          warnings.push('Multiple RSI timeframes selected - using first one');
-        }
       } else {
         validationFilters.rsi = null;
       }
@@ -312,47 +259,16 @@ export const FilterProvider = ({ children }) => {
       validationFilters.rsi = null;
     }
     
-    // Enhanced EMA filter with relationship validation
+    // EMA filter - Set to null if not selected
     if (filters.ema && Object.keys(filters.ema).some(tf => filters.ema[tf]) && filters.emaFast && filters.emaSlow) {
       const timeframes = Object.keys(filters.ema).filter(tf => filters.ema[tf]);
-      const fastPeriod = parseInt(filters.emaFast);
-      const slowPeriod = parseInt(filters.emaSlow);
-      
       if (timeframes.length > 0) {
-        // Validate EMA parameters
-        if (isNaN(fastPeriod) || fastPeriod < 2) {
-          errors.push('EMA Fast period must be at least 2');
-        }
-        
-        if (isNaN(slowPeriod) || slowPeriod < 2) {
-          errors.push('EMA Slow period must be at least 2');
-        }
-        
-        if (fastPeriod >= slowPeriod) {
-          errors.push('EMA Fast period must be less than Slow period');
-        } else {
-          const ratio = slowPeriod / fastPeriod;
-          if (ratio < 1.5) {
-            warnings.push('EMA periods very close - consider wider separation');
-          } else if (ratio > 10) {
-            warnings.push('EMA periods very far apart - may cause delayed signals');
-          }
-        }
-        
-        if (!filters.emaCondition || filters.emaCondition === 'NONE') {
-          errors.push('EMA condition must be selected');
-        }
-        
         validationFilters.ema = {
           timeframe: timeframes[0].toLowerCase(),
-          fastPeriod: fastPeriod || 12,
-          slowPeriod: slowPeriod || 26,
+          fastPeriod: parseInt(filters.emaFast) || 12,
+          slowPeriod: parseInt(filters.emaSlow) || 26,
           condition: filters.emaCondition || 'NONE'
         };
-        
-        if (timeframes.length > 1) {
-          warnings.push('Multiple EMA timeframes selected - using first one');
-        }
       } else {
         validationFilters.ema = null;
       }
@@ -360,8 +276,6 @@ export const FilterProvider = ({ children }) => {
       validationFilters.ema = null;
     }
     
-    // Add validation results to the return object
-    validationFilters._validation = { errors, warnings };
     return validationFilters;
   }, [filters]);
   
