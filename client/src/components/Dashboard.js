@@ -172,7 +172,7 @@ const Dashboard = ({ children }) => {
           display: { xs: 'none', md: 'block' } // Hide on mobile, show on tablet+
         }}>
           <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 2 }}>
-            <MarketPanel onSelectCoin={handleCoinSelect} onCreateAlert={handleCreateAlertFromFavorite} />
+            <MarketPanel onSelectCoin={handleCoinSelect} onCreateAlert={handleCreateAlertFromFavorite} filterSidebarRef={filterSidebarRef} />
           </Paper>
         </Grid>
         

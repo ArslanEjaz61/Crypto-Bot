@@ -229,7 +229,7 @@ export const CryptoProvider = ({ children }) => {
         volumeChangeRequired: 0,
         alertTime: new Date(),
         comment: `Auto-created alert from favorite for ${symbol}`,
-        email: 'jamyasir0534@gmail.com', // Could be populated from user preferences
+        email: 'kainat.tasadaq3@gmail.com', // Could be populated from user preferences
         
         // Change percentage conditions
         changePercentTimeframe: filters.changePercent ? Object.keys(filters.changePercent).find(tf => filters.changePercent[tf]) : null,
@@ -324,7 +324,7 @@ export const CryptoProvider = ({ children }) => {
   }, []);
 
   // Toggle favorite status
-  const toggleFavorite = useCallback(async (symbol, filterConditions = null) => {
+  const toggleFavorite = useCallback(async (symbol, filterConditions = null, createAlertCallback = null) => {
     try {
       const crypto = state.cryptos.find((c) => c.symbol === symbol);
       if (!crypto) {
@@ -341,8 +341,13 @@ export const CryptoProvider = ({ children }) => {
       
       await axios.put(endpoint, { isFavorite: newStatus });
       
-      // If adding to favorites and filter conditions are provided, create alert
-      if (newStatus && filterConditions) {
+      // If adding to favorites and we have a callback function, use it for alert creation
+      if (newStatus && createAlertCallback) {
+        console.log(`Creating alert for ${symbol} using FilterSidebar logic`);
+        await createAlertCallback(symbol);
+      }
+      // Fallback to old method if no callback provided but filter conditions exist
+      else if (newStatus && filterConditions) {
         console.log(`Creating alert for ${symbol} with filter conditions:`, filterConditions);
         await createAlertFromFilters(symbol, filterConditions);
       }

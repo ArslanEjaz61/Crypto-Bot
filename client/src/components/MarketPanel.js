@@ -32,7 +32,7 @@ import { useAlert } from '../context/AlertContext';
 import SmoothTransition from './SmoothTransition';
 import { useDebounce, useThrottle } from '../utils/requestThrottle';
 
-const MarketPanel = ({ onSelectCoin, onCreateAlert }) => {
+const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   const { cryptos, error, toggleFavorite, checkAlertConditions, loadCryptos } = useCrypto();
   const { filters, getValidationFilters, hasActiveFilters } = useFilters();
   const { alerts } = useAlert(); // Import to get active alerts
@@ -375,8 +375,12 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert }) => {
                               e.stopPropagation();
                               
                               // Only create alert if we're adding to favorites (not already a favorite)
-                              if (!crypto.isFavorite && onCreateAlert) {
-                                // Get validation filters for alert creation
+                              if (!crypto.isFavorite && onCreateAlert && filterSidebarRef?.current?.handleCreateAlert) {
+                                // Use FilterSidebar's alert creation logic with current filter values
+                                const createAlertCallback = filterSidebarRef.current.handleCreateAlert;
+                                toggleFavorite(crypto.symbol, null, createAlertCallback);
+                              } else if (!crypto.isFavorite && onCreateAlert) {
+                                // Fallback to old method if FilterSidebar ref not available
                                 const filterConditions = getValidationFilters ? getValidationFilters() : null;
                                 toggleFavorite(crypto.symbol, filterConditions);
                               } else {

@@ -32,9 +32,9 @@ const sendAlertEmail = async (to, alert, cryptoData, technicalData = {}) => {
       }
     };
     
-    // Format percentage
+    // Format percentage - values are already in percentage format, no need to multiply by 100
     const formatPercent = (num) => {
-      return `${(num * 100).toFixed(2)}%`;
+      return `${num.toFixed(2)}%`;
     };
     
     // Calculate price change percentage - Fix the calculation to use proper timeframe-based comparison

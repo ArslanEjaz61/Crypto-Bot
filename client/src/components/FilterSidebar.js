@@ -36,6 +36,7 @@ import {
 import { useFilters } from '../context/FilterContext';
 import { useCrypto } from '../context/CryptoContext';
 import { useAlert } from '../context/AlertContext';
+import { useSelectedPair } from '../context/SelectedPairContext';
 import LoadingButton from './LoadingButton';
 
 // Custom styled components to match screenshot
@@ -231,8 +232,7 @@ const DarkTypography = styled(Typography)({
 
 const FilterSidebar = memo(forwardRef((props, ref) => {
   const { createAlert } = useAlert();
-  const { createAlert: cryptoCreateAlert } = useCrypto();
-  const { createAlert: alertCreateAlert } = useAlert();
+  const { selectedSymbol } = useSelectedPair();
   const [errorMessage, setErrorMessage] = useState('');
   const [percentageValue, setPercentageValue] = useState('');
   
@@ -287,20 +287,139 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
     }
   }, [setCtxFilters]);
 
-  // Expose handleCreateAlert function via ref
-  useImperativeHandle(ref, () => ({
-    handleCreateAlert
-  }));
-
   // Effect to adjust accordion state based on screen size  
   useEffect(() => {
     // You can add logic here to collapse accordions on small screens if needed
   }, [isSmall]);
 
+  // Validation function to check if minimum required fields are filled
+  const validateAlertForm = useCallback(() => {
+    const errors = [];
+    
+    // Check if at least one condition is selected
+    const hasChangePercent = Object.keys(filters.changePercent || {}).some(key => filters.changePercent[key]) && 
+                             (percentageValue || filters.percentageValue);
+    const hasRSI = Object.keys(filters.rsiRange || {}).some(key => filters.rsiRange[key]) && 
+                   filters.rsiPeriod && filters.rsiLevel;
+    const hasEMA = Object.keys(filters.ema || {}).some(key => filters.ema[key]) && 
+                   filters.emaFast && filters.emaSlow;
+    const hasCandle = Object.keys(filters.candle || {}).some(key => filters.candle[key]);
+    
+    if (!hasChangePercent && !hasRSI && !hasEMA && !hasCandle) {
+      errors.push('At least one condition must be selected (Change %, RSI, EMA, or Candle)');
+    }
+    
+    // Validate Change % specific requirements
+    if (hasChangePercent) {
+      if (!percentageValue && !filters.percentageValue) {
+        errors.push('Percentage value is required when Change % timeframe is selected');
+      } else {
+        const percentValue = Number(percentageValue || filters.percentageValue);
+        if (isNaN(percentValue) || percentValue <= 0) {
+          errors.push('Percentage value must be a positive number');
+        }
+      }
+    }
+    
+    // Validate RSI specific requirements
+    if (hasRSI) {
+      if (!filters.rsiPeriod || !filters.rsiLevel) {
+        errors.push('RSI Period and Level are required when RSI timeframe is selected');
+      } else {
+        const period = Number(filters.rsiPeriod);
+        const level = Number(filters.rsiLevel);
+        if (isNaN(period) || period <= 0) {
+          errors.push('RSI Period must be a positive number');
+        }
+        if (isNaN(level) || level < 1 || level > 100) {
+          errors.push('RSI Level must be between 1 and 100');
+        }
+      }
+    }
+    
+    // Validate EMA specific requirements
+    if (hasEMA) {
+      if (!filters.emaFast || !filters.emaSlow) {
+        errors.push('EMA Fast and Slow periods are required when EMA timeframe is selected');
+      } else {
+        const fast = Number(filters.emaFast);
+        const slow = Number(filters.emaSlow);
+        if (isNaN(fast) || fast <= 0) {
+          errors.push('EMA Fast period must be a positive number');
+        }
+        if (isNaN(slow) || slow <= 0) {
+          errors.push('EMA Slow period must be a positive number');
+        }
+        if (fast >= slow) {
+          errors.push('EMA Fast period must be less than Slow period');
+        }
+      }
+    }
+    
+    return errors;
+  }, [filters, percentageValue]);
+
   // Memoized create alert function
-  const handleCreateAlert = useCallback(async (selectedSymbol = null) => {
-    // Allow creating alert with null/0 default values - no validation required
-    const symbol = selectedSymbol || 'BTCUSDT';
+  const handleCreateAlert = useCallback(async (symbolOverride = null) => {
+    // Debug selectedSymbol to understand its structure
+    console.log('selectedSymbol type:', typeof selectedSymbol);
+    console.log('selectedSymbol value:', selectedSymbol);
+    console.log('selectedSymbol JSON:', JSON.stringify(selectedSymbol, null, 2));
+    
+    // Extract symbol string properly from selectedSymbol object or use override/fallback
+    let symbol;
+    if (symbolOverride) {
+      symbol = String(symbolOverride);
+      console.log('Using symbolOverride:', symbol);
+    } else if (selectedSymbol) {
+      console.log('Processing selectedSymbol...');
+      // Handle case where selectedSymbol might be an object with symbol property
+      if (typeof selectedSymbol === 'object' && selectedSymbol !== null) {
+        console.log('selectedSymbol is object, keys:', Object.keys(selectedSymbol));
+        if (selectedSymbol.symbol) {
+          symbol = String(selectedSymbol.symbol);
+          console.log('Found symbol property:', symbol);
+        } else if (selectedSymbol.selectedSymbol) {
+          symbol = String(selectedSymbol.selectedSymbol);
+          console.log('Found selectedSymbol property:', symbol);
+        } else {
+          // Try to find any property that looks like a symbol
+          const possibleSymbol = Object.values(selectedSymbol).find(val => 
+            typeof val === 'string' && val.match(/^[A-Z]{3,10}USDT?$/));
+          if (possibleSymbol) {
+            symbol = String(possibleSymbol);
+            console.log('Found possible symbol in values:', symbol);
+          } else {
+            symbol = 'BTCUSDT'; // fallback
+            console.log('No valid symbol found in object, using fallback');
+          }
+        }
+      } else if (typeof selectedSymbol === 'string') {
+        symbol = selectedSymbol;
+        console.log('selectedSymbol is string:', symbol);
+      } else {
+        symbol = 'BTCUSDT'; // fallback
+        console.log('selectedSymbol is neither object nor string, using fallback');
+      }
+    } else {
+      symbol = 'BTCUSDT'; // fallback
+      console.log('No selectedSymbol, using fallback');
+    }
+    
+    // Final safety check - ensure symbol is always a string
+    if (typeof symbol !== 'string' || symbol === '[object Object]' || !symbol) {
+      console.warn('Symbol is still not a valid string, forcing BTCUSDT');
+      symbol = 'BTCUSDT';
+    }
+    
+    console.log('Final symbol for alert creation:', symbol);
+    
+    // Validate form before proceeding
+    const validationErrors = validateAlertForm();
+    if (validationErrors.length > 0) {
+      setErrorMessage(validationErrors.join('. '));
+      return;
+    }
 
     setIsCreatingAlert(true);
     setErrorMessage('');
@@ -328,7 +447,6 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
       // Use filterValues for OHLCV-integrated data
       const minDailyVolume = filterValues.minDailyVolume || 0;
       const changePercentTimeframe = filterValues.changePercent.timeframe;
-      const changePercentValue = Number(filters.percentageValue) || 1; // Use the dropdown value directly
       const alertCountTimeframe = filterValues.alertCount.timeframe;
       const alertCountEnabled = filterValues.alertCount.enabled;
 
@@ -337,30 +455,63 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
       const emaConfig = filterValues.ema;
       const candleTimeframe = firstSelected(filters.candle) || null;
 
+      // Get percentage value with multiple fallbacks
+      let finalPercentageValue;
+      
+      // Priority 1: Direct input field value
+      if (percentageInputRef.current && percentageInputRef.current.value && percentageInputRef.current.value.trim() !== '') {
+        finalPercentageValue = Number(percentageInputRef.current.value);
+        console.log('Got percentage from input ref:', finalPercentageValue);
+      }
+      // Priority 2: Local state value
+      else if (percentageValue && percentageValue.toString().trim() !== '') {
+        finalPercentageValue = Number(percentageValue);
+        console.log('Got percentage from local state:', finalPercentageValue);
+      }
+      // Priority 3: Context filters value
+      else if (filters.percentageValue && filters.percentageValue.toString().trim() !== '') {
+        finalPercentageValue = Number(filters.percentageValue);
+        console.log('Got percentage from context filters:', finalPercentageValue);
+      }
+      // Default fallback
+      else {
+        finalPercentageValue = 1;
+        console.log('Using default percentage value:', finalPercentageValue);
+      }
+      
+      // Ensure we have a valid non-zero number
+      if (isNaN(finalPercentageValue) || finalPercentageValue <= 0) {
+        finalPercentageValue = 1;
+        console.log('Invalid percentage, using default:', finalPercentageValue);
+      }
+      
+      console.log('Final percentage value being sent to backend:', finalPercentageValue);
+
+      // Create clean alertData object with only serializable values
       const alertData = {
-        symbol: symbol,
+        symbol: String(symbol),
         direction: '>',
         targetType: 'percentage',
-        targetValue: changePercentValue, // Use the dropdown value directly
+        targetValue: Number(finalPercentageValue),
         trackingMode: 'current',
         intervalMinutes: 60,
         volumeChangeRequired: 0,
-        alertTime,
+        alertTime: String(alertTime),
         comment: `Alert created from filter for ${symbol}`,
-        email: 'jamyasir0534@gmail.com',
+        email: 'kainat.tasadaq3@gmail.com',
 
         // OHLCV-integrated Min Daily Volume
-        minDailyVolume,
+        minDailyVolume: Number(minDailyVolume) || 0,
 
         // OHLCV-integrated Change % with timeframe
-        changePercentTimeframe: changePercentTimeframe || null,
-        changePercentValue: changePercentValue, // Use the dropdown value directly
+        changePercentTimeframe: changePercentTimeframe ? String(changePercentTimeframe) : null,
+        changePercentValue: Number(finalPercentageValue),
         // Alert Count configuration
-        alertCountTimeframe: alertCountTimeframe || null,
-        alertCountEnabled: alertCountEnabled || false,
+        alertCountTimeframe: alertCountTimeframe ? String(alertCountTimeframe) : null,
+        alertCountEnabled: Boolean(alertCountEnabled),
 
         // Candle configuration - null if not selected
-        candleTimeframe: candleTimeframe || null,
+        candleTimeframe: candleTimeframe ? String(candleTimeframe) : null,
         candleCondition: candleTimeframe ? (() => {
           const condition = filters.candleCondition || 'NONE';
           const conditionMap = {
@@ -375,27 +526,27 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
             'Long Lower Wick': 'LONG_LOWER_WICK',
             'None': 'NONE'
           };
-          return conditionMap[condition] || 'NONE';
+          return String(conditionMap[condition] || 'NONE');
         })() : 'NONE',
 
         // RSI configuration - null if not selected
         rsiEnabled: Boolean(rsiConfig),
-        rsiTimeframe: rsiConfig?.timeframe || null,
-        rsiPeriod: rsiConfig?.period || 0,
-        rsiCondition: rsiConfig?.condition?.replace(' ', '_') || 'NONE',
-        rsiLevel: rsiConfig?.level || 0,
+        rsiTimeframe: rsiConfig?.timeframe ? String(rsiConfig.timeframe) : null,
+        rsiPeriod: rsiConfig?.period ? Number(rsiConfig.period) : 0,
+        rsiCondition: rsiConfig?.condition ? String(rsiConfig.condition).replace(' ', '_') : 'NONE',
+        rsiLevel: rsiConfig?.level ? Number(rsiConfig.level) : 0,
 
         // EMA configuration - null if not selected
         emaEnabled: Boolean(emaConfig),
-        emaTimeframe: emaConfig?.timeframe || null,
-        emaFastPeriod: emaConfig?.fastPeriod || 0,
-        emaSlowPeriod: emaConfig?.slowPeriod || 0,
-        emaCondition: emaConfig?.condition?.replace(' ', '_') || 'NONE',
+        emaTimeframe: emaConfig?.timeframe ? String(emaConfig.timeframe) : null,
+        emaFastPeriod: emaConfig?.fastPeriod ? Number(emaConfig.fastPeriod) : 0,
+        emaSlowPeriod: emaConfig?.slowPeriod ? Number(emaConfig.slowPeriod) : 0,
+        emaCondition: emaConfig?.condition ? String(emaConfig.condition).replace(' ', '_') : 'NONE',
 
         // Market filters (always active)
-        market,
-        exchange,
-        tradingPair,
+        market: String(market),
+        exchange: String(exchange),
+        tradingPair: String(tradingPair),
       };
 
       // Allow creating alerts with null/0 values - no validation required
@@ -409,13 +560,21 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
         ema: emaConfig
       });
 
-      const created = await cryptoCreateAlert(alertData);
+      const created = await createAlert(alertData);
       console.log('Alert created successfully:', created);
       setSuccessMessage(`Alert created successfully for ${alertData.symbol}!`);
-      setPercentageValue(''); // Reset after successful creation
+      
+      // Reset percentage value after successful creation
+      setPercentageValue('');
+      
+      // Clear the input field directly
+      if (percentageInputRef.current) {
+        percentageInputRef.current.value = '';
+      }
+      
       eventBus.emit('ALERT_CREATED', created);
 
-      // Reset percentage value after successful creation
+      // Reset percentage value in context
       setCtxFilters(prev => ({
         ...prev,
         percentageValue: null
@@ -430,33 +589,27 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
     } finally {
       setIsCreatingAlert(false);
     }
-  }, [cryptoCreateAlert, getFilterValues, setCtxFilters, showNotification, eventBus, setPercentageValue]);
+  }, [createAlert, getFilterValues, setCtxFilters, showNotification, eventBus, setPercentageValue]);
+
+  // Expose handleCreateAlert function via ref
+  useImperativeHandle(ref, () => ({
+    handleCreateAlert
+  }));
 
   const percentageInputRef = useRef(null);
 
-  // Predefined percentage values for dropdown
-  const percentageOptions = useMemo(() => {
-    const options = [];
+  // Handle percentage input value change
+  const handlePercentageChange = useCallback((e) => {
+    const newValue = e.target.value;
+    console.log('Percentage input changed to:', newValue);
+    setPercentageValue(newValue);
+    handleTextChange('percentageValue', newValue);
     
-    // Add a default option
-    options.push({ value: 1, label: 'Select %', default: true });
-    
-    // Add negative values from -50 to -0.1
-    for (let i = 50; i >= 0.1; i = i >= 10 ? i - 5 : i >= 5 ? i - 1 : i >= 1 ? i - 0.5 : i - 0.1) {
-      // Round to 1 decimal place to avoid floating point issues
-      const value = Math.round(i * 10) / 10;
-      options.push({ value: -value, label: `-${value}%` });
+    // Ensure the value is also stored in the input ref for direct access
+    if (percentageInputRef.current) {
+      percentageInputRef.current.value = newValue;
     }
-    
-    // Add positive values from 0.1 to 50
-    for (let i = 0.1; i <= 50; i = i < 1 ? i + 0.1 : i < 5 ? i + 0.5 : i < 10 ? i + 1 : i + 5) {
-      // Round to 1 decimal place to avoid floating point issues
-      const value = Math.round(i * 10) / 10;
-      options.push({ value: value, label: `+${value}%` });
-    }
-    
-    return options;
-  }, []);
+  }, [handleTextChange]);
 
   return (
     <Paper sx={{
@@ -750,51 +903,34 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
             }}>
               <DarkTypography variant="body2" sx={{ fontSize: '13px', mb: 1 }}>Percentage %</DarkTypography>
               <DarkTextField
-                select
+                type="number"
                 size="small"
                 variant="outlined"
                 fullWidth
-                placeholder="Select %"
-                value={filters.percentageValue || '1'}
-                onChange={(e) => {
-                  const newValue = e.target.value;
-                  setPercentageValue(newValue);
-                  handleTextChange('percentageValue', newValue);
-                }}
-                SelectProps={{
-                  MenuProps: {
-                    PaperProps: {
-                      style: {
-                        maxHeight: 300,
-                        backgroundColor: '#151b26',
-                        color: 'white'
-                      }
-                    }
+                placeholder="Enter percentage"
+                inputRef={percentageInputRef}
+                value={percentageValue || filters.percentageValue || ''}
+                onChange={handlePercentageChange}
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  inputProps: {
+                    min: 0.1,
+                    step: 0.1
                   }
                 }}
-              >
-                {percentageOptions.map((option) => (
-                  <MenuItem 
-                    key={option.value} 
-                    value={option.value}
-                    sx={{
-                      color: option.default ? '#4f80ff' : 'white',
-                      fontWeight: option.default ? 'bold' : 'normal',
-                      '&:hover': {
-                        backgroundColor: 'rgba(79, 128, 255, 0.1)',
-                      },
-                      '&.Mui-selected': {
-                        backgroundColor: 'rgba(79, 128, 255, 0.2)',
-                        '&:hover': {
-                          backgroundColor: 'rgba(79, 128, 255, 0.3)',
-                        }
-                      }
-                    }}
-                  >
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </DarkTextField>
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': {
+                      borderColor: '#4f80ff',
+                      borderWidth: '2px',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#4f80ff',
+                      borderWidth: '2px',
+                    },
+                  }
+                }}
+              />
             </Box>
           </AccordionDetails>
         </DarkAccordion>
@@ -1238,7 +1374,7 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
               mb: isSmall ? 2 : 0
             }}
             onClick={handleCreateAlert}
-            disabled={!filters.changePercent?.enabled && !filters.rsi?.enabled && !filters.ema?.enabled && !filters.candle?.enabled}
+            disabled={validateAlertForm().length > 0}
             loading={isCreatingAlert}
             loadingText="Creating Alert..."
           >
@@ -1281,7 +1417,7 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
               onClick={() => {
                 handleCreateAlert();
               }}
-              disabled={!filters.changePercent?.enabled && !filters.rsi?.enabled && !filters.ema?.enabled && !filters.candle?.enabled}
+              disabled={validateAlertForm().length > 0}
               loading={isCreatingAlert}
               loadingText="Creating Alert..."
             >
