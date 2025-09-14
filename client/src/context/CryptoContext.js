@@ -488,7 +488,57 @@ export const CryptoProvider = ({ children }) => {
     }
   }, []);
 
-  // Toggle favorite status
+  // Optimized favorite management with Map-based state and optimistic updates
+  const [favoritesMap, setFavoritesMap] = useState(new Map());
+  const [pendingOperations, setPendingOperations] = useState(new Set());
+
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem("crypto_favorites");
+    if (savedFavorites) {
+      try {
+        const favoritesArray = JSON.parse(savedFavorites);
+        const favoritesMap = new Map(
+          favoritesArray.map((symbol) => [symbol, true])
+        );
+        setFavoritesMap(favoritesMap);
+        console.log(
+          "Loaded favorites from localStorage:",
+          Array.from(favoritesMap.keys())
+        );
+      } catch (error) {
+        console.error("Error loading favorites from localStorage:", error);
+      }
+    }
+  }, []);
+
+  // Save favorites to localStorage whenever favoritesMap changes
+  useEffect(() => {
+    const favoritesArray = Array.from(favoritesMap.keys());
+    localStorage.setItem("crypto_favorites", JSON.stringify(favoritesArray));
+  }, [favoritesMap]);
+
+  // Sync favoritesMap with cryptos data
+  useEffect(() => {
+    if (state.cryptos && state.cryptos.length > 0) {
+      const newFavoritesMap = new Map();
+      state.cryptos.forEach((crypto) => {
+        if (crypto.isFavorite) {
+          newFavoritesMap.set(crypto.symbol, true);
+        }
+      });
+      setFavoritesMap((prev) => {
+        // Merge with existing favorites from localStorage
+        const merged = new Map(prev);
+        newFavoritesMap.forEach((value, key) => {
+          merged.set(key, value);
+        });
+        return merged;
+      });
+    }
+  }, [state.cryptos]);
+
+  // Optimized single favorite toggle with optimistic updates
   const toggleFavorite = useCallback(
     async (symbol, filterConditions = null, createAlertCallback = null) => {
       try {
@@ -497,9 +547,25 @@ export const CryptoProvider = ({ children }) => {
           console.error(`Could not find crypto with symbol ${symbol}`);
           return;
         }
-        const newStatus = !crypto.isFavorite;
+
+        const currentStatus = favoritesMap.get(symbol) || false;
+        const newStatus = !currentStatus;
 
         console.log(`Toggling favorite status for ${symbol} to ${newStatus}`);
+
+        // Optimistic update - update UI immediately
+        setFavoritesMap((prev) => {
+          const newMap = new Map(prev);
+          if (newStatus) {
+            newMap.set(symbol, true);
+          } else {
+            newMap.delete(symbol);
+          }
+          return newMap;
+        });
+
+        // Mark as pending operation
+        setPendingOperations((prev) => new Set([...prev, symbol]));
 
         // Use baseUrl to ensure we have the correct API endpoint
         const baseUrl = process.env.REACT_APP_API_URL || "";
@@ -508,6 +574,19 @@ export const CryptoProvider = ({ children }) => {
           : `/api/crypto/${symbol}/favorite`;
 
         await axios.put(endpoint, { isFavorite: newStatus });
+
+        // Remove from pending operations
+        setPendingOperations((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(symbol);
+          return newSet;
+        });
+
+        // Update state after successful API call
+        dispatch({
+          type: "TOGGLE_FAVORITE",
+          payload: { symbol, isFavorite: newStatus },
+        });
 
         // If adding to favorites and we have a callback function, use it for alert creation
         if (newStatus && createAlertCallback) {
@@ -530,14 +609,29 @@ export const CryptoProvider = ({ children }) => {
           );
           await deleteAutoCreatedAlerts(symbol);
         }
-
-        // Immediately update the UI state without waiting for a full data refresh
-        dispatch({
-          type: "TOGGLE_FAVORITE",
-          payload: { symbol, isFavorite: newStatus },
-        });
       } catch (error) {
         console.error(`Error toggling favorite for ${symbol}:`, error);
+
+        // Revert optimistic update on error
+        setFavoritesMap((prev) => {
+          const newMap = new Map(prev);
+          const originalStatus =
+            state.cryptos.find((c) => c.symbol === symbol)?.isFavorite || false;
+          if (originalStatus) {
+            newMap.set(symbol, true);
+          } else {
+            newMap.delete(symbol);
+          }
+          return newMap;
+        });
+
+        // Remove from pending operations
+        setPendingOperations((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(symbol);
+          return newSet;
+        });
+
         let errorMessage = "Failed to update favorite status";
 
         if (error.response) {
@@ -557,7 +651,122 @@ export const CryptoProvider = ({ children }) => {
         });
       }
     },
-    [state.cryptos, dispatch, createAlertFromFilters, deleteAutoCreatedAlerts]
+    [
+      favoritesMap,
+      state.cryptos,
+      dispatch,
+      createAlertFromFilters,
+      deleteAutoCreatedAlerts,
+    ]
+  );
+
+  // Batch toggle favorites for better performance
+  const batchToggleFavorites = useCallback(
+    async (operations) => {
+      try {
+        console.log("Batch toggling favorites:", operations);
+
+        // Optimistic updates
+        setFavoritesMap((prev) => {
+          const newMap = new Map(prev);
+          operations.forEach(({ symbol, action }) => {
+            if (action === "add") {
+              newMap.set(symbol, true);
+            } else if (action === "remove") {
+              newMap.delete(symbol);
+            } else if (action === "toggle") {
+              const currentStatus = newMap.get(symbol) || false;
+              if (currentStatus) {
+                newMap.delete(symbol);
+              } else {
+                newMap.set(symbol, true);
+              }
+            }
+          });
+          return newMap;
+        });
+
+        // Mark all as pending
+        const symbols = operations.map((op) => op.symbol);
+        setPendingOperations((prev) => new Set([...prev, ...symbols]));
+
+        // Batch API call
+        const baseUrl = process.env.REACT_APP_API_URL || "";
+        const endpoint = baseUrl
+          ? `${baseUrl}/api/crypto/favorites/batch`
+          : `/api/crypto/favorites/batch`;
+
+        const response = await axios.put(endpoint, { operations });
+
+        // Remove from pending operations
+        setPendingOperations((prev) => {
+          const newSet = new Set(prev);
+          symbols.forEach((symbol) => newSet.delete(symbol));
+          return newSet;
+        });
+
+        // Update state for each successful operation
+        response.data.results.forEach(({ symbol, isFavorite }) => {
+          dispatch({
+            type: "TOGGLE_FAVORITE",
+            payload: { symbol, isFavorite },
+          });
+        });
+
+        console.log("Batch favorites update completed:", response.data);
+
+        return response.data;
+      } catch (error) {
+        console.error("Error in batch toggle favorites:", error);
+
+        // Revert optimistic updates on error
+        setFavoritesMap((prev) => {
+          const newMap = new Map(prev);
+          operations.forEach(({ symbol }) => {
+            const originalStatus =
+              state.cryptos.find((c) => c.symbol === symbol)?.isFavorite ||
+              false;
+            if (originalStatus) {
+              newMap.set(symbol, true);
+            } else {
+              newMap.delete(symbol);
+            }
+          });
+          return newMap;
+        });
+
+        // Remove from pending operations
+        setPendingOperations((prev) => {
+          const newSet = new Set(prev);
+          operations.forEach((op) => newSet.delete(op.symbol));
+          return newSet;
+        });
+
+        throw error;
+      }
+    },
+    [state.cryptos, dispatch]
+  );
+
+  // Check if a symbol is favorite (O(1) lookup)
+  const isFavorite = useCallback(
+    (symbol) => {
+      return favoritesMap.get(symbol) || false;
+    },
+    [favoritesMap]
+  );
+
+  // Get all favorite symbols
+  const getFavoriteSymbols = useCallback(() => {
+    return Array.from(favoritesMap.keys());
+  }, [favoritesMap]);
+
+  // Check if operation is pending
+  const isOperationPending = useCallback(
+    (symbol) => {
+      return pendingOperations.has(symbol);
+    },
+    [pendingOperations]
   );
 
   // RSI cache now handled by apiCache utility
@@ -639,6 +848,10 @@ export const CryptoProvider = ({ children }) => {
           loadCryptos,
           updateFilter,
           toggleFavorite,
+          batchToggleFavorites,
+          isFavorite,
+          getFavoriteSymbols,
+          isOperationPending,
           getRSI,
           clearCache,
           checkAlertConditions,
@@ -655,6 +868,10 @@ export const CryptoProvider = ({ children }) => {
           loadCryptos,
           updateFilter,
           toggleFavorite,
+          batchToggleFavorites,
+          isFavorite,
+          getFavoriteSymbols,
+          isOperationPending,
           getRSI,
           clearCache,
           checkAlertConditions,

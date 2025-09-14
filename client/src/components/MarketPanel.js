@@ -39,8 +39,17 @@ import SmoothTransition from "./SmoothTransition";
 import { useDebounce, useThrottle } from "../utils/requestThrottle";
 
 const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
-  const { cryptos, error, toggleFavorite, checkAlertConditions, loadCryptos } =
-    useCrypto();
+  const {
+    cryptos,
+    error,
+    toggleFavorite,
+    batchToggleFavorites,
+    isFavorite,
+    getFavoriteSymbols,
+    isOperationPending,
+    checkAlertConditions,
+    loadCryptos,
+  } = useCrypto();
   const { filters, getValidationFilters, hasActiveFilters } = useFilters();
   const { alerts } = useAlert(); // Import to get active alerts
   const { togglePairSelection, isPairSelected } = useSelectedPairs();
@@ -68,7 +77,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     const validationFilters = getValidationFilters();
     const coinList =
       view === "favorites"
-        ? cryptos.filter((crypto) => crypto.isFavorite)
+        ? cryptos.filter((crypto) => isFavorite(crypto.symbol))
         : cryptos;
 
     if (!coinList || coinList.length === 0) {
@@ -128,6 +137,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     view,
     cryptos,
     hasActiveFilters,
+    isFavorite,
   ]);
 
   // Apply throttling to condition checking (max once per 2 seconds)
@@ -138,7 +148,6 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   // Load crypto pairs based on FilterSidebar settings
   useEffect(() => {
     const usdtFilter = filters.pair?.USDT || false;
-    const spotFilter = filters.market?.SPOT || false;
 
     // If USDT is checked, load only USDT pairs
     // If USDT is unchecked, load all SPOT pairs (USDT, BTC, ETH, BNB, etc.)
@@ -177,7 +186,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
 
     // Apply market/favorite filter
     if (view === "favorites") {
-      filtered = filtered.filter((crypto) => crypto.isFavorite);
+      filtered = filtered.filter((crypto) => isFavorite(crypto.symbol));
     }
 
     // Apply search filter
@@ -198,9 +207,11 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
 
     // Sort by market cap or volume
     uniqueFiltered.sort((a, b) => {
-      // First sort by favorites
-      if (a.isFavorite && !b.isFavorite) return -1;
-      if (!a.isFavorite && b.isFavorite) return 1;
+      // First sort by favorites using optimized lookup
+      const aIsFavorite = isFavorite(a.symbol);
+      const bIsFavorite = isFavorite(b.symbol);
+      if (aIsFavorite && !bIsFavorite) return -1;
+      if (!aIsFavorite && bIsFavorite) return 1;
 
       // Then sort by volume
       return b.volume - a.volume;
@@ -208,7 +219,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
 
     // Return all filtered items (no artificial limit)
     return uniqueFiltered;
-  }, [cryptos, view, searchTerm, filters.pair]);
+  }, [cryptos, view, searchTerm, filters.pair, isFavorite]);
 
   // Memoized total filtered count (before search and view filters)
   const totalFilteredCount = useMemo(() => {
@@ -254,11 +265,17 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
         const visibleSymbols = filteredCryptos.map((crypto) => crypto.symbol);
         setCheckedPairs(new Set(visibleSymbols));
 
-        // Add all to favorites and selection
+        // Batch add all to favorites and selection
+        const favoriteOperations = filteredCryptos
+          .filter((crypto) => !isFavorite(crypto.symbol))
+          .map((crypto) => ({ symbol: crypto.symbol, action: "add" }));
+
+        if (favoriteOperations.length > 0) {
+          batchToggleFavorites(favoriteOperations);
+        }
+
+        // Add to selection
         filteredCryptos.forEach((crypto) => {
-          if (!crypto.isFavorite) {
-            toggleFavorite(crypto.symbol);
-          }
           if (!isPairSelected(crypto.symbol)) {
             togglePairSelection(crypto.symbol);
           }
@@ -277,11 +294,17 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
           return newSet;
         });
 
-        // Remove all from favorites and selection
+        // Batch remove all from favorites and selection
+        const removeOperations = filteredCryptos
+          .filter((crypto) => isFavorite(crypto.symbol))
+          .map((crypto) => ({ symbol: crypto.symbol, action: "remove" }));
+
+        if (removeOperations.length > 0) {
+          batchToggleFavorites(removeOperations);
+        }
+
+        // Remove from selection
         filteredCryptos.forEach((crypto) => {
-          if (crypto.isFavorite) {
-            toggleFavorite(crypto.symbol);
-          }
           if (isPairSelected(crypto.symbol)) {
             togglePairSelection(crypto.symbol);
           }
@@ -293,7 +316,14 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
         }
       }
     },
-    [filteredCryptos, toggleFavorite, isPairSelected, togglePairSelection, view]
+    [
+      filteredCryptos,
+      batchToggleFavorites,
+      isFavorite,
+      isPairSelected,
+      togglePairSelection,
+      view,
+    ]
   );
 
   // Sync checked pairs with favorites when cryptos data changes
@@ -302,9 +332,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     if (cryptos && cryptos.length > 0) {
       // Don't auto-select pairs - let user manually select them
       // Only sync with existing favorites if they exist
-      const favoriteSymbols = cryptos
-        .filter((crypto) => crypto.isFavorite)
-        .map((crypto) => crypto.symbol);
+      const favoriteSymbols = getFavoriteSymbols();
 
       const newCheckedPairs = new Set(favoriteSymbols);
 
@@ -319,7 +347,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
         return prev; // No change needed
       });
     }
-  }, [cryptos]);
+  }, [cryptos, getFavoriteSymbols]);
 
   // Update select all checkbox based on checked pairs
   useEffect(() => {
@@ -694,6 +722,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
                   {/* Checkbox for pair selection and favorite toggle */}
                   <Checkbox
                     checked={checkedPairs.has(crypto.symbol)}
+                    disabled={isOperationPending(crypto.symbol)}
                     onChange={() => {
                       const isCurrentlyChecked = checkedPairs.has(
                         crypto.symbol
@@ -704,7 +733,9 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
                         if (isCurrentlyChecked) {
                           // Unchecking: remove from checked pairs and favorites
                           newSet.delete(crypto.symbol);
-                          toggleFavorite(crypto.symbol); // Remove from favorites
+                          if (isFavorite(crypto.symbol)) {
+                            toggleFavorite(crypto.symbol); // Remove from favorites
+                          }
                           togglePairSelection(crypto.symbol); // Remove from selection
 
                           // If we're in favorites view and this was the last favorite, stay in favorites view
@@ -712,7 +743,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
                         } else {
                           // Checking: add to checked pairs and favorites
                           newSet.add(crypto.symbol);
-                          if (!crypto.isFavorite) {
+                          if (!isFavorite(crypto.symbol)) {
                             toggleFavorite(crypto.symbol); // Add to favorites
                           }
                           if (!isPairSelected(crypto.symbol)) {
