@@ -153,7 +153,7 @@ function App() {
       controller.abort();
       clearInterval(refreshInterval);
     };
-  }, [loadInitialData]); // Depend on memoized function
+  }, []); // Empty dependency array - only run on mount
 
   return (
     <BrowserRouter>
