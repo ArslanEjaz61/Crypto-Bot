@@ -56,6 +56,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   const [meetingConditions, setMeetingConditions] = useState({});
   const [, setCheckingConditions] = useState(false);
   const [selectAllChecked, setSelectAllChecked] = useState(false);
+  const [checkedPairs, setCheckedPairs] = useState(new Set());
 
   // Throttled condition checking to prevent API spam
   const checkConditionsThrottled = useCallback(async () => {
@@ -175,68 +176,64 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   const handleSelectAll = useCallback((event) => {
     const isChecked = event.target.checked;
     setSelectAllChecked(isChecked);
-    
-    if (view === 'favorites') {
-      // In favorites tab, select all toggles favorite status for all visible pairs
+
+    if (isChecked) {
+      // Check all visible pairs
+      const visibleSymbols = filteredCryptos.map(crypto => crypto.symbol);
+      setCheckedPairs(new Set(visibleSymbols));
+      
+      // Add all to favorites and selection
       filteredCryptos.forEach(crypto => {
-        if (isChecked && !crypto.isFavorite) {
+        if (!crypto.isFavorite) {
           toggleFavorite(crypto.symbol);
-        } else if (!isChecked && crypto.isFavorite) {
-          toggleFavorite(crypto.symbol);
+        }
+        if (!isPairSelected(crypto.symbol)) {
+          togglePairSelection(crypto.symbol);
         }
       });
     } else {
-      // In market tab, select all adds to favorites AND selects for alerts
-      if (isChecked) {
-        filteredCryptos.forEach(crypto => {
-          if (!crypto.isFavorite) {
-            toggleFavorite(crypto.symbol);
-          }
-          if (!isPairSelected(crypto.symbol)) {
-            togglePairSelection(crypto.symbol);
-          }
-        });
-      } else {
-        filteredCryptos.forEach(crypto => {
-          if (crypto.isFavorite) {
-            toggleFavorite(crypto.symbol);
-          }
-          if (isPairSelected(crypto.symbol)) {
-            togglePairSelection(crypto.symbol);
-          }
-        });
-      }
+      // Uncheck all visible pairs
+      const visibleSymbols = filteredCryptos.map(crypto => crypto.symbol);
+      setCheckedPairs(prev => {
+        const newSet = new Set(prev);
+        visibleSymbols.forEach(symbol => newSet.delete(symbol));
+        return newSet;
+      });
+      
+      // Remove all from favorites and selection
+      filteredCryptos.forEach(crypto => {
+        if (crypto.isFavorite) {
+          toggleFavorite(crypto.symbol);
+        }
+        if (isPairSelected(crypto.symbol)) {
+          togglePairSelection(crypto.symbol);
+        }
+      });
     }
-  }, [filteredCryptos, selectAllPairs, clearAllSelections, view, toggleFavorite, isPairSelected, togglePairSelection]);
+  }, [filteredCryptos, toggleFavorite, isPairSelected, togglePairSelection]);
 
-  // Update select all checkbox based on current selections
+  // Sync checked pairs with favorites when cryptos data changes
   useEffect(() => {
-    if (view === 'favorites') {
-      // In favorites tab, check if all visible items are favorites
-      const favoriteCount = filteredCryptos.filter(crypto => crypto.isFavorite).length;
-      const totalCount = filteredCryptos.length;
-      
-      if (favoriteCount === 0) {
-        setSelectAllChecked(false);
-      } else if (favoriteCount === totalCount && totalCount > 0) {
-        setSelectAllChecked(true);
-      } else {
-        setSelectAllChecked(false);
-      }
-    } else {
-      // In market tab, use selected pairs count
-      const selectedCount = getSelectedCount();
-      const totalCount = filteredCryptos.length;
-      
-      if (selectedCount === 0) {
-        setSelectAllChecked(false);
-      } else if (selectedCount === totalCount && totalCount > 0) {
-        setSelectAllChecked(true);
-      } else {
-        setSelectAllChecked(false);
-      }
+    if (cryptos && cryptos.length > 0) {
+      const favoriteSymbols = cryptos.filter(crypto => crypto.isFavorite).map(crypto => crypto.symbol);
+      setCheckedPairs(new Set(favoriteSymbols));
     }
-  }, [getSelectedCount, filteredCryptos, view]);
+  }, [cryptos]);
+
+  // Update select all checkbox based on checked pairs
+  useEffect(() => {
+    const visibleSymbols = filteredCryptos.map(crypto => crypto.symbol);
+    const checkedVisibleCount = visibleSymbols.filter(symbol => checkedPairs.has(symbol)).length;
+    const totalVisible = visibleSymbols.length;
+    
+    if (checkedVisibleCount === 0) {
+      setSelectAllChecked(false);
+    } else if (checkedVisibleCount === totalVisible && totalVisible > 0) {
+      setSelectAllChecked(true);
+    } else {
+      setSelectAllChecked(false);
+    }
+  }, [checkedPairs, filteredCryptos]);
 
   // Check conditions when filtered data changes (debounced)
   const debouncedCheckConditions = useDebounce(() => {
@@ -426,25 +423,29 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
                 >
                   {/* Checkbox for pair selection and favorite toggle */}
                   <Checkbox
-                    checked={view === 'favorites' ? crypto.isFavorite : isPairSelected(crypto.symbol)}
+                    checked={checkedPairs.has(crypto.symbol)}
                     onChange={() => {
-                      if (view === 'favorites') {
-                        // In favorites tab, checkbox toggles favorite status
-                        toggleFavorite(crypto.symbol);
-                      } else {
-                        // In market tab, checkbox adds to favorites AND selects for alerts
-                        const isCurrentlySelected = isPairSelected(crypto.symbol);
-                        
-                        if (!isCurrentlySelected) {
-                          // Adding to selection: add to favorites and select for alerts
-                          toggleFavorite(crypto.symbol);
-                          togglePairSelection(crypto.symbol);
+                      const isCurrentlyChecked = checkedPairs.has(crypto.symbol);
+                      
+                      setCheckedPairs(prev => {
+                        const newSet = new Set(prev);
+                        if (isCurrentlyChecked) {
+                          // Unchecking: remove from checked pairs and favorites
+                          newSet.delete(crypto.symbol);
+                          toggleFavorite(crypto.symbol); // Remove from favorites
+                          togglePairSelection(crypto.symbol); // Remove from selection
                         } else {
-                          // Removing from selection: remove from favorites and deselect
-                          toggleFavorite(crypto.symbol);
-                          togglePairSelection(crypto.symbol);
+                          // Checking: add to checked pairs and favorites
+                          newSet.add(crypto.symbol);
+                          if (!crypto.isFavorite) {
+                            toggleFavorite(crypto.symbol); // Add to favorites
+                          }
+                          if (!isPairSelected(crypto.symbol)) {
+                            togglePairSelection(crypto.symbol); // Add to selection
+                          }
                         }
-                      }
+                        return newSet;
+                      });
                     }}
                     sx={{ 
                       color: view === 'favorites' ? '#FFD700' : '#60A5FA',
