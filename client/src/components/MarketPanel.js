@@ -274,13 +274,15 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
       const favoriteSymbols = cryptos
         .filter((crypto) => crypto.isFavorite)
         .map((crypto) => crypto.symbol);
-      
+
       const newCheckedPairs = new Set(favoriteSymbols);
-      
+
       // Only update if the set has actually changed to prevent unnecessary re-renders
-      setCheckedPairs(prev => {
-        if (prev.size !== newCheckedPairs.size || 
-            ![...prev].every(symbol => newCheckedPairs.has(symbol))) {
+      setCheckedPairs((prev) => {
+        if (
+          prev.size !== newCheckedPairs.size ||
+          ![...prev].every((symbol) => newCheckedPairs.has(symbol))
+        ) {
           return newCheckedPairs;
         }
         return prev; // No change needed
@@ -387,7 +389,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
             : "Failed to fetch crypto data. Check server connection."}
         </Box>
       )}
-      {/* Filter Status Indicator */}
+      {/* Filter Status Indicator with Counts */}
       <Box
         sx={{
           mb: 1,
@@ -411,13 +413,91 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
         )}
         {checkedPairs.size > 0 && (
           <Chip
-            label={`${checkedPairs.size} Favorites`}
+            label={`${checkedPairs.size} Selected`}
             size="small"
             color="warning"
             variant="outlined"
             sx={{ fontSize: "0.7rem", height: "20px" }}
           />
         )}
+      </Box>
+
+      {/* Counts Display */}
+      <Box
+        sx={{
+          mb: 2,
+          p: 1.5,
+          bgcolor: alpha("#1E293B", 0.3),
+          borderRadius: 1,
+          border: "1px solid rgba(59, 130, 246, 0.2)",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
+            >
+              Total Loaded
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{ color: "#60A5FA", fontWeight: "bold" }}
+            >
+              {cryptos ? cryptos.length : 0}
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 0.5,
+              alignItems: "center",
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
+            >
+              Currently Showing
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{ color: "#22C55E", fontWeight: "bold" }}
+            >
+              {filteredCryptos.length}
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 0.5,
+              alignItems: "flex-end",
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
+            >
+              Selected
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{ color: "#F59E0B", fontWeight: "bold" }}
+            >
+              {checkedPairs.size}
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       {/* Toggle buttons for Market/Favorites */}
