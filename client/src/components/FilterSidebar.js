@@ -235,8 +235,8 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
   const { filters: ctxFilters, setFilters: setCtxFilters, getFilterValues } = useFilters();
   const { createAlert } = useAlert();
   const { selectedSymbol } = useSelectedPair();
-  const { updateFilter: updateCryptoFilter } = useCrypto();
-  const { getSelectedPairsArray, getSelectedCount } = useSelectedPairs();
+  const { cryptos, updateFilter: updateCryptoFilter } = useCrypto();
+  const { getSelectedPairsArray, getSelectedCount, getFavoritePairsForAlerts } = useSelectedPairs();
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [percentageValue, setPercentageValue] = useState('');
@@ -373,7 +373,7 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
     return errors;
   }, [filters, percentageValue]);
 
-  // Memoized create alert function - now supports multiple pairs
+  // Memoized create alert function - now supports multiple pairs and favorites
   const handleCreateAlert = useCallback(async (symbolOverride = null) => {
     // Debug selectedSymbol to understand its structure
     console.log('=== FilterSidebar Alert Creation Debug ===');
@@ -475,10 +475,18 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
     // Determine which symbols to create alerts for
     let symbolsToProcess = [];
     
+    // Check if we're in favorites context and should use favorite pairs
+    const favoritePairs = getFavoritePairsForAlerts(cryptos);
+    
+    // Priority order: Selected pairs > Favorite pairs > Single symbol > Fallback
     if (selectedCount > 0) {
-      // Use selected pairs from MarketPanel
+      // Use selected pairs from MarketPanel checkboxes
       symbolsToProcess = selectedPairs;
       console.log('Creating alerts for selected pairs:', symbolsToProcess);
+    } else if (favoritePairs.length > 0) {
+      // Use favorite pairs if no specific selection
+      symbolsToProcess = favoritePairs;
+      console.log('Creating alerts for favorite pairs:', symbolsToProcess);
     } else if (symbolOverride) {
       // Single symbol override
       symbolsToProcess = [symbol];

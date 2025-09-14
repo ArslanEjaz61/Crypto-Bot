@@ -433,9 +433,32 @@ const checkAlerts = async (io) => {
           
           // Now send notifications and update the triggered alert record
           try {
+            const triggeredTime = new Date();
             console.log(`📧 Sending email notification for ${alert.symbol}...`);
-            await sendAlertEmail(alert.email, alert, freshPriceData, technicalData);
+            await sendAlertEmail(alert.email, alert, freshPriceData, technicalData, triggeredTime);
             console.log(`✅ Email sent successfully for ${alert.symbol}`);
+            
+            // Send Telegram notification if enabled
+            try {
+              const { sendAlertNotification } = require('./telegramService');
+              console.log(`📱 Sending Telegram notification for ${alert.symbol}...`);
+              const telegramData = {
+                currentPrice: freshPriceData.price,
+                currentVolume: freshPriceData.volume24h,
+                rsi: technicalData.rsi,
+                emaData: technicalData.ema,
+                marketData: {
+                  priceChangePercent24h: freshPriceData.priceChangePercent,
+                  volume: freshPriceData.volume24h,
+                  dailyVolume: freshPriceData.volume24h
+                },
+                triggeredTime: triggeredTime
+              };
+              await sendAlertNotification(alert, telegramData);
+              console.log(`✅ Telegram notification sent for ${alert.symbol}`);
+            } catch (telegramError) {
+              console.error(`❌ Telegram notification failed for ${alert.symbol}:`, telegramError);
+            }
             
             // Update triggered alert record with successful notification
             if (triggeredAlertRecord) {

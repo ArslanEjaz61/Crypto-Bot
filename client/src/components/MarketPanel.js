@@ -176,26 +176,67 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     const isChecked = event.target.checked;
     setSelectAllChecked(isChecked);
     
-    if (isChecked) {
-      selectAllPairs(filteredCryptos);
+    if (view === 'favorites') {
+      // In favorites tab, select all toggles favorite status for all visible pairs
+      filteredCryptos.forEach(crypto => {
+        if (isChecked && !crypto.isFavorite) {
+          toggleFavorite(crypto.symbol);
+        } else if (!isChecked && crypto.isFavorite) {
+          toggleFavorite(crypto.symbol);
+        }
+      });
     } else {
-      clearAllSelections();
+      // In market tab, select all adds to favorites AND selects for alerts
+      if (isChecked) {
+        filteredCryptos.forEach(crypto => {
+          if (!crypto.isFavorite) {
+            toggleFavorite(crypto.symbol);
+          }
+          if (!isPairSelected(crypto.symbol)) {
+            togglePairSelection(crypto.symbol);
+          }
+        });
+      } else {
+        filteredCryptos.forEach(crypto => {
+          if (crypto.isFavorite) {
+            toggleFavorite(crypto.symbol);
+          }
+          if (isPairSelected(crypto.symbol)) {
+            togglePairSelection(crypto.symbol);
+          }
+        });
+      }
     }
-  }, [filteredCryptos, selectAllPairs, clearAllSelections]);
+  }, [filteredCryptos, selectAllPairs, clearAllSelections, view, toggleFavorite, isPairSelected, togglePairSelection]);
 
   // Update select all checkbox based on current selections
   useEffect(() => {
-    const selectedCount = getSelectedCount();
-    const totalCount = filteredCryptos.length;
-    
-    if (selectedCount === 0) {
-      setSelectAllChecked(false);
-    } else if (selectedCount === totalCount && totalCount > 0) {
-      setSelectAllChecked(true);
+    if (view === 'favorites') {
+      // In favorites tab, check if all visible items are favorites
+      const favoriteCount = filteredCryptos.filter(crypto => crypto.isFavorite).length;
+      const totalCount = filteredCryptos.length;
+      
+      if (favoriteCount === 0) {
+        setSelectAllChecked(false);
+      } else if (favoriteCount === totalCount && totalCount > 0) {
+        setSelectAllChecked(true);
+      } else {
+        setSelectAllChecked(false);
+      }
     } else {
-      setSelectAllChecked(false);
+      // In market tab, use selected pairs count
+      const selectedCount = getSelectedCount();
+      const totalCount = filteredCryptos.length;
+      
+      if (selectedCount === 0) {
+        setSelectAllChecked(false);
+      } else if (selectedCount === totalCount && totalCount > 0) {
+        setSelectAllChecked(true);
+      } else {
+        setSelectAllChecked(false);
+      }
     }
-  }, [getSelectedCount, filteredCryptos.length]);
+  }, [getSelectedCount, filteredCryptos, view]);
 
   // Check conditions when filtered data changes (debounced)
   const debouncedCheckConditions = useDebounce(() => {
@@ -383,12 +424,30 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
                     alignItems: 'center'
                   }}
                 >
-                  {/* Checkbox for pair selection */}
+                  {/* Checkbox for pair selection and favorite toggle */}
                   <Checkbox
-                    checked={isPairSelected(crypto.symbol)}
-                    onChange={() => togglePairSelection(crypto.symbol)}
+                    checked={view === 'favorites' ? crypto.isFavorite : isPairSelected(crypto.symbol)}
+                    onChange={() => {
+                      if (view === 'favorites') {
+                        // In favorites tab, checkbox toggles favorite status
+                        toggleFavorite(crypto.symbol);
+                      } else {
+                        // In market tab, checkbox adds to favorites AND selects for alerts
+                        const isCurrentlySelected = isPairSelected(crypto.symbol);
+                        
+                        if (!isCurrentlySelected) {
+                          // Adding to selection: add to favorites and select for alerts
+                          toggleFavorite(crypto.symbol);
+                          togglePairSelection(crypto.symbol);
+                        } else {
+                          // Removing from selection: remove from favorites and deselect
+                          toggleFavorite(crypto.symbol);
+                          togglePairSelection(crypto.symbol);
+                        }
+                      }
+                    }}
                     sx={{ 
-                      color: '#60A5FA',
+                      color: view === 'favorites' ? '#FFD700' : '#60A5FA',
                       mr: 1,
                       '& .MuiSvgIcon-root': { fontSize: 18 }
                     }}
@@ -409,32 +468,6 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                             {crypto.symbol}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              
-                              // Only create alert if we're adding to favorites (not already a favorite)
-                              if (!crypto.isFavorite && onCreateAlert && filterSidebarRef?.current?.handleCreateAlert) {
-                                // Use FilterSidebar's alert creation logic with current filter values
-                                const createAlertCallback = filterSidebarRef.current.handleCreateAlert;
-                                toggleFavorite(crypto.symbol, null, createAlertCallback);
-                              } else if (!crypto.isFavorite && onCreateAlert) {
-                                // Fallback to old method if FilterSidebar ref not available
-                                const filterConditions = getValidationFilters ? getValidationFilters() : null;
-                                toggleFavorite(crypto.symbol, filterConditions);
-                              } else {
-                                // Just toggle favorite status without creating alert
-                                toggleFavorite(crypto.symbol);
-                              }
-                            }}
-                          >
-                            {crypto.isFavorite ? (
-                              <StarIcon sx={{ fontSize: 16, color: '#FFD700' }} />
-                            ) : (
-                              <StarBorderIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                            )}
-                          </IconButton>
                           {meetingConditions[crypto.symbol] && (
                             <Chip
                               icon={<NotificationsActiveIcon />}

@@ -61,6 +61,11 @@ export const SelectedPairsProvider = ({ children }) => {
     console.log('Set selected pairs from array:', symbolsArray);
   }, []);
 
+  // Get favorite pairs for alert creation
+  const getFavoritePairsForAlerts = useCallback((cryptos) => {
+    return cryptos.filter(crypto => crypto.isFavorite).map(crypto => crypto.symbol);
+  }, []);
+
   const value = {
     selectedPairs,
     togglePairSelection,
@@ -69,7 +74,8 @@ export const SelectedPairsProvider = ({ children }) => {
     isPairSelected,
     getSelectedPairsArray,
     getSelectedCount,
-    setSelectedPairsFromArray
+    setSelectedPairsFromArray,
+    getFavoritePairsForAlerts
   };
 
   return (

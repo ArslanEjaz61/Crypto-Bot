@@ -19,7 +19,7 @@ const createTransporter = () => {
  * @param {object} technicalData - Technical analysis data (RSI, EMA, Candle)
  * @returns {Promise} - Email sending result
  */
-const sendAlertEmail = async (to, alert, cryptoData, technicalData = {}) => {
+const sendAlertEmail = async (to, alert, cryptoData, technicalData = {}, triggeredTime = new Date()) => {
   try {
     const transporter = createTransporter();
     
@@ -101,6 +101,15 @@ const sendAlertEmail = async (to, alert, cryptoData, technicalData = {}) => {
             `${formatPercent(priceChangePercent)} change from ${formatNumber(alert.currentPrice)}`
           }</p>
           
+          <div style="margin-top: 15px; padding: 10px; background-color: #2d3748; border-radius: 4px;">
+            <h4 style="color: #3875d7; margin: 0 0 8px 0;">Alert Conditions Set</h4>
+            ${alert.changePercentValue ? `<p><strong>Price Change:</strong> ${alert.changePercentValue}% ${alert.changePercentTimeframe ? `over ${alert.changePercentTimeframe}` : ''}</p>` : ''}
+            ${alert.rsiEnabled ? `<p><strong>RSI Condition:</strong> ${alert.rsiCondition} ${alert.rsiLevel} (${alert.rsiTimeframe})</p>` : ''}
+            ${alert.emaEnabled ? `<p><strong>EMA Condition:</strong> EMA${alert.emaFastPeriod} ${alert.emaCondition.replace(/_/g, ' ')} EMA${alert.emaSlowPeriod} (${alert.emaTimeframe})</p>` : ''}
+            ${alert.candleCondition && alert.candleCondition !== 'NONE' ? `<p><strong>Candle Pattern:</strong> ${alert.candleCondition.replace(/_/g, ' ')} (${alert.candleTimeframe})</p>` : ''}
+            ${alert.minDailyVolume ? `<p><strong>Min Daily Volume:</strong> ${formatNumber(alert.minDailyVolume)}</p>` : ''}
+          </div>
+          
           ${alert.candleCondition !== 'NONE' ? `
           <div style="margin-top: 15px; padding: 10px; background-color: #2d3748; border-radius: 4px;">
             <h4 style="color: #3875d7; margin: 0 0 8px 0;">Candle Analysis</h4>
@@ -138,7 +147,8 @@ const sendAlertEmail = async (to, alert, cryptoData, technicalData = {}) => {
           </div>
           ` : ''}
           
-          <p style="margin-top: 15px;"><strong>Created:</strong> ${new Date(alert.createdAt).toLocaleString()}</p>
+          <p style="margin-top: 15px;"><strong>Alert Created:</strong> ${new Date(alert.createdAt).toLocaleString()}</p>
+          <p><strong>Triggered At:</strong> ${triggeredTime.toLocaleString()}</p>
         </div>
         <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #8c8c8c;">
           <p>This is an automated alert from your Binance Alerts system.</p>
