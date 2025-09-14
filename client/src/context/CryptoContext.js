@@ -770,6 +770,67 @@ export const CryptoProvider = ({ children }) => {
     [pendingOperations]
   );
 
+  // Clear all favorites
+  const clearAllFavorites = useCallback(async () => {
+    try {
+      const favoriteSymbols = Array.from(favoritesMap.keys());
+
+      if (favoriteSymbols.length === 0) {
+        console.log("No favorites to clear");
+        return;
+      }
+
+      console.log("Clearing all favorites:", favoriteSymbols);
+
+      // Optimistic update - clear all favorites immediately
+      setFavoritesMap(new Map());
+
+      // Mark all as pending operations
+      setPendingOperations(new Set(favoriteSymbols));
+
+      // Batch API call to remove all favorites
+      const operations = favoriteSymbols.map((symbol) => ({
+        symbol,
+        action: "remove",
+      }));
+
+      const baseUrl = process.env.REACT_APP_API_URL || "";
+      const endpoint = baseUrl
+        ? `${baseUrl}/api/crypto/favorites/batch`
+        : `/api/crypto/favorites/batch`;
+
+      const response = await axios.put(endpoint, { operations });
+
+      // Remove from pending operations
+      setPendingOperations(new Set());
+
+      // Update state for each successful operation
+      response.data.results.forEach(({ symbol, isFavorite }) => {
+        dispatch({ type: "TOGGLE_FAVORITE", payload: { symbol, isFavorite } });
+      });
+
+      console.log("All favorites cleared successfully:", response.data);
+
+      return response.data;
+    } catch (error) {
+      console.error("Error clearing all favorites:", error);
+
+      // Revert optimistic update on error
+      const originalFavorites = new Map();
+      state.cryptos.forEach((crypto) => {
+        if (crypto.isFavorite) {
+          originalFavorites.set(crypto.symbol, true);
+        }
+      });
+      setFavoritesMap(originalFavorites);
+
+      // Remove from pending operations
+      setPendingOperations(new Set());
+
+      throw error;
+    }
+  }, [favoritesMap, state.cryptos, dispatch]);
+
   // RSI cache now handled by apiCache utility
 
   // Get RSI data for a symbol with improved caching
@@ -853,6 +914,7 @@ export const CryptoProvider = ({ children }) => {
           isFavorite,
           getFavoriteSymbols,
           isOperationPending,
+          clearAllFavorites,
           getRSI,
           clearCache,
           checkAlertConditions,
@@ -873,6 +935,7 @@ export const CryptoProvider = ({ children }) => {
           isFavorite,
           getFavoriteSymbols,
           isOperationPending,
+          clearAllFavorites,
           getRSI,
           clearCache,
           checkAlertConditions,

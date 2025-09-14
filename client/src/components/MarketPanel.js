@@ -23,6 +23,7 @@ import {
   Skeleton,
   Checkbox,
   FormControlLabel,
+  Button,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
@@ -47,6 +48,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     isFavorite,
     getFavoriteSymbols,
     isOperationPending,
+    clearAllFavorites,
     checkAlertConditions,
     loadCryptos,
   } = useCrypto();
@@ -63,6 +65,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   const [, setCheckingConditions] = useState(false);
   const [selectAllChecked, setSelectAllChecked] = useState(false);
   const [checkedPairs, setCheckedPairs] = useState(new Set());
+  const [isResettingFavorites, setIsResettingFavorites] = useState(false);
 
   // Throttled condition checking to prevent API spam
   const checkConditionsThrottled = useCallback(async () => {
@@ -404,6 +407,25 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
 
   // Removed handleLoadMore function - loading all pairs at once
 
+  // Handle reset all favorites
+  const handleResetFavorites = useCallback(async () => {
+    try {
+      setIsResettingFavorites(true);
+      await clearAllFavorites();
+
+      // Clear checked pairs and switch to market view
+      setCheckedPairs(new Set());
+      setSelectAllChecked(false);
+      setView("market");
+
+      console.log("All favorites reset successfully");
+    } catch (error) {
+      console.error("Error resetting favorites:", error);
+    } finally {
+      setIsResettingFavorites(false);
+    }
+  }, [clearAllFavorites]);
+
   return (
     <Paper
       sx={{
@@ -560,6 +582,37 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
           Favorites
         </ToggleButton>
       </ToggleButtonGroup>
+
+      {/* Reset Favorites Button - only show when in favorites view and has favorites */}
+      {view === "favorites" && getFavoriteSymbols().length > 0 && (
+        <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            onClick={handleResetFavorites}
+            disabled={isResettingFavorites}
+            sx={{
+              borderRadius: "20px",
+              textTransform: "none",
+              px: 2,
+              py: 0.5,
+              fontSize: "0.75rem",
+              borderColor: "rgba(244, 67, 54, 0.5)",
+              color: "#f44336",
+              "&:hover": {
+                borderColor: "#f44336",
+                backgroundColor: "rgba(244, 67, 54, 0.1)",
+              },
+              "&:disabled": {
+                opacity: 0.5,
+              },
+            }}
+          >
+            {isResettingFavorites ? "Resetting..." : "🗑️ Clear All Favorites"}
+          </Button>
+        </Box>
+      )}
 
       {/* Search input */}
       <Box
