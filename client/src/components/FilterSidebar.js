@@ -283,6 +283,12 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
         });
       }
     }
+    
+    // Special handling for USDT filter - trigger immediate reload of crypto data
+    if (category === 'pair' && value === 'USDT') {
+      console.log('USDT filter changed, reloading crypto data...');
+      // The MarketPanel will automatically reload when filters change
+    }
   }, [setCtxFilters, ctxFilters, updateCryptoFilter]);
 
   const handleTextChange = useCallback((category, value) => {

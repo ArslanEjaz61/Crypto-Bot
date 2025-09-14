@@ -132,7 +132,16 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     const spotFilter = filters.market?.SPOT || false;
     
     console.log(`MarketPanel: Loading crypto pairs - USDT: ${usdtFilter}, Spot: ${spotFilter}`);
-    loadCryptos(1, 5000, false, true, spotFilter, usdtFilter);
+    
+    // If USDT is checked, load only USDT pairs
+    // If USDT is unchecked, load all SPOT pairs (not just USDT)
+    if (usdtFilter) {
+      // Load only USDT pairs
+      loadCryptos(1, 5000, false, true, true, true);
+    } else {
+      // Load all SPOT pairs (BTC, ETH, BNB, etc.)
+      loadCryptos(1, 5000, false, true, true, false);
+    }
   }, [loadCryptos, filters.pair, filters.market]);
 
   // Memoized filtered cryptos for better performance
@@ -142,6 +151,21 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     }
 
     let filtered = [...cryptos];
+
+    // Apply USDT filter based on FilterSidebar checkbox
+    const usdtFilter = filters.pair?.USDT || false;
+    if (usdtFilter) {
+      // Show only USDT pairs
+      filtered = filtered.filter(crypto => crypto.symbol.endsWith('USDT'));
+    } else {
+      // Show all SPOT pairs (BTC, ETH, BNB, etc.)
+      filtered = filtered.filter(crypto => 
+        crypto.symbol.endsWith('USDT') || 
+        crypto.symbol.endsWith('BTC') || 
+        crypto.symbol.endsWith('ETH') || 
+        crypto.symbol.endsWith('BNB')
+      );
+    }
 
     // Apply market/favorite filter
     if (view === 'favorites') {
@@ -170,7 +194,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
 
     // Return all filtered items (no artificial limit)
     return filtered;
-  }, [cryptos, view, searchTerm]);
+  }, [cryptos, view, searchTerm, filters.pair]);
 
   // Handle select all checkbox
   const handleSelectAll = useCallback((event) => {
@@ -303,6 +327,22 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
           Error: {typeof error === 'string' ? error : 'Failed to fetch crypto data. Check server connection.'}
         </Box>
       )}
+      {/* Filter Status Indicator */}
+      <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          Showing: {filters.pair?.USDT ? 'USDT pairs only' : 'All SPOT pairs'}
+        </Typography>
+        {filters.pair?.USDT && (
+          <Chip 
+            label="USDT" 
+            size="small" 
+            color="primary" 
+            variant="outlined"
+            sx={{ fontSize: '0.7rem', height: '20px' }}
+          />
+        )}
+      </Box>
+
       {/* Toggle buttons for Market/Favorites */}
       <ToggleButtonGroup
         value={view}
