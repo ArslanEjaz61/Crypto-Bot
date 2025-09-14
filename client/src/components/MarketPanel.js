@@ -218,6 +218,39 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     return uniqueFiltered;
   }, [cryptos, view, searchTerm, filters.pair]);
 
+  // Memoized total filtered count (before search and view filters)
+  const totalFilteredCount = useMemo(() => {
+    if (!cryptos) {
+      return 0;
+    }
+
+    let filtered = [...cryptos];
+
+    // Apply USDT filter based on FilterSidebar checkbox
+    const usdtFilter = filters.pair?.USDT || false;
+    if (usdtFilter) {
+      // Show only USDT pairs
+      filtered = filtered.filter((crypto) => crypto.symbol.endsWith("USDT"));
+    } else {
+      // Show all SPOT pairs (BTC, ETH, BNB, etc.)
+      filtered = filtered.filter(
+        (crypto) =>
+          crypto.symbol.endsWith("USDT") ||
+          crypto.symbol.endsWith("BTC") ||
+          crypto.symbol.endsWith("ETH") ||
+          crypto.symbol.endsWith("BNB")
+      );
+    }
+
+    // Remove duplicates based on symbol
+    const uniqueFiltered = filtered.filter(
+      (crypto, index, self) =>
+        index === self.findIndex((c) => c.symbol === crypto.symbol)
+    );
+
+    return uniqueFiltered.length;
+  }, [cryptos, filters.pair]);
+
   // Handle select all checkbox
   const handleSelectAll = useCallback(
     (event) => {
@@ -450,13 +483,13 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
               variant="caption"
               sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
             >
-              Total Loaded
+              Total Filtered
             </Typography>
             <Typography
               variant="h6"
               sx={{ color: "#60A5FA", fontWeight: "bold" }}
             >
-              {cryptos ? cryptos.length : 0}
+              {totalFilteredCount}
             </Typography>
           </Box>
 
