@@ -23,6 +23,8 @@ const Dashboard = ({ children }) => {
 
   // Reference to FilterSidebar's createAlert function
   const filterSidebarRef = useRef();
+  // Reference to MarketPanel's switchToAlertsView function
+  const marketPanelRef = useRef();
 
   // Show triggered alerts instead of regular alerts
   // This section now displays the TriggeredAlertsPanel component
@@ -187,6 +189,7 @@ const Dashboard = ({ children }) => {
             <FilterSidebar
               ref={filterSidebarRef}
               selectedSymbol={selectedCoin}
+              marketPanelRef={marketPanelRef}
             />
           </Paper>
         </Grid>
@@ -363,7 +366,9 @@ const Dashboard = ({ children }) => {
             <MarketPanel
               onSelectCoin={handleCoinSelect}
               onCreateAlert={handleCreateAlertFromFavorite}
-              filterSidebarRef={filterSidebarRef}
+              onRef={(ref) => {
+                marketPanelRef.current = ref;
+              }}
             />
           </Paper>
         </Grid>

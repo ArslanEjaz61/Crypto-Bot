@@ -243,6 +243,7 @@ const DarkTypography = styled(Typography)({
 
 const FilterSidebar = memo(
   forwardRef((props, ref) => {
+    const { marketPanelRef } = props;
     const {
       filters: ctxFilters,
       setFilters: setCtxFilters,
@@ -897,6 +898,15 @@ const FilterSidebar = memo(
               const message = `All ${totalCount} alerts created successfully!`;
               setSuccessMessage(message);
               showNotification(message, "success");
+            }
+
+            // Switch to alerts view to show the created alerts
+            if (
+              marketPanelRef &&
+              marketPanelRef.current &&
+              marketPanelRef.current.switchToAlertsView
+            ) {
+              marketPanelRef.current.switchToAlertsView();
             }
           } else if (successCount > 0) {
             // Partial success

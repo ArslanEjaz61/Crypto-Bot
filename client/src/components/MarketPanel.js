@@ -32,6 +32,8 @@ import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import CurrencyExchangeIcon from "@mui/icons-material/CurrencyExchange";
+import DeleteIcon from "@mui/icons-material/Delete";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { useCrypto } from "../context/CryptoContext";
 import { useFilters } from "../context/FilterContext";
 import { useAlert } from "../context/AlertContext";
@@ -39,7 +41,12 @@ import { useSelectedPairs } from "../context/SelectedPairsContext";
 import SmoothTransition from "./SmoothTransition";
 import { useDebounce, useThrottle } from "../utils/requestThrottle";
 
-const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
+const MarketPanel = ({
+  onSelectCoin,
+  onCreateAlert,
+  onAlertsCreated,
+  onRef,
+}) => {
   const {
     cryptos,
     error,
@@ -53,7 +60,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     loadCryptos,
   } = useCrypto();
   const { filters, getValidationFilters, hasActiveFilters } = useFilters();
-  const { alerts } = useAlert(); // Import to get active alerts
+  const { alerts, deleteAlert } = useAlert(); // Import to get active alerts and delete function
   const { togglePairSelection, isPairSelected } = useSelectedPairs();
   const [view, setView] = useState("market");
   const [searchTerm, setSearchTerm] = useState("");
@@ -66,6 +73,8 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   const [selectAllChecked, setSelectAllChecked] = useState(false);
   const [checkedPairs, setCheckedPairs] = useState(new Set());
   const [isResettingFavorites, setIsResettingFavorites] = useState(false);
+  const [isDeletingAllAlerts, setIsDeletingAllAlerts] = useState(false);
+  const [deletingAlertId, setDeletingAlertId] = useState(null);
 
   // Throttled condition checking to prevent API spam
   const checkConditionsThrottled = useCallback(async () => {
@@ -81,6 +90,11 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     const coinList =
       view === "favorites"
         ? cryptos.filter((crypto) => isFavorite(crypto.symbol))
+        : view === "alerts"
+        ? cryptos.filter(
+            (crypto) =>
+              alerts && alerts.some((alert) => alert.symbol === crypto.symbol)
+          )
         : cryptos;
 
     if (!coinList || coinList.length === 0) {
@@ -187,9 +201,14 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
       );
     }
 
-    // Apply market/favorite filter
+    // Apply market/favorite/alerts filter
     if (view === "favorites") {
       filtered = filtered.filter((crypto) => isFavorite(crypto.symbol));
+    } else if (view === "alerts") {
+      filtered = filtered.filter(
+        (crypto) =>
+          alerts && alerts.some((alert) => alert.symbol === crypto.symbol)
+      );
     }
 
     // Apply search filter
@@ -426,6 +445,62 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     }
   }, [clearAllFavorites]);
 
+  // Handle delete all alerts
+  const handleDeleteAllAlerts = useCallback(async () => {
+    try {
+      setIsDeletingAllAlerts(true);
+
+      if (!alerts || alerts.length === 0) {
+        console.log("No alerts to delete");
+        return;
+      }
+
+      // Delete all alerts
+      const deletePromises = alerts.map((alert) => deleteAlert(alert._id));
+      await Promise.all(deletePromises);
+
+      console.log("All alerts deleted successfully");
+    } catch (error) {
+      console.error("Error deleting all alerts:", error);
+    } finally {
+      setIsDeletingAllAlerts(false);
+    }
+  }, [alerts, deleteAlert]);
+
+  // Handle delete individual alert
+  const handleDeleteAlert = useCallback(
+    async (alertId, symbol) => {
+      try {
+        setDeletingAlertId(alertId);
+        await deleteAlert(alertId);
+
+        // Also remove from favorites if it's in favorites
+        if (isFavorite(symbol)) {
+          await toggleFavorite(symbol);
+        }
+
+        console.log(`Alert deleted successfully for ${symbol}`);
+      } catch (error) {
+        console.error(`Error deleting alert for ${symbol}:`, error);
+      } finally {
+        setDeletingAlertId(null);
+      }
+    },
+    [deleteAlert, isFavorite, toggleFavorite]
+  );
+
+  // Function to switch to alerts view (can be called from parent)
+  const switchToAlertsView = useCallback(() => {
+    setView("alerts");
+  }, []);
+
+  // Expose the switchToAlertsView function to parent via callback
+  useEffect(() => {
+    if (onRef) {
+      onRef({ switchToAlertsView });
+    }
+  }, [onRef, switchToAlertsView]);
+
   return (
     <Paper
       sx={{
@@ -566,7 +641,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
         </Box>
       </Box>
 
-      {/* Toggle buttons for Market/Favorites */}
+      {/* Toggle buttons for Market/Favorites/Alert Generated */}
       <ToggleButtonGroup
         value={view}
         exclusive
@@ -580,6 +655,9 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
         </ToggleButton>
         <ToggleButton value="favorites" aria-label="favorites">
           Favorites
+        </ToggleButton>
+        <ToggleButton value="alerts" aria-label="alerts">
+          Alert Generated
         </ToggleButton>
       </ToggleButtonGroup>
 
@@ -610,6 +688,38 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
             }}
           >
             {isResettingFavorites ? "Resetting..." : "🗑️ Clear All Favorites"}
+          </Button>
+        </Box>
+      )}
+
+      {/* Delete All Alerts Button - only show when in alerts view and has alerts */}
+      {view === "alerts" && alerts && alerts.length > 0 && (
+        <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            onClick={handleDeleteAllAlerts}
+            disabled={isDeletingAllAlerts}
+            startIcon={<DeleteForeverIcon />}
+            sx={{
+              borderRadius: "20px",
+              textTransform: "none",
+              px: 2,
+              py: 0.5,
+              fontSize: "0.75rem",
+              borderColor: "rgba(244, 67, 54, 0.5)",
+              color: "#f44336",
+              "&:hover": {
+                borderColor: "#f44336",
+                backgroundColor: "rgba(244, 67, 54, 0.1)",
+              },
+              "&:disabled": {
+                opacity: 0.5,
+              },
+            }}
+          >
+            {isDeletingAllAlerts ? "Deleting..." : "Delete All Alerts"}
           </Button>
         </Box>
       )}
@@ -705,6 +815,8 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
               <Typography align="center" variant="body2" color="text.secondary">
                 {view === "favorites"
                   ? "You have no favorite coins yet"
+                  : view === "alerts"
+                  ? "No alerts have been generated yet"
                   : "No coins match your search criteria"}
               </Typography>
             </Box>
@@ -854,47 +966,105 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
                                 variant="outlined"
                               />
                             )}
-                          </Box>
-                          <Box sx={{ textAlign: "right" }}>
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 600 }}
-                            >
-                              ${parseFloat(crypto.price || 0).toFixed(4)}
-                            </Typography>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 0.5,
-                              }}
-                            >
-                              {crypto.priceChangePercent >= 0 ? (
-                                <TrendingUpIcon
-                                  sx={{ fontSize: 14, color: "success.main" }}
-                                />
-                              ) : (
-                                <TrendingDownIcon
-                                  sx={{ fontSize: 14, color: "error.main" }}
+                            {alerts &&
+                              alerts.some(
+                                (alert) => alert.symbol === crypto.symbol
+                              ) && (
+                                <Chip
+                                  icon={<NotificationsActiveIcon />}
+                                  label="Generated"
+                                  size="small"
+                                  color="success"
+                                  variant="filled"
+                                  sx={{ ml: 0.5 }}
                                 />
                               )}
+                          </Box>
+                          <Box
+                            sx={{
+                              textAlign: "right",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <Box>
                               <Typography
-                                variant="caption"
+                                variant="body2"
+                                sx={{ fontWeight: 600 }}
+                              >
+                                ${parseFloat(crypto.price || 0).toFixed(4)}
+                              </Typography>
+                              <Box
                                 sx={{
-                                  color:
-                                    crypto.priceChangePercent >= 0
-                                      ? "success.main"
-                                      : "error.main",
-                                  fontWeight: 500,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 0.5,
                                 }}
                               >
-                                {crypto.priceChangePercent >= 0 ? "+" : ""}
-                                {parseFloat(
-                                  crypto.priceChangePercent || 0
-                                ).toFixed(2)}
-                                %
-                              </Typography>
+                                {crypto.priceChangePercent >= 0 ? (
+                                  <TrendingUpIcon
+                                    sx={{ fontSize: 14, color: "success.main" }}
+                                  />
+                                ) : (
+                                  <TrendingDownIcon
+                                    sx={{ fontSize: 14, color: "error.main" }}
+                                  />
+                                )}
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color:
+                                      crypto.priceChangePercent >= 0
+                                        ? "success.main"
+                                        : "error.main",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {crypto.priceChangePercent >= 0 ? "+" : ""}
+                                  {parseFloat(
+                                    crypto.priceChangePercent || 0
+                                  ).toFixed(2)}
+                                  %
+                                </Typography>
+                              </Box>
                             </Box>
+
+                            {/* Delete Alert Button - only show in alerts view */}
+                            {view === "alerts" &&
+                              alerts &&
+                              alerts.some(
+                                (alert) => alert.symbol === crypto.symbol
+                              ) && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    const alert = alerts.find(
+                                      (alert) => alert.symbol === crypto.symbol
+                                    );
+                                    if (alert) {
+                                      handleDeleteAlert(
+                                        alert._id,
+                                        crypto.symbol
+                                      );
+                                    }
+                                  }}
+                                  disabled={
+                                    deletingAlertId ===
+                                    alerts.find(
+                                      (alert) => alert.symbol === crypto.symbol
+                                    )?._id
+                                  }
+                                  sx={{
+                                    color: "#f44336",
+                                    "&:hover": {
+                                      backgroundColor: "rgba(244, 67, 54, 0.1)",
+                                    },
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              )}
                           </Box>
                         </Box>
                       }
@@ -935,9 +1105,4 @@ const getRSILabel = (rsi) => {
 };
 
 // Memoize MarketPanel to prevent unnecessary re-renders
-export default memo(MarketPanel, (prevProps, nextProps) => {
-  return (
-    prevProps.onSelectCoin === nextProps.onSelectCoin &&
-    prevProps.onCreateAlert === nextProps.onCreateAlert
-  );
-});
+export default memo(MarketPanel);
