@@ -47,6 +47,7 @@ import { useFilters } from "../context/FilterContext";
 import { useAlert } from "../context/AlertContext";
 import { useSelectedPairs } from "../context/SelectedPairsContext";
 import { useSelectedPair } from "../context/SelectedPairContext";
+import { useSocket } from "../context/SocketContext";
 import LoadingButton from "./LoadingButton";
 
 // Custom styled components to match screenshot
@@ -255,16 +256,12 @@ const FilterSidebar = memo(
       getSelectedCount,
       getFavoritePairsForAlerts,
     } = useSelectedPairs();
+    const { showNotification } = useSocket();
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
     const [percentageValue, setPercentageValue] = useState("");
     const [isExpanded, setIsExpanded] = useState(true);
     const [isCreatingAlert, setIsCreatingAlert] = useState(false);
-
-    // Simple notification system
-    const showNotification = (message, type = "success") => {
-      console.log(`${type}: ${message}`);
-    };
 
     // Simple event bus for notifications
     const eventBus = {
@@ -878,30 +875,32 @@ const FilterSidebar = memo(
           if (successCount === totalCount) {
             // All alerts created successfully
             if (totalCount === 1) {
-              setSuccessMessage(
-                `Alert created successfully for ${symbolsToProcess[0]}!`
-              );
+              const message = `Alert created successfully for ${symbolsToProcess[0]}!`;
+              setSuccessMessage(message);
+              showNotification(message, "success");
             } else {
-              setSuccessMessage(
-                `All ${totalCount} alerts created successfully!`
-              );
+              const message = `All ${totalCount} alerts created successfully!`;
+              setSuccessMessage(message);
+              showNotification(message, "success");
             }
           } else if (successCount > 0) {
             // Partial success
-            setSuccessMessage(
-              `${successCount} of ${totalCount} alerts created successfully.`
-            );
+            const message = `${successCount} of ${totalCount} alerts created successfully.`;
+            setSuccessMessage(message);
+            showNotification(message, "warning");
             if (failureCount > 0) {
               const failedSymbols = failedAlerts
                 .map((f) => f.symbol)
                 .join(", ");
-              setErrorMessage(`Failed to create alerts for: ${failedSymbols}`);
+              const errorMsg = `Failed to create alerts for: ${failedSymbols}`;
+              setErrorMessage(errorMsg);
+              showNotification(errorMsg, "error");
             }
           } else {
             // All failed
-            setErrorMessage(
-              `Failed to create alerts for all ${totalCount} symbols.`
-            );
+            const errorMsg = `Failed to create alerts for all ${totalCount} symbols.`;
+            setErrorMessage(errorMsg);
+            showNotification(errorMsg, "error");
           }
 
           // Reset form after successful creation(s)

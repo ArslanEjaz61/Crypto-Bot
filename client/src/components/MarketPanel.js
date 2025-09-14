@@ -21,15 +21,11 @@ import {
   IconButton,
   alpha,
   Skeleton,
-  CircularProgress,
-  Button,
   Checkbox,
   FormControlLabel,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
-import StarIcon from "@mui/icons-material/Star";
-import StarBorderIcon from "@mui/icons-material/StarBorder";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
@@ -47,14 +43,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     useCrypto();
   const { filters, getValidationFilters, hasActiveFilters } = useFilters();
   const { alerts } = useAlert(); // Import to get active alerts
-  const {
-    togglePairSelection,
-    selectAllPairs,
-    clearAllSelections,
-    isPairSelected,
-    getSelectedCount,
-    getSelectedPairsArray,
-  } = useSelectedPairs();
+  const { togglePairSelection, isPairSelected } = useSelectedPairs();
   const [view, setView] = useState("market");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -132,7 +121,14 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
 
     setMeetingConditions(results);
     setCheckingConditions(false);
-  }, [getValidationFilters, checkAlertConditions, alerts, view, cryptos]);
+  }, [
+    getValidationFilters,
+    checkAlertConditions,
+    alerts,
+    view,
+    cryptos,
+    hasActiveFilters,
+  ]);
 
   // Apply throttling to condition checking (max once per 2 seconds)
   const checkConditions = useThrottle(checkConditionsThrottled, 2000);
@@ -144,10 +140,6 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     const usdtFilter = filters.pair?.USDT || false;
     const spotFilter = filters.market?.SPOT || false;
 
-    console.log(
-      `MarketPanel: Loading crypto pairs - USDT: ${usdtFilter}, Spot: ${spotFilter}`
-    );
-
     // If USDT is checked, load only USDT pairs
     // If USDT is unchecked, load all SPOT pairs (USDT, BTC, ETH, BNB, etc.)
     if (usdtFilter) {
@@ -157,7 +149,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
       // Load all SPOT pairs (including USDT, BTC, ETH, BNB, etc.)
       loadCryptos(1, 5000, false, true, true, false);
     }
-  }, [loadCryptos, filters.pair?.USDT, filters.market?.SPOT]);
+  }, [loadCryptos, filters.pair?.USDT, filters.market?.SPOT, cryptos]);
 
   // Memoized filtered cryptos for better performance
   const filteredCryptos = useMemo(() => {
@@ -383,21 +375,6 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   }, []);
 
   // Removed handleLoadMore function - loading all pairs at once
-
-  // Format number with abbreviations
-  const formatNumber = (num) => {
-    if (!num) return "0";
-    if (num >= 1000000000) {
-      return (num / 1000000000).toFixed(2) + "B";
-    }
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(2) + "M";
-    }
-    if (num >= 1000) {
-      return (num / 1000).toFixed(2) + "K";
-    }
-    return num.toFixed(2);
-  };
 
   return (
     <Paper
