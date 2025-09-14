@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Box, Grid, Paper, Typography, Button } from "@mui/material";
 import LineChart from "./LineChart.js";
-import CryptoList from "./CryptoList";
 import MarketPanel from "./MarketPanel";
 import FilterSidebar from "./FilterSidebar";
 import CoinPriceHeader from "./CoinPriceHeader";
