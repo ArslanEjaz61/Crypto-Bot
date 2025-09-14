@@ -33,9 +33,10 @@ import {
   Close as CloseIcon,
   ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
-import { useFilters } from '../context/FilterContext';
 import { useCrypto } from '../context/CryptoContext';
+import { useFilters } from '../context/FilterContext';
 import { useAlert } from '../context/AlertContext';
+import { useSelectedPairs } from '../context/SelectedPairsContext';
 import { useSelectedPair } from '../context/SelectedPairContext';
 import LoadingButton from './LoadingButton';
 
@@ -231,10 +232,16 @@ const DarkTypography = styled(Typography)({
 });
 
 const FilterSidebar = memo(forwardRef((props, ref) => {
+  const { filters: ctxFilters, setFilters: setCtxFilters, getFilterValues } = useFilters();
   const { createAlert } = useAlert();
   const { selectedSymbol } = useSelectedPair();
+  const { cryptos, updateFilter: updateCryptoFilter } = useCrypto();
+  const { getSelectedPairsArray, getSelectedCount, getFavoritePairsForAlerts } = useSelectedPairs();
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [percentageValue, setPercentageValue] = useState('');
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [isCreatingAlert, setIsCreatingAlert] = useState(false);
   
   // Simple notification system
   const showNotification = (message, type = 'success') => {
@@ -248,11 +255,6 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
     }
   };
   
-  const { filters: ctxFilters, setFilters: setCtxFilters, getFilterValues } = useFilters();
-  const [successMessage, setSuccessMessage] = useState('');
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [isCreatingAlert, setIsCreatingAlert] = useState(false);
-  
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -262,14 +264,26 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
 
   // Memoized event handlers to prevent re-renders
   const handleCheckboxChange = useCallback((category, value) => {
-    setCtxFilters(prev => ({
-      ...prev,
+    const newFilters = {
+      ...ctxFilters,
       [category]: {
-        ...prev[category],
-        [value]: !prev[category]?.[value]
+        ...ctxFilters[category],
+        [value]: !ctxFilters[category]?.[value]
       }
-    }));
-  }, [setCtxFilters]);
+    };
+    
+    setCtxFilters(newFilters);
+    
+    // Update CryptoContext filter for market panel filtering
+    if (category === 'pair' || category === 'market') {
+      console.log(`Updating crypto filter for ${category}:`, newFilters[category]);
+      if (updateCryptoFilter) {
+        updateCryptoFilter({
+          [category]: newFilters[category]
+        });
+      }
+    }
+  }, [setCtxFilters, ctxFilters, updateCryptoFilter]);
 
   const handleTextChange = useCallback((category, value) => {
     setCtxFilters(prev => ({
@@ -359,60 +373,135 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
     return errors;
   }, [filters, percentageValue]);
 
-  // Memoized create alert function
+  // Memoized create alert function - now supports multiple pairs and favorites
   const handleCreateAlert = useCallback(async (symbolOverride = null) => {
     // Debug selectedSymbol to understand its structure
+    console.log('=== FilterSidebar Alert Creation Debug ===');
     console.log('selectedSymbol type:', typeof selectedSymbol);
     console.log('selectedSymbol value:', selectedSymbol);
+    console.log('symbolOverride:', symbolOverride);
     console.log('selectedSymbol JSON:', JSON.stringify(selectedSymbol, null, 2));
     
-    // Extract symbol string properly from selectedSymbol object or use override/fallback
-    let symbol;
-    if (symbolOverride) {
-      symbol = String(symbolOverride);
-      console.log('Using symbolOverride:', symbol);
-    } else if (selectedSymbol) {
-      console.log('Processing selectedSymbol...');
-      // Handle case where selectedSymbol might be an object with symbol property
-      if (typeof selectedSymbol === 'object' && selectedSymbol !== null) {
-        console.log('selectedSymbol is object, keys:', Object.keys(selectedSymbol));
-        if (selectedSymbol.symbol) {
-          symbol = String(selectedSymbol.symbol);
-          console.log('Found symbol property:', symbol);
-        } else if (selectedSymbol.selectedSymbol) {
-          symbol = String(selectedSymbol.selectedSymbol);
-          console.log('Found selectedSymbol property:', symbol);
-        } else {
-          // Try to find any property that looks like a symbol
-          const possibleSymbol = Object.values(selectedSymbol).find(val => 
-            typeof val === 'string' && val.match(/^[A-Z]{3,10}USDT?$/));
-          if (possibleSymbol) {
-            symbol = String(possibleSymbol);
-            console.log('Found possible symbol in values:', symbol);
-          } else {
-            symbol = 'BTCUSDT'; // fallback
-            console.log('No valid symbol found in object, using fallback');
-          }
+    // Deep debugging of selectedSymbol object structure
+    if (selectedSymbol && typeof selectedSymbol === 'object') {
+      console.log('=== OBJECT STRUCTURE ANALYSIS ===');
+      console.log('Object keys:', Object.keys(selectedSymbol));
+      console.log('Object values:', Object.values(selectedSymbol));
+      console.log('Object entries:', Object.entries(selectedSymbol));
+      
+      // Check each property
+      Object.keys(selectedSymbol).forEach(key => {
+        console.log(`Property '${key}':`, selectedSymbol[key], 'Type:', typeof selectedSymbol[key]);
+      });
+      
+      // Check common symbol property names
+      const possibleSymbolProps = ['symbol', 'Symbol', 'SYMBOL', 'ticker', 'pair', 'name', 'code'];
+      possibleSymbolProps.forEach(prop => {
+        if (selectedSymbol[prop]) {
+          console.log(`Found potential symbol in '${prop}':`, selectedSymbol[prop]);
         }
-      } else if (typeof selectedSymbol === 'string') {
-        symbol = selectedSymbol;
-        console.log('selectedSymbol is string:', symbol);
-      } else {
-        symbol = 'BTCUSDT'; // fallback
-        console.log('selectedSymbol is neither object nor string, using fallback');
-      }
-    } else {
-      symbol = 'BTCUSDT'; // fallback
-      console.log('No selectedSymbol, using fallback');
+      });
     }
     
-    // Final safety check - ensure symbol is always a string
-    if (typeof symbol !== 'string' || symbol === '[object Object]' || !symbol) {
-      console.warn('Symbol is still not a valid string, forcing BTCUSDT');
+    // Extract symbol string properly - selectedSymbol should be a string from SelectedPairContext
+    let symbol;
+    if (symbolOverride) {
+      // Check if symbolOverride is an event object (common mistake)
+      if (symbolOverride && typeof symbolOverride === 'object' && symbolOverride.type) {
+        console.log('symbolOverride is an event object, ignoring it');
+        // Ignore the event and use selectedSymbol instead
+        symbol = null;
+      } else {
+        symbol = String(symbolOverride);
+        console.log('Using symbolOverride:', symbol);
+      }
+    }
+    
+    if (!symbol && selectedSymbol) {
+      // selectedSymbol from SelectedPairContext is a string, but handle edge cases
+      if (typeof selectedSymbol === 'string' && selectedSymbol.trim() !== '') {
+        symbol = selectedSymbol.trim();
+        console.log('Using selectedSymbol from context:', symbol);
+      } else if (typeof selectedSymbol === 'object' && selectedSymbol !== null) {
+        console.log('=== ATTEMPTING SYMBOL EXTRACTION FROM OBJECT ===');
+        
+        // Try multiple possible property names
+        const extractionAttempts = [
+          selectedSymbol.symbol,
+          selectedSymbol.Symbol, 
+          selectedSymbol.SYMBOL,
+          selectedSymbol.selectedSymbol,
+          selectedSymbol.ticker,
+          selectedSymbol.pair,
+          selectedSymbol.name,
+          selectedSymbol.code
+        ];
+        
+        console.log('Extraction attempts:', extractionAttempts);
+        
+        // Find first valid string
+        symbol = extractionAttempts.find(attempt => 
+          attempt && typeof attempt === 'string' && attempt.trim() !== ''
+        );
+        
+        if (symbol) {
+          console.log('Successfully extracted symbol:', symbol);
+        } else {
+          console.log('No valid symbol found in object, using fallback');
+          symbol = 'BTCUSDT';
+        }
+      } else {
+        symbol = 'BTCUSDT'; // fallback
+        console.log('selectedSymbol invalid, using fallback:', selectedSymbol);
+      }
+    } else if (!symbol) {
+      symbol = 'BTCUSDT'; // fallback
+      console.log('No valid symbol found, using fallback');
+    }
+    
+    // Ensure symbol is valid
+    if (!symbol || typeof symbol !== 'string' || symbol.trim() === '') {
+      console.warn('Symbol is invalid, forcing BTCUSDT. Original value:', symbol);
       symbol = 'BTCUSDT';
     }
     
-    console.log('Final symbol for alert creation:', symbol);
+    // Get selected pairs from context
+    const selectedPairs = getSelectedPairsArray();
+    const selectedCount = getSelectedCount();
+    
+    console.log('Selected pairs:', selectedPairs);
+    console.log('Selected count:', selectedCount);
+    
+    // Determine which symbols to create alerts for
+    let symbolsToProcess = [];
+    
+    // Check if we're in favorites context and should use favorite pairs
+    const favoritePairs = getFavoritePairsForAlerts(cryptos);
+    
+    // Priority order: Selected pairs > Favorite pairs > Single symbol > Fallback
+    if (selectedCount > 0) {
+      // Use selected pairs from MarketPanel checkboxes
+      symbolsToProcess = selectedPairs;
+      console.log('Creating alerts for selected pairs:', symbolsToProcess);
+    } else if (favoritePairs.length > 0) {
+      // Use favorite pairs if no specific selection
+      symbolsToProcess = favoritePairs;
+      console.log('Creating alerts for favorite pairs:', symbolsToProcess);
+    } else if (symbolOverride) {
+      // Single symbol override
+      symbolsToProcess = [symbol];
+      console.log('Creating alert for single override symbol:', symbol);
+    } else if (selectedSymbol) {
+      // Use current selected symbol
+      symbolsToProcess = [symbol];
+      console.log('Creating alert for current selected symbol:', symbol);
+    } else {
+      // Fallback
+      symbolsToProcess = ['BTCUSDT'];
+      console.log('Using fallback symbol');
+    }
+    
+    console.log('Final symbols for alert creation:', symbolsToProcess);
     
     // Validate form before proceeding
     const validationErrors = validateAlertForm();
@@ -487,9 +576,25 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
       
       console.log('Final percentage value being sent to backend:', finalPercentageValue);
 
-      // Create clean alertData object with only serializable values
-      const alertData = {
-        symbol: String(symbol),
+      // Create alerts for all selected symbols
+      const alertResults = [];
+      const failedAlerts = [];
+      
+      for (const currentSymbol of symbolsToProcess) {
+        try {
+          // Validate each symbol
+          if (!currentSymbol || typeof currentSymbol !== 'string' || currentSymbol.trim() === '') {
+            console.error('Invalid symbol in batch:', currentSymbol);
+            failedAlerts.push({ symbol: currentSymbol, error: 'Invalid symbol format' });
+            continue;
+          }
+          
+          const cleanSymbol = currentSymbol.trim();
+          console.log('Creating alert for symbol:', cleanSymbol);
+          
+          // Create clean alertData object with only serializable values
+          const alertData = {
+            symbol: cleanSymbol,
         direction: '>',
         targetType: 'percentage',
         targetValue: Number(finalPercentageValue),
@@ -497,8 +602,8 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
         intervalMinutes: 60,
         volumeChangeRequired: 0,
         alertTime: String(alertTime),
-        comment: `Alert created from filter for ${symbol}`,
-        email: 'kainat.tasadaq3@gmail.com',
+        comment: `Alert created from filter for ${cleanSymbol}`,
+        email: ' kainat.tasadaq3@gmail.com',
 
         // OHLCV-integrated Min Daily Volume
         minDailyVolume: Number(minDailyVolume) || 0,
@@ -551,45 +656,75 @@ const FilterSidebar = memo(forwardRef((props, ref) => {
 
       // Allow creating alerts with null/0 values - no validation required
 
-      console.log('Creating alert with OHLCV data:', {
-        symbol: alertData.symbol,
-        minDailyVolume: alertData.minDailyVolume,
-        changePercent: { timeframe: alertData.changePercentTimeframe, value: alertData.changePercentValue },
-        alertCount: { timeframe: alertData.alertCountTimeframe, enabled: alertData.alertCountEnabled },
-        rsi: rsiConfig,
-        ema: emaConfig
-      });
+          console.log('Creating alert with OHLCV data:', {
+            symbol: alertData.symbol,
+            minDailyVolume: alertData.minDailyVolume,
+            changePercent: { timeframe: alertData.changePercentTimeframe, value: alertData.changePercentValue },
+            alertCount: { timeframe: alertData.alertCountTimeframe, enabled: alertData.alertCountEnabled },
+            rsi: rsiConfig,
+            ema: emaConfig
+          });
 
-      const created = await createAlert(alertData);
-      console.log('Alert created successfully:', created);
-      setSuccessMessage(`Alert created successfully for ${alertData.symbol}!`);
-      
-      // Reset percentage value after successful creation
-      setPercentageValue('');
-      
-      // Clear the input field directly
-      if (percentageInputRef.current) {
-        percentageInputRef.current.value = '';
+          const created = await createAlert(alertData);
+          console.log('Alert created successfully for:', cleanSymbol, created);
+          alertResults.push({ symbol: cleanSymbol, success: true, alert: created });
+          
+          eventBus.emit('ALERT_CREATED', created);
+          
+        } catch (error) {
+          console.error('Error creating alert for', currentSymbol, ':', error);
+          const errorMsg = error.response?.data?.message || error.response?.data || error.message || 'Unknown error';
+          failedAlerts.push({ symbol: currentSymbol, error: errorMsg });
+        }
       }
       
-      eventBus.emit('ALERT_CREATED', created);
-
-      // Reset percentage value in context
-      setCtxFilters(prev => ({
-        ...prev,
-        percentageValue: null
-      }));
-    } catch (error) {
-      console.error('Error creating alert:', error);
-      if (error.response) {
-        setErrorMessage(`Failed to create alert: ${error.response.data.message || error.response.data}`);
+      // Provide feedback based on results
+      const successCount = alertResults.length;
+      const failureCount = failedAlerts.length;
+      const totalCount = symbolsToProcess.length;
+      
+      if (successCount === totalCount) {
+        // All alerts created successfully
+        if (totalCount === 1) {
+          setSuccessMessage(`Alert created successfully for ${symbolsToProcess[0]}!`);
+        } else {
+          setSuccessMessage(`All ${totalCount} alerts created successfully!`);
+        }
+      } else if (successCount > 0) {
+        // Partial success
+        setSuccessMessage(`${successCount} of ${totalCount} alerts created successfully.`);
+        if (failureCount > 0) {
+          const failedSymbols = failedAlerts.map(f => f.symbol).join(', ');
+          setErrorMessage(`Failed to create alerts for: ${failedSymbols}`);
+        }
       } else {
-        setErrorMessage(`Failed to create alert: ${error.message}`);
+        // All failed
+        setErrorMessage(`Failed to create alerts for all ${totalCount} symbols.`);
       }
+      
+      // Reset form after successful creation(s)
+      if (successCount > 0) {
+        setPercentageValue('');
+        
+        // Clear the input field directly
+        if (percentageInputRef.current) {
+          percentageInputRef.current.value = '';
+        }
+        
+        // Reset percentage value in context
+        setCtxFilters(prev => ({
+          ...prev,
+          percentageValue: null
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Error in bulk alert creation:', error);
+      setErrorMessage(`Failed to create alerts: ${error.message}`);
     } finally {
       setIsCreatingAlert(false);
     }
-  }, [createAlert, getFilterValues, setCtxFilters, showNotification, eventBus, setPercentageValue]);
+  }, [createAlert, getFilterValues, setCtxFilters, showNotification, eventBus, setPercentageValue, getSelectedPairsArray, getSelectedCount, selectedSymbol]);
 
   // Expose handleCreateAlert function via ref
   useImperativeHandle(ref, () => ({

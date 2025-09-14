@@ -23,7 +23,7 @@ const testAlert = {
   emaFastPeriod: 12,
   emaSlowPeriod: 26,
   emaCondition: 'CROSSING_UP',
-  email: 'kainat.tasadaq3@gmail.com',
+  email: ' kainat.tasadaq3@gmail.com',
   comment: 'Test alert for notification system',
   createdAt: new Date()
 };

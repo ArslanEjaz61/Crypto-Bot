@@ -316,75 +316,109 @@ const refreshCryptoData = async (req = {}) => {
 // @route   GET /api/crypto
 // @access  Public
 const getCryptoList = async (req, res) => {
-  // Create a flag to track when the response has been sent
-  let responseSent = false;
-  
-  // Set a timeout to ensure the response is always sent, even if Binance API hangs
-  const responseTimeout = setTimeout(() => {
-    if (!responseSent) {
-      console.log('Response timeout reached - sending database data without waiting for API refresh');
-      sendCryptoResponse();
-    }
-  }, API_TIMEOUT); // Use configurable timeout from environment
-
-  // Define the function to send response to prevent duplicate sends
-  const sendCryptoResponse = async () => {
-    if (responseSent) return; // Prevent duplicate response
-    responseSent = true;
-    clearTimeout(responseTimeout); // Clear timeout if response sent normally
+  try {
+    console.log('API Request: Getting crypto pairs (optimized)');
     
-    try {
-      // Get all cryptos without pagination, sorted alphabetically by symbol
-      const cryptos = await Crypto.find({})
-        .sort({ symbol: 1 });
-        
-      console.log(`Returning all ${cryptos.length} cryptos in a single response`);
+    // Parse parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const spotOnly = req.query.spotOnly === 'true';
+    const usdtOnly = req.query.usdtOnly === 'true';
+    
+    // Build query filter based on parameters
+    let query = {};
+    
+    console.log(`Filtering: spotOnly=${spotOnly}, usdtOnly=${usdtOnly}`);
+    
+    // Apply filters based on parameters
+    if (usdtOnly && spotOnly) {
+      // Both filters: USDT pairs in Spot market only
+      query.symbol = { $regex: /USDT$/ };
+      // Note: Spot filtering would need market type field in schema
+      console.log('Filtering for USDT Spot pairs only');
+    } else if (usdtOnly && !spotOnly) {
+      // USDT only (all markets): USDT, BUSD, futures, etc.
+      query.symbol = { $regex: /USDT$/ };
+      console.log('Filtering for USDT pairs (all markets)');
+    } else if (!usdtOnly && spotOnly) {
+      // Spot only (all quote assets): USDT, BTC, ETH, BNB pairs in spot
+      // Since we don't have market type in schema, we'll filter out futures symbols
+      query.symbol = { 
+        $not: { $regex: /(PERP|_\d{6}|UP|DOWN)$/ } // Exclude futures and leveraged tokens
+      };
+      console.log('Filtering for Spot pairs (all quote assets)');
+    } else {
+      // No filters: return all pairs (spot, futures, leveraged tokens, etc.)
+      console.log('No filters applied - returning all pairs');
+    }
+    
+    // For MarketPanel requests (large limit), return cached data immediately
+    if (limit >= 1000) {
+      console.log('Large request detected - returning cached data immediately');
       
+      const cryptos = await Crypto.find(query)
+        .sort({ symbol: 1 })
+        .lean(); // Use lean() for better performance
+        
+      console.log(`Fast response: ${cryptos.length} cryptos from database`);
+      
+      // Start background refresh for next time (fire and forget)
+      setImmediate(() => {
+        refreshCryptoData(req).catch(err => {
+          console.error('Background refresh failed:', err.message);
+        });
+      });
+      
+      return res.json({
+        cryptos,
+        totalCount: cryptos.length,
+        timestamp: new Date().toISOString(),
+        dataSource: 'database_cached'
+      });
+    }
+    
+    // For smaller requests, use normal flow with timeout
+    let responseSent = false;
+    
+    const responseTimeout = setTimeout(() => {
+      if (!responseSent) {
+        console.log('Response timeout - sending database data');
+        sendResponse();
+      }
+    }, 2000); // Reduced timeout for better UX
+    
+    const sendResponse = async () => {
+      if (responseSent) return;
+      responseSent = true;
+      clearTimeout(responseTimeout);
+      
+      const cryptos = await Crypto.find(query)
+        .sort({ symbol: 1 })
+        .lean();
+        
+      console.log(`Returning ${cryptos.length} cryptos with query:`, JSON.stringify(query));
+        
       res.json({
         cryptos,
         totalCount: cryptos.length,
         timestamp: new Date().toISOString(),
-        dataSource: req.query.skipRefresh === 'true' ? 'database' : 'refreshed'
+        dataSource: 'database'
       });
-    } catch (dbError) {
-      if (!responseSent) {
-        handleAPIError(dbError, res, 'Error retrieving crypto data from database');
-        responseSent = true;
-      }
-    }
-  };
-  
-  try {
-    console.log('API Request: Getting all crypto pairs');
+    };
     
-    // Parse pagination parameters but ignore them in new implementation
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    console.log(`Received pagination params (now ignored): page=${page}, limit=${limit}`);
+    // Start background refresh
+    refreshCryptoData(req).catch(err => {
+      console.error('Background refresh failed:', err.message);
+    });
     
-    // Check if we should skip refreshing data
-    const skipRefresh = req.query.skipRefresh === 'true';
-    
-    if (!skipRefresh) {
-      try {
-        // Start refreshing data but don't await it directly
-        console.log('Starting crypto data refresh in background');
-        // This runs in the background - we'll get data from DB regardless
-        refreshCryptoData(req).catch(err => {
-          console.error('Background refresh failed:', err.message);
-        });
-      } catch (refreshError) {
-        console.error('Error initiating refresh:', refreshError.message);
-      }
-    }
-    
-    // Send response with current DB data, don't wait for refresh to complete
-    await sendCryptoResponse();
+    // Send response immediately from database
+    await sendResponse();
   } catch (error) {
-    if (!responseSent) {
-      handleAPIError(error, res, 'Error fetching crypto list');
-      responseSent = true;
-    }
+    console.error('Error in getCryptoList:', error);
+    res.status(500).json({
+      message: 'Error fetching crypto list',
+      error: error.message
+    });
   }
 };
 

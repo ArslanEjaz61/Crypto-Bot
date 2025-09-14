@@ -70,7 +70,7 @@ async function sendTelegramMessage(message, options = {}, retries = 3) {
  * @returns {string} Formatted message
  */
 function formatAlertMessage(alert, data) {
-  const { currentPrice, currentVolume, rsi, emaData, marketData } = data;
+  const { currentPrice, currentVolume, rsi, emaData, marketData, triggeredTime } = data;
   
   // Format price and volume
   const formatPrice = (price) => price ? `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}` : 'N/A';
@@ -85,6 +85,25 @@ function formatAlertMessage(alert, data) {
   message += `💰 <b>Current Price:</b> ${formatPrice(currentPrice)}\n`;
   message += `📈 <b>Target:</b> ${alert.targetType === 'price' ? formatPrice(alert.targetValue) : formatPercent(alert.targetValue)}\n`;
   message += `🎯 <b>Direction:</b> ${alert.direction}\n\n`;
+  
+  // Alert conditions that were set
+  message += `⚙️ <b>Alert Conditions Set:</b>\n`;
+  if (alert.changePercentValue) {
+    message += `   • Price Change: ${alert.changePercentValue}%${alert.changePercentTimeframe ? ` over ${alert.changePercentTimeframe}` : ''}\n`;
+  }
+  if (alert.rsiEnabled) {
+    message += `   • RSI: ${alert.rsiCondition} ${alert.rsiLevel} (${alert.rsiTimeframe})\n`;
+  }
+  if (alert.emaEnabled) {
+    message += `   • EMA: EMA${alert.emaFastPeriod} ${alert.emaCondition.replace(/_/g, ' ')} EMA${alert.emaSlowPeriod} (${alert.emaTimeframe})\n`;
+  }
+  if (alert.candleCondition && alert.candleCondition !== 'NONE') {
+    message += `   • Candle: ${alert.candleCondition.replace(/_/g, ' ')} (${alert.candleTimeframe})\n`;
+  }
+  if (alert.minDailyVolume) {
+    message += `   • Min Volume: ${formatVolume(alert.minDailyVolume)}\n`;
+  }
+  message += `\n`;
   
   // Market data
   if (marketData) {
@@ -128,7 +147,7 @@ function formatAlertMessage(alert, data) {
   
   // Alert metadata
   message += `⏰ <b>Alert Created:</b> ${alert.createdAt ? new Date(alert.createdAt).toLocaleString() : 'N/A'}\n`;
-  message += `🔔 <b>Triggered At:</b> ${new Date().toLocaleString()}\n`;
+  message += `🔔 <b>Triggered At:</b> ${triggeredTime ? triggeredTime.toLocaleString() : new Date().toLocaleString()}\n`;
   
   // Footer
   message += `\n💡 <i>Binance Alerts Bot</i>`;

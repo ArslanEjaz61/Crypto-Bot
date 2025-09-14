@@ -20,7 +20,11 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: [
+      'http://31.97.223.200:3000',
+      'http://31.97.223.200:5000',
+      'https://socicalsarkar.site'
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
   }
 });
@@ -35,13 +39,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Simple CORS setup to allow all origins for troubleshooting
+app.use(cors({ origin: '*' }));
 
 // Add a simple health check endpoint
 app.get('/api/health', (req, res) => {
@@ -55,6 +54,14 @@ app.get('/debug', (req, res) => {
   res.status(200).json({ message: 'Server is working' });
 });
 
+// Socket.io connection
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
 
 // Make io accessible to our routes
 app.set('io', io);
@@ -71,6 +78,7 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/crypto', cryptoRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/triggered-alerts', triggeredAlertsRoutes);
+
 
 // Start cron jobs
 setupCronJobs(io);
@@ -125,4 +133,3 @@ process.on('SIGINT', () => {
     process.exit(0);
   });
 });
-

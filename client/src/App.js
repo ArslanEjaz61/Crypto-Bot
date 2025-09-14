@@ -22,6 +22,7 @@ import { useCrypto } from './context/CryptoContext';
 import SocketProvider from './context/SocketContext';
 import LazyComponentLoader from './components/LazyComponentLoader';
 import { FilterProvider } from './context/FilterContext';
+import { SelectedPairsProvider } from './context/SelectedPairsContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { useCallback } from 'react';
@@ -161,6 +162,7 @@ function App() {
           <ThemeProvider theme={darkTheme}>
             <CssBaseline />
             <FilterProvider>
+              <SelectedPairsProvider>
               {loading && (
                 <Fade in={loading}>
                   <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
@@ -171,9 +173,12 @@ function App() {
               <Box sx={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
-                minHeight: '100vh', 
-                height: '100%', 
-                overflow: 'hidden' 
+                height: '100vh', 
+                width: '100vw',
+                overflow: 'hidden',
+                position: 'fixed',
+                top: 0,
+                left: 0
               }}>
                 <Routes>
                   <Route path="/login" element={
@@ -189,10 +194,12 @@ function App() {
                         <Header />
                         <Box component="main" sx={{ 
                           flexGrow: 1, 
-                          overflow: 'auto', 
+                          overflow: 'hidden', 
                           display: 'flex', 
                           flexDirection: 'column',
-                          height: 'calc(100vh - 64px)' // Subtract header height
+                          height: 'calc(100vh - 64px)',
+                          m: 0,
+                          p: 0
                         }}>
                           <LazyComponentLoader height={600}>
                             <Dashboard />
@@ -212,6 +219,7 @@ function App() {
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </Box>
+              </SelectedPairsProvider>
             </FilterProvider>
           </ThemeProvider>
         </SocketProvider>

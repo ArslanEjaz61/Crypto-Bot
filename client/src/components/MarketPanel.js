@@ -15,7 +15,9 @@ import {
   alpha,
   Skeleton,
   CircularProgress,
-  Button
+  Button,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
@@ -29,6 +31,7 @@ import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import { useCrypto } from '../context/CryptoContext';
 import { useFilters } from '../context/FilterContext';
 import { useAlert } from '../context/AlertContext';
+import { useSelectedPairs } from '../context/SelectedPairsContext';
 import SmoothTransition from './SmoothTransition';
 import { useDebounce, useThrottle } from '../utils/requestThrottle';
 
@@ -36,6 +39,14 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   const { cryptos, error, toggleFavorite, checkAlertConditions, loadCryptos } = useCrypto();
   const { filters, getValidationFilters, hasActiveFilters } = useFilters();
   const { alerts } = useAlert(); // Import to get active alerts
+  const { 
+    togglePairSelection, 
+    selectAllPairs, 
+    clearAllSelections, 
+    isPairSelected, 
+    getSelectedCount,
+    getSelectedPairsArray 
+  } = useSelectedPairs();
   const [view, setView] = useState('market');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -44,9 +55,8 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   // const [filteredCryptos, setFilteredCryptos] = useState([]);
   const [meetingConditions, setMeetingConditions] = useState({});
   const [, setCheckingConditions] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMorePairs, setHasMorePairs] = useState(true);
+  const [selectAllChecked, setSelectAllChecked] = useState(false);
+  const [checkedPairs, setCheckedPairs] = useState(new Set());
 
   // Throttled condition checking to prevent API spam
   const checkConditionsThrottled = useCallback(async () => {
@@ -116,18 +126,14 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
 
   /* Filter functionality is handled directly in the component through the context */
 
-  // Load initial data based on spot filter
+  // Load crypto pairs based on FilterSidebar settings
   useEffect(() => {
-    const spotOnly = filters.market?.SPOT || false;
-    console.log('MarketPanel: Loading cryptos with spotOnly =', spotOnly);
-    loadCryptos(1, 50, false, false, spotOnly); // Changed forceRefresh to false for initial load
-    setCurrentPage(1); // Reset current page when filter changes
-  }, [loadCryptos, filters.market?.SPOT]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-    setHasMorePairs(true); // Always assume there are more pairs when filters change
-  }, [filters, searchTerm]);
+    const usdtFilter = filters.pair?.USDT || false;
+    const spotFilter = filters.market?.SPOT || false;
+    
+    console.log(`MarketPanel: Loading crypto pairs - USDT: ${usdtFilter}, Spot: ${spotFilter}`);
+    loadCryptos(1, 5000, false, true, spotFilter, usdtFilter);
+  }, [loadCryptos, filters.pair, filters.market]);
 
   // Memoized filtered cryptos for better performance
   const filteredCryptos = useMemo(() => {
@@ -162,9 +168,72 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
       return b.volume - a.volume;
     });
 
-    // Limit to first 100 items for performance
-    return filtered.slice(0, 100);
+    // Return all filtered items (no artificial limit)
+    return filtered;
   }, [cryptos, view, searchTerm]);
+
+  // Handle select all checkbox
+  const handleSelectAll = useCallback((event) => {
+    const isChecked = event.target.checked;
+    setSelectAllChecked(isChecked);
+
+    if (isChecked) {
+      // Check all visible pairs
+      const visibleSymbols = filteredCryptos.map(crypto => crypto.symbol);
+      setCheckedPairs(new Set(visibleSymbols));
+      
+      // Add all to favorites and selection
+      filteredCryptos.forEach(crypto => {
+        if (!crypto.isFavorite) {
+          toggleFavorite(crypto.symbol);
+        }
+        if (!isPairSelected(crypto.symbol)) {
+          togglePairSelection(crypto.symbol);
+        }
+      });
+    } else {
+      // Uncheck all visible pairs
+      const visibleSymbols = filteredCryptos.map(crypto => crypto.symbol);
+      setCheckedPairs(prev => {
+        const newSet = new Set(prev);
+        visibleSymbols.forEach(symbol => newSet.delete(symbol));
+        return newSet;
+      });
+      
+      // Remove all from favorites and selection
+      filteredCryptos.forEach(crypto => {
+        if (crypto.isFavorite) {
+          toggleFavorite(crypto.symbol);
+        }
+        if (isPairSelected(crypto.symbol)) {
+          togglePairSelection(crypto.symbol);
+        }
+      });
+    }
+  }, [filteredCryptos, toggleFavorite, isPairSelected, togglePairSelection]);
+
+  // Sync checked pairs with favorites when cryptos data changes
+  useEffect(() => {
+    if (cryptos && cryptos.length > 0) {
+      const favoriteSymbols = cryptos.filter(crypto => crypto.isFavorite).map(crypto => crypto.symbol);
+      setCheckedPairs(new Set(favoriteSymbols));
+    }
+  }, [cryptos]);
+
+  // Update select all checkbox based on checked pairs
+  useEffect(() => {
+    const visibleSymbols = filteredCryptos.map(crypto => crypto.symbol);
+    const checkedVisibleCount = visibleSymbols.filter(symbol => checkedPairs.has(symbol)).length;
+    const totalVisible = visibleSymbols.length;
+    
+    if (checkedVisibleCount === 0) {
+      setSelectAllChecked(false);
+    } else if (checkedVisibleCount === totalVisible && totalVisible > 0) {
+      setSelectAllChecked(true);
+    } else {
+      setSelectAllChecked(false);
+    }
+  }, [checkedPairs, filteredCryptos]);
 
   // Check conditions when filtered data changes (debounced)
   const debouncedCheckConditions = useDebounce(() => {
@@ -199,40 +268,10 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     // Set new timeout for debouncing the actual search
     searchTimeoutRef.current = setTimeout(() => {
       setSearchTerm(value);
-      setCurrentPage(1); // Reset to first page on search
-      setHasMorePairs(true); // Reset hasMorePairs on search
     }, 300);
   }, []);
   
-  // Handle loading more pairs
-  const handleLoadMore = useCallback(async () => {
-    if (loadingMore) return;
-    
-    setLoadingMore(true);
-    const nextPage = currentPage + 1;
-    console.log(`Loading more pairs: page ${nextPage}`);
-    
-    try {
-      const spotOnly = filters.market?.SPOT || false;
-      const result = await loadCryptos(nextPage, 50, false, true, spotOnly);
-      
-      // Always assume there are more pairs unless explicitly told otherwise
-      // The backend might not be properly implementing pagination
-      const receivedData = result && result.total !== undefined;
-      const explicitlyNoMore = receivedData && result.hasMore === false;
-      
-      // Only set hasMorePairs to false if the API explicitly says there are no more
-      // or if we received less than the requested limit
-      setHasMorePairs(!explicitlyNoMore);
-      setCurrentPage(nextPage);
-      
-      console.log(`Loaded additional pairs. Assuming more pairs available.`);
-    } catch (error) {
-      console.error('Error loading more pairs:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [currentPage, loadingMore, loadCryptos, filters.market?.SPOT]);
+  // Removed handleLoadMore function - loading all pairs at once
 
   // Format number with abbreviations
   const formatNumber = (num) => {
@@ -281,6 +320,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
         </ToggleButton>
       </ToggleButtonGroup>
 
+
       {/* Search input */}
       <Box 
         sx={{ 
@@ -303,6 +343,26 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
           <SearchIcon />
         </IconButton>
       </Box>
+
+      {/* Select All Checkbox */}
+      {filteredCryptos.length > 0 && (
+        <Box sx={{ p: 2, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={selectAllChecked}
+                onChange={handleSelectAll}
+                sx={{ color: '#60A5FA' }}
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ color: '#E2E8F0' }}>
+                Select All ({getSelectedCount()} selected)
+              </Typography>
+            }
+          />
+        </Box>
+      )}
 
       {/* Crypto list */}
       <SmoothTransition type="slide" direction="up" timeout={400}>
@@ -352,49 +412,63 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
             filteredCryptos.map((crypto, index) => (
               <React.Fragment key={crypto.symbol}>
                 <ListItem
-                  component="div"
-                  onClick={() => onSelectCoin && onSelectCoin(crypto)}
                   sx={{
-                    cursor: 'pointer',
                     py: 1,
                     '&:hover': {
                       backgroundColor: alpha('#0066FF', 0.05),
                     },
+                    display: 'flex',
+                    alignItems: 'center'
                   }}
                 >
-                  <ListItemText
+                  {/* Checkbox for pair selection and favorite toggle */}
+                  <Checkbox
+                    checked={checkedPairs.has(crypto.symbol)}
+                    onChange={() => {
+                      const isCurrentlyChecked = checkedPairs.has(crypto.symbol);
+                      
+                      setCheckedPairs(prev => {
+                        const newSet = new Set(prev);
+                        if (isCurrentlyChecked) {
+                          // Unchecking: remove from checked pairs and favorites
+                          newSet.delete(crypto.symbol);
+                          toggleFavorite(crypto.symbol); // Remove from favorites
+                          togglePairSelection(crypto.symbol); // Remove from selection
+                        } else {
+                          // Checking: add to checked pairs and favorites
+                          newSet.add(crypto.symbol);
+                          if (!crypto.isFavorite) {
+                            toggleFavorite(crypto.symbol); // Add to favorites
+                          }
+                          if (!isPairSelected(crypto.symbol)) {
+                            togglePairSelection(crypto.symbol); // Add to selection
+                          }
+                        }
+                        return newSet;
+                      });
+                    }}
+                    sx={{ 
+                      color: view === 'favorites' ? '#FFD700' : '#60A5FA',
+                      mr: 1,
+                      '& .MuiSvgIcon-root': { fontSize: 18 }
+                    }}
+                  />
+                  
+                  {/* Clickable area for coin selection */}
+                  <Box
+                    onClick={() => onSelectCoin && onSelectCoin(crypto)}
+                    sx={{
+                      flex: 1,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                             {crypto.symbol}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              
-                              // Only create alert if we're adding to favorites (not already a favorite)
-                              if (!crypto.isFavorite && onCreateAlert && filterSidebarRef?.current?.handleCreateAlert) {
-                                // Use FilterSidebar's alert creation logic with current filter values
-                                const createAlertCallback = filterSidebarRef.current.handleCreateAlert;
-                                toggleFavorite(crypto.symbol, null, createAlertCallback);
-                              } else if (!crypto.isFavorite && onCreateAlert) {
-                                // Fallback to old method if FilterSidebar ref not available
-                                const filterConditions = getValidationFilters ? getValidationFilters() : null;
-                                toggleFavorite(crypto.symbol, filterConditions);
-                              } else {
-                                // Just toggle favorite status without creating alert
-                                toggleFavorite(crypto.symbol);
-                              }
-                            }}
-                          >
-                            {crypto.isFavorite ? (
-                              <StarIcon sx={{ fontSize: 16, color: '#FFD700' }} />
-                            ) : (
-                              <StarBorderIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                            )}
-                          </IconButton>
                           {meetingConditions[crypto.symbol] && (
                             <Chip
                               icon={<NotificationsActiveIcon />}
@@ -438,28 +512,15 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
                         </Box>
                       )
                     }
-                  />
+                    />
+                  </Box>
                 </ListItem>
                 {index < filteredCryptos.length - 1 && <Divider component="li" />}
               </React.Fragment>
             ))
           )}
         </List>
-        {/* Load More Button */}
-        {filteredCryptos.length > 0 && view === 'market' && (
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-            <Button 
-              variant="contained" 
-              color="primary"
-              disabled={loadingMore}
-              onClick={handleLoadMore}
-              startIcon={loadingMore && <CircularProgress size={20} color="inherit" />}
-              sx={{ width: '100%' }}
-            >
-              {loadingMore ? 'Loading...' : 'Load More Pairs'}
-            </Button>
-          </Box>
-        )}
+        {/* Removed Load More Button - All USDT pairs loaded at once */}
       </SmoothTransition>
     </Paper>
   );

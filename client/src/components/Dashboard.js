@@ -5,6 +5,7 @@ import CryptoList from './CryptoList';
 import MarketPanel from './MarketPanel';
 import FilterSidebar from './FilterSidebar';
 import CoinPriceHeader from './CoinPriceHeader';
+import TriggeredAlertsPanel from './TriggeredAlertsPanel';
 import { useAlert } from '../context/AlertContext';
 import { useCrypto } from '../context/CryptoContext';
 import { useSelectedPair } from '../context/SelectedPairContext';
@@ -21,31 +22,8 @@ const Dashboard = ({ children }) => {
   // Reference to FilterSidebar's createAlert function
   const filterSidebarRef = useRef();
   
-  // Get crypto coins that have alerts
-  const coinsWithAlerts = useMemo(() => {
-    if (!alerts || alerts.length === 0 || !cryptos || cryptos.length === 0) {
-      return [];
-    }
-    
-    // Group alerts by symbol
-    const alertsBySymbol = {};
-    alerts.forEach(alert => {
-      if (!alert.symbol) return;
-      
-      if (!alertsBySymbol[alert.symbol]) {
-        alertsBySymbol[alert.symbol] = [];
-      }
-      alertsBySymbol[alert.symbol].push(alert);
-    });
-    
-    // Match with crypto data
-    return cryptos
-      .filter(crypto => alertsBySymbol[crypto.symbol])
-      .map(crypto => ({
-        ...crypto,
-        alertsCount: alertsBySymbol[crypto.symbol].length
-      }));
-  }, [alerts, cryptos]);
+  // Show triggered alerts instead of regular alerts
+  // This section now displays the TriggeredAlertsPanel component
 
   // Handle creating alert when favorite is clicked
   const handleCreateAlertFromFavorite = (symbol) => {
@@ -59,8 +37,7 @@ const Dashboard = ({ children }) => {
   // Log alerts for debugging
   useEffect(() => {
     console.log('Dashboard - Current alerts state:', alerts);
-    console.log('Dashboard - Coins with alerts:', coinsWithAlerts);
-  }, [alerts, coinsWithAlerts]);
+  }, [alerts]);
 
   // Handle coin selection from market panel
   const handleCoinSelect = (symbol) => {
@@ -83,43 +60,48 @@ const Dashboard = ({ children }) => {
 
   return (
     <Box sx={{ 
-      width: '100%', 
-      height: '110%',
-      overflow: 'auto', /* Changed from hidden to auto to enable scrolling */
-      bgcolor: '#0A0E17', // Dark background color matching the image
+      width: '100vw', 
+      height: '100vh',
+      overflow: 'hidden',
+      bgcolor: '#0A0E17',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      m: 0,
+      p: 0
     }}>
-      <Grid container spacing={1} sx={{ 
+      <Grid container spacing={0} sx={{ 
         flexGrow: 1, 
-        p: { xs: 0.5, sm: 1 },
-        overflow: 'auto',
-        minHeight: '100%'
+        height: '100%',
+        overflow: 'hidden',
+        m: 0,
+        p: 0
       }}>
         {/* Left Section - Filters Sidebar */}
         <Grid item xs={12} md={3} lg={3} sx={{ 
-          height: { xs: 'auto', md: '100%' },
-          overflow: 'auto',
-          display: { xs: 'none', md: 'block' } // Hide on mobile, show on tablet+
+          height: '100vh',
+          overflow: 'hidden',
+          display: { xs: 'none', md: 'block' },
+          p: 0
         }}>
-          <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 2 }}>
+          <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 0, m: 0 }}>
             <FilterSidebar ref={filterSidebarRef} selectedSymbol={selectedCoin} />
           </Paper>
         </Grid>
 
         {/* Main Section - Chart and Alerts */}
         <Grid item xs={12} md={6} lg={6} sx={{ 
-          height: '100%',
+          height: '100vh',
           overflow: 'hidden',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          p: 0
         }}>
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
             height: '100%',
             overflow: 'hidden',
-            p: { xs: 0.5, sm: 1 }
+            p: 0.5
           }}>
             {/* Coin Price Header - Shows detailed coin price info */}
             {selectedCoin && (
@@ -144,34 +126,28 @@ const Dashboard = ({ children }) => {
               p: 1
             }}>
               
-              {/* <Box sx={{ p: 2, bgcolor: '#0A0E17', borderRadius: 2, mb: 3 }}>
-                <Typography variant="h6" color="white">Alert Coins</Typography>
-                <Typography variant="body2" color="#94A3B8" sx={{ mt: 1 }}>
-                  Showing coins that have active alerts
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(34, 197, 94, 0.1)', borderRadius: 2, border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                <Typography variant="body2" sx={{ color: '#22C55E' }}>
+                  📈 Triggered Alerts History - Only shows alerts that have been activated
                 </Typography>
-              </Box> */}
+              </Box>
               
-              {/* Crypto List with Alerts */}
-              {coinsWithAlerts.length > 0 ? (
-                <Box sx={{ mt: 2 }}>
-                  <CryptoList cryptos={coinsWithAlerts} />
-                </Box>
-              ) : (
-                <Box sx={{ textAlign: 'center', mt: 3, p: 4, bgcolor: 'rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
-                  <Typography color="#94A3B8">No coins with alerts found</Typography>
-                </Box>
-              )}
+              {/* Triggered Alerts Panel - Only shows alerts that have been triggered */}
+              <Box sx={{ mt: 1, height: 'calc(100vh - 350px)', overflow: 'hidden' }}>
+                <TriggeredAlertsPanel />
+              </Box>
             </Box>
           </Box>
         </Grid>
 
         {/* Right Section - Market Panel */}
         <Grid item xs={12} md={3} lg={3} sx={{ 
-          height: { xs: 'auto', md: '100%' },
-          overflow: 'auto',
-          display: { xs: 'none', md: 'block' } // Hide on mobile, show on tablet+
+          height: '100vh',
+          overflow: 'hidden',
+          display: { xs: 'none', md: 'block' },
+          p: 0
         }}>
-          <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 2 }}>
+          <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 0, m: 0 }}>
             <MarketPanel onSelectCoin={handleCoinSelect} onCreateAlert={handleCreateAlertFromFavorite} filterSidebarRef={filterSidebarRef} />
           </Paper>
         </Grid>

@@ -86,7 +86,7 @@ const createAlert = async (req, res) => {
       intervalMinutes: trackingMode === 'interval' ? intervalMinutes : 0,
       alertTime,
       comment: comment || `Auto-created alert for ${symbol}`,
-      email: email || 'kainat.tasadaq3@gmail.com',
+      email: email || ' kainat.tasadaq3@gmail.com',
       // Default market filters
       market: market || 'ALL',
       exchange: exchange || 'ALL',
