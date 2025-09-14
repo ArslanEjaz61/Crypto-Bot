@@ -592,6 +592,11 @@ const FilterSidebar = memo(
 
         // Check if we're in favorites context and should use favorite pairs
         const favoritePairs = getFavoritePairsForAlerts(cryptos);
+        console.log(
+          "DEBUG - favoritePairs from getFavoritePairsForAlerts:",
+          favoritePairs
+        );
+        console.log("DEBUG - favoritePairs.length:", favoritePairs.length);
 
         // Priority order: Selected pairs > Favorite pairs > Single symbol > Fallback
         if (selectedCount > 0) {
@@ -602,6 +607,10 @@ const FilterSidebar = memo(
           // Use favorite pairs if no specific selection
           symbolsToProcess = favoritePairs;
           console.log("Creating alerts for favorite pairs:", symbolsToProcess);
+          console.log(
+            "DEBUG - symbolsToProcess.length:",
+            symbolsToProcess.length
+          );
         } else if (symbolOverride) {
           // Single symbol override
           symbolsToProcess = [symbol];
@@ -871,6 +880,12 @@ const FilterSidebar = memo(
           const successCount = alertResults.length;
           const failureCount = failedAlerts.length;
           const totalCount = symbolsToProcess.length;
+
+          console.log("DEBUG - Alert creation results:");
+          console.log("DEBUG - successCount:", successCount);
+          console.log("DEBUG - failureCount:", failureCount);
+          console.log("DEBUG - totalCount:", totalCount);
+          console.log("DEBUG - symbolsToProcess:", symbolsToProcess);
 
           if (successCount === totalCount) {
             // All alerts created successfully
