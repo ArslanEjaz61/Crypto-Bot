@@ -6,6 +6,7 @@ import MarketPanel from "./MarketPanel";
 import FilterSidebar from "./FilterSidebar";
 import CoinPriceHeader from "./CoinPriceHeader";
 import TriggeredAlertsPanel from "./TriggeredAlertsPanel";
+import LatestAlertDisplay from "./LatestAlertDisplay";
 import { useAlert } from "../context/AlertContext";
 import { useSelectedPair } from "../context/SelectedPairContext";
 import io from "socket.io-client";
@@ -47,14 +48,7 @@ const Dashboard = ({ children }) => {
   useEffect(() => {
     const initializeChart = async () => {
       try {
-        // First, set BTCUSDT as default if no symbol is selected
-        if (!selectedCoin) {
-          console.log("Setting BTCUSDT as default chart symbol");
-          setSelectedCoin("BTCUSDT");
-          selectSymbol("BTCUSDT");
-        }
-
-        // Then fetch the last triggered alert
+        // First, fetch the last triggered alert to prioritize it
         const API_URL =
           process.env.REACT_APP_API_URL || "http://localhost:5000";
         const response = await fetch(
@@ -68,24 +62,32 @@ const Dashboard = ({ children }) => {
             console.log("Last triggered alert:", lastTriggered);
             setLastTriggeredSymbol(lastTriggered.symbol);
 
-            // If we just set BTCUSDT as default, switch to the last triggered symbol
-            if (selectedCoin === "BTCUSDT" || !selectedCoin) {
-              console.log(
-                "Switching from default to last triggered symbol:",
-                lastTriggered.symbol
-              );
-              setSelectedCoin(lastTriggered.symbol);
-              selectSymbol(lastTriggered.symbol);
-            }
+            // Always show the chart for the latest triggered alert's pair
+            console.log(
+              "Setting chart to show latest triggered symbol:",
+              lastTriggered.symbol
+            );
+            setSelectedCoin(lastTriggered.symbol);
+            selectSymbol(lastTriggered.symbol);
+          } else {
+            // No triggered alerts yet, use BTCUSDT as default
+            console.log(
+              "No triggered alerts found, setting BTCUSDT as default"
+            );
+            setSelectedCoin("BTCUSDT");
+            selectSymbol("BTCUSDT");
           }
+        } else {
+          // API error, use BTCUSDT as fallback
+          console.log("API error, using BTCUSDT as fallback");
+          setSelectedCoin("BTCUSDT");
+          selectSymbol("BTCUSDT");
         }
       } catch (error) {
         console.error("Error initializing chart:", error);
         // Fallback to BTCUSDT if there's an error
-        if (!selectedCoin) {
-          setSelectedCoin("BTCUSDT");
-          selectSymbol("BTCUSDT");
-        }
+        setSelectedCoin("BTCUSDT");
+        selectSymbol("BTCUSDT");
       }
     };
 
@@ -212,6 +214,9 @@ const Dashboard = ({ children }) => {
               p: 0.5,
             }}
           >
+            {/* Latest Alert Display - Shows latest recent alert with chart at the top */}
+            <LatestAlertDisplay />
+
             {/* Coin Price Header - Shows detailed coin price info */}
             {selectedCoin && (
               <Box sx={{ position: "relative" }}>
@@ -260,6 +265,27 @@ const Dashboard = ({ children }) => {
                 >
                   🔥 Show Last Triggered: {lastTriggeredSymbol}
                 </Button>
+              </Box>
+            )}
+
+            {/* Chart Header - Show if displaying latest triggered alert */}
+            {lastTriggeredSymbol === selectedCoin && (
+              <Box
+                sx={{
+                  mb: 1,
+                  p: 1.5,
+                  bgcolor: "rgba(34, 197, 94, 0.1)",
+                  borderRadius: 1,
+                  border: "1px solid rgba(34, 197, 94, 0.3)",
+                  textAlign: "center",
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{ color: "#22C55E", fontWeight: "bold" }}
+                >
+                  📊 Chart showing latest triggered alert pair: {selectedCoin}
+                </Typography>
               </Box>
             )}
 

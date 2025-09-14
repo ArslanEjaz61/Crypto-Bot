@@ -1366,6 +1366,35 @@ const FilterSidebar = memo(
                   }
                   label="1HR"
                 />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.alertCount?.["4HR"] || false}
+                      onChange={() => handleCheckboxChange("alertCount", "4HR")}
+                    />
+                  }
+                  label="4HR"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.alertCount?.["12HR"] || false}
+                      onChange={() =>
+                        handleCheckboxChange("alertCount", "12HR")
+                      }
+                    />
+                  }
+                  label="12HR"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.alertCount?.["D"] || false}
+                      onChange={() => handleCheckboxChange("alertCount", "D")}
+                    />
+                  }
+                  label="D"
+                />
               </Box>
             </AccordionDetails>
           </DarkAccordion>
