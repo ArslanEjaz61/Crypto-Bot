@@ -173,9 +173,12 @@ function App() {
               <Box sx={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
-                minHeight: '100vh', 
-                height: '100%', 
-                overflow: 'hidden' 
+                height: '100vh', 
+                width: '100vw',
+                overflow: 'hidden',
+                position: 'fixed',
+                top: 0,
+                left: 0
               }}>
                 <Routes>
                   <Route path="/login" element={
@@ -191,10 +194,12 @@ function App() {
                         <Header />
                         <Box component="main" sx={{ 
                           flexGrow: 1, 
-                          overflow: 'auto', 
+                          overflow: 'hidden', 
                           display: 'flex', 
                           flexDirection: 'column',
-                          height: 'calc(100vh - 64px)' // Subtract header height
+                          height: 'calc(100vh - 64px)',
+                          m: 0,
+                          p: 0
                         }}>
                           <LazyComponentLoader height={600}>
                             <Dashboard />

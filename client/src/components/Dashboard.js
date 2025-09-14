@@ -60,43 +60,48 @@ const Dashboard = ({ children }) => {
 
   return (
     <Box sx={{ 
-      width: '100%', 
-      height: '110%',
-      overflow: 'auto', /* Changed from hidden to auto to enable scrolling */
-      bgcolor: '#0A0E17', // Dark background color matching the image
+      width: '100vw', 
+      height: '100vh',
+      overflow: 'hidden',
+      bgcolor: '#0A0E17',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      m: 0,
+      p: 0
     }}>
-      <Grid container spacing={1} sx={{ 
+      <Grid container spacing={0} sx={{ 
         flexGrow: 1, 
-        p: { xs: 0.5, sm: 1 },
-        overflow: 'auto',
-        minHeight: '100%'
+        height: '100%',
+        overflow: 'hidden',
+        m: 0,
+        p: 0
       }}>
         {/* Left Section - Filters Sidebar */}
         <Grid item xs={12} md={3} lg={3} sx={{ 
-          height: { xs: 'auto', md: '100%' },
-          overflow: 'auto',
-          display: { xs: 'none', md: 'block' } // Hide on mobile, show on tablet+
+          height: '100vh',
+          overflow: 'hidden',
+          display: { xs: 'none', md: 'block' },
+          p: 0
         }}>
-          <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 2 }}>
+          <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 0, m: 0 }}>
             <FilterSidebar ref={filterSidebarRef} selectedSymbol={selectedCoin} />
           </Paper>
         </Grid>
 
         {/* Main Section - Chart and Alerts */}
         <Grid item xs={12} md={6} lg={6} sx={{ 
-          height: '100%',
+          height: '100vh',
           overflow: 'hidden',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          p: 0
         }}>
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
             height: '100%',
             overflow: 'hidden',
-            p: { xs: 0.5, sm: 1 }
+            p: 0.5
           }}>
             {/* Coin Price Header - Shows detailed coin price info */}
             {selectedCoin && (
@@ -128,7 +133,7 @@ const Dashboard = ({ children }) => {
               </Box>
               
               {/* Triggered Alerts Panel - Only shows alerts that have been triggered */}
-              <Box sx={{ mt: 2, height: 'calc(100vh - 200px)' }}>
+              <Box sx={{ mt: 1, height: 'calc(100vh - 350px)', overflow: 'hidden' }}>
                 <TriggeredAlertsPanel />
               </Box>
             </Box>
@@ -137,11 +142,12 @@ const Dashboard = ({ children }) => {
 
         {/* Right Section - Market Panel */}
         <Grid item xs={12} md={3} lg={3} sx={{ 
-          height: { xs: 'auto', md: '100%' },
-          overflow: 'auto',
-          display: { xs: 'none', md: 'block' } // Hide on mobile, show on tablet+
+          height: '100vh',
+          overflow: 'hidden',
+          display: { xs: 'none', md: 'block' },
+          p: 0
         }}>
-          <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 2 }}>
+          <Paper sx={{ p: 1, height: '100%', overflow: 'auto', bgcolor: '#0A0E17', borderRadius: 0, m: 0 }}>
             <MarketPanel onSelectCoin={handleCoinSelect} onCreateAlert={handleCreateAlertFromFavorite} filterSidebarRef={filterSidebarRef} />
           </Paper>
         </Grid>
