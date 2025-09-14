@@ -43,10 +43,18 @@ const Dashboard = ({ children }) => {
     console.log("Dashboard - Current alerts state:", alerts);
   }, [alerts]);
 
-  // Fetch the last triggered alert and set it as the chart symbol
+  // Set default chart symbol and fetch last triggered alert
   useEffect(() => {
-    const fetchLastTriggeredAlert = async () => {
+    const initializeChart = async () => {
       try {
+        // First, set BTCUSDT as default if no symbol is selected
+        if (!selectedCoin) {
+          console.log("Setting BTCUSDT as default chart symbol");
+          setSelectedCoin("BTCUSDT");
+          selectSymbol("BTCUSDT");
+        }
+
+        // Then fetch the last triggered alert
         const API_URL =
           process.env.REACT_APP_API_URL || "http://localhost:5000";
         const response = await fetch(
@@ -60,19 +68,28 @@ const Dashboard = ({ children }) => {
             console.log("Last triggered alert:", lastTriggered);
             setLastTriggeredSymbol(lastTriggered.symbol);
 
-            // If no coin is currently selected, show the last triggered symbol
-            if (!selectedCoin) {
+            // If we just set BTCUSDT as default, switch to the last triggered symbol
+            if (selectedCoin === "BTCUSDT" || !selectedCoin) {
+              console.log(
+                "Switching from default to last triggered symbol:",
+                lastTriggered.symbol
+              );
               setSelectedCoin(lastTriggered.symbol);
               selectSymbol(lastTriggered.symbol);
             }
           }
         }
       } catch (error) {
-        console.error("Error fetching last triggered alert:", error);
+        console.error("Error initializing chart:", error);
+        // Fallback to BTCUSDT if there's an error
+        if (!selectedCoin) {
+          setSelectedCoin("BTCUSDT");
+          selectSymbol("BTCUSDT");
+        }
       }
     };
 
-    fetchLastTriggeredAlert();
+    initializeChart();
   }, []);
 
   // Set up socket connection to listen for new triggered alerts

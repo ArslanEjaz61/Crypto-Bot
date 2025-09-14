@@ -7,7 +7,7 @@ import {
   ButtonGroup,
   Button,
 } from "@mui/material";
-import * as LightweightCharts from "lightweight-charts";
+import { createChart, LineSeries } from "lightweight-charts";
 
 // Available timeframes
 const TIMEFRAMES = [
@@ -142,10 +142,10 @@ const LineChart = ({
           seriesRef.current = null;
         }
 
-        console.log("Creating new candlestick chart");
+        console.log("Creating new line chart");
 
-        // Create chart using namespace import
-        const chart = LightweightCharts.createChart(containerRef.current, {
+        // Create chart using named import style
+        const chart = createChart(containerRef.current, {
           width: containerRef.current.clientWidth,
           height: 400,
           layout: {
@@ -164,13 +164,12 @@ const LineChart = ({
 
         chartRef.current = chart;
 
-        // Create candlestick series (same as MinimalChart)
-        const series = chart.addCandlestickSeries({
-          upColor: "#26a69a",
-          downColor: "#ef5350",
-          borderVisible: false,
-          wickUpColor: "#26a69a",
-          wickDownColor: "#ef5350",
+        // Create line series using addSeries with LineSeries
+        const series = chart.addSeries(LineSeries, {
+          color: "#2962FF",
+          lineWidth: 2,
+          crosshairMarkerVisible: true,
+          crosshairMarkerRadius: 6,
         });
 
         seriesRef.current = series;
@@ -220,10 +219,7 @@ const LineChart = ({
 
           return {
             time: timeString,
-            open: Number(item.open),
-            high: Number(item.high),
-            low: Number(item.low),
-            close: Number(item.close),
+            value: Number(item.close),
             originalTime: item.time, // Keep original for debugging
           };
         });
@@ -249,16 +245,11 @@ const LineChart = ({
 
         console.log("Using strict YYYY-MM-DD format for all data points");
 
-        // Format data for candlestick series
-        formattedData = formattedData.map(
-          ({ time, open, high, low, close }) => ({
-            time,
-            open,
-            high,
-            low,
-            close,
-          })
-        );
+        // Remove debug property before sending to chart
+        formattedData = formattedData.map(({ time, value }) => ({
+          time,
+          value,
+        }));
 
         // Set data
         series.setData(formattedData);
@@ -266,7 +257,7 @@ const LineChart = ({
         // Fit content
         chart.timeScale().fitContent();
 
-        console.log("Candlestick chart rendered successfully");
+        console.log("Line chart rendered successfully");
         setLoading(false);
       } catch (err) {
         console.error("Chart error:", err);

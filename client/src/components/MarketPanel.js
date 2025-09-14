@@ -149,15 +149,15 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     );
 
     // If USDT is checked, load only USDT pairs
-    // If USDT is unchecked, load all SPOT pairs (not just USDT)
+    // If USDT is unchecked, load all SPOT pairs (USDT, BTC, ETH, BNB, etc.)
     if (usdtFilter) {
       // Load only USDT pairs
       loadCryptos(1, 5000, false, true, true, true);
     } else {
-      // Load all SPOT pairs (BTC, ETH, BNB, etc.)
+      // Load all SPOT pairs (including USDT, BTC, ETH, BNB, etc.)
       loadCryptos(1, 5000, false, true, true, false);
     }
-  }, [loadCryptos, filters.pair, filters.market]);
+  }, [loadCryptos, filters.pair?.USDT, filters.market?.SPOT]);
 
   // Memoized filtered cryptos for better performance
   const filteredCryptos = useMemo(() => {
@@ -198,8 +198,14 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
       );
     }
 
+    // Remove duplicates based on symbol
+    const uniqueFiltered = filtered.filter(
+      (crypto, index, self) =>
+        index === self.findIndex((c) => c.symbol === crypto.symbol)
+    );
+
     // Sort by market cap or volume
-    filtered.sort((a, b) => {
+    uniqueFiltered.sort((a, b) => {
       // First sort by favorites
       if (a.isFavorite && !b.isFavorite) return -1;
       if (!a.isFavorite && b.isFavorite) return 1;
@@ -209,7 +215,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     });
 
     // Return all filtered items (no artificial limit)
-    return filtered;
+    return uniqueFiltered;
   }, [cryptos, view, searchTerm, filters.pair]);
 
   // Handle select all checkbox
@@ -553,7 +559,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
             }
             label={
               <Typography variant="body2" sx={{ color: "#E2E8F0" }}>
-                Select All ({getSelectedCount()} selected)
+                Select All
               </Typography>
             }
           />
