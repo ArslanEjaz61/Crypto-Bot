@@ -63,12 +63,14 @@ app.set('io', io);
 const alertRoutes = require('./server/routes/alertRoutes');
 const cryptoRoutes = require('./server/routes/cryptoRoutes');
 const authRoutes = require('./server/routes/authRoutes');
+const triggeredAlertsRoutes = require('./server/routes/triggeredAlerts');
 const { notFound, errorHandler } = require('./server/utils/errorHandler');
 
 // Use routes
 app.use('/api/alerts', alertRoutes);
 app.use('/api/crypto', cryptoRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/triggered-alerts', triggeredAlertsRoutes);
 
 // Start cron jobs
 setupCronJobs(io);

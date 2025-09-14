@@ -3,6 +3,7 @@ const axios = require('axios');
 const Crypto = require('../models/cryptoModel');
 const Alert = require('../models/alertModel');
 const { sendAlertEmail } = require('./emailService');
+const { createTriggeredAlert } = require('../controllers/triggeredAlertController');
 
 /**
  * Fetch fresh price and volume data directly from Binance API for a specific symbol
@@ -340,29 +341,136 @@ const checkAlerts = async (io) => {
         console.log(`Checking conditions for ${alert.symbol} with fresh price: ${freshPriceData.price}`);
         
         if (alert.checkConditions(conditionData)) {
-          console.log(`🚨 Alert triggered for ${alert.symbol} - sending email to ${alert.email}`);
-          console.log(`Fresh price: ${freshPriceData.price}, Conditions met:`, {
+          console.log(`🚨 ALERT TRIGGERED for ${alert.symbol} - Alert ID: ${alert._id}`);
+          console.log(`📧 Email recipient: ${alert.email}`);
+          console.log(`💰 Fresh price: ${freshPriceData.price}`);
+          console.log(`🎯 Conditions met:`, {
             candle: alert.candleCondition !== 'NONE',
             rsi: alert.rsiEnabled,
-            ema: alert.emaEnabled
+            ema: alert.emaEnabled,
+            targetValue: alert.targetValue,
+            direction: alert.direction
           });
           
-          // Send email notification with fresh data
-          await sendAlertEmail(alert.email, alert, freshPriceData, technicalData);
+          // Determine which condition was met
+          let conditionMet = {
+            type: 'PRICE_ABOVE',
+            description: `Price condition met`,
+            targetValue: alert.targetValue,
+            actualValue: freshPriceData.price,
+            timeframe: alert.candleTimeframe || '1HR',
+            indicator: 'PRICE'
+          };
+          
+          // Check specific conditions to determine trigger type
+          if (alert.rsiEnabled) {
+            const rsiValue = technicalData.rsi[alert.rsiTimeframe] || 50;
+            if ((alert.rsiCondition === 'above' && rsiValue > alert.rsiLevel) ||
+                (alert.rsiCondition === 'below' && rsiValue < alert.rsiLevel)) {
+              conditionMet = {
+                type: alert.rsiCondition === 'above' ? 'RSI_ABOVE' : 'RSI_BELOW',
+                description: `RSI ${alert.rsiCondition} ${alert.rsiLevel}`,
+                targetValue: alert.rsiLevel,
+                actualValue: rsiValue,
+                timeframe: alert.rsiTimeframe,
+                indicator: 'RSI'
+              };
+            }
+          }
+          
+          if (alert.emaEnabled) {
+            const emaFast = technicalData.ema?.[alert.emaTimeframe]?.[alert.emaFastPeriod] || freshPriceData.price;
+            const emaSlow = technicalData.ema?.[alert.emaTimeframe]?.[alert.emaSlowPeriod] || freshPriceData.price;
+            if ((alert.emaCondition === 'cross_above' && emaFast > emaSlow) ||
+                (alert.emaCondition === 'cross_below' && emaFast < emaSlow)) {
+              conditionMet = {
+                type: alert.emaCondition === 'cross_above' ? 'EMA_CROSS_ABOVE' : 'EMA_CROSS_BELOW',
+                description: `EMA ${alert.emaFastPeriod} ${alert.emaCondition.replace('_', ' ')} EMA ${alert.emaSlowPeriod}`,
+                targetValue: emaSlow,
+                actualValue: emaFast,
+                timeframe: alert.emaTimeframe,
+                indicator: 'EMA'
+              };
+            }
+          }
+          
+          // Create triggered alert record FIRST (before sending notifications)
+          let triggeredAlertRecord = null;
+          try {
+            console.log(`📝 ATTEMPTING TO CREATE triggered alert record for ${alert.symbol}...`);
+            console.log(`🔍 Alert ID: ${alert._id}`);
+            console.log(`🔍 Alert Symbol: ${alert.symbol}`);
+            console.log(`🔍 Alert Email: ${alert.email}`);
+            
+            triggeredAlertRecord = await createTriggeredAlert(
+              alert._id,
+              conditionMet,
+              {
+                price: freshPriceData.price,
+                volume: freshPriceData.volume24h,
+                priceChange24h: freshPriceData.priceChangePercent,
+                priceChangePercent24h: freshPriceData.priceChangePercent,
+                rsi: technicalData.rsi?.[alert.rsiTimeframe] || null,
+                ema: technicalData.ema?.[alert.emaTimeframe]?.[alert.emaFastPeriod] || null
+              },
+              [{
+                type: 'EMAIL',
+                recipient: alert.email,
+                status: 'PENDING'
+              }]
+            );
+            console.log(`🎉 SUCCESS! Triggered alert record created for ${alert.symbol} with ID: ${triggeredAlertRecord._id}`);
+          } catch (triggeredAlertError) {
+            console.error(`💥 CRITICAL ERROR: Failed to create triggered alert record for ${alert.symbol}:`, triggeredAlertError);
+            console.error('Full error stack:', triggeredAlertError.stack);
+            console.error('Alert object:', JSON.stringify({
+              id: alert._id,
+              symbol: alert.symbol,
+              email: alert.email,
+              targetValue: alert.targetValue
+            }, null, 2));
+          }
+          
+          // Now send notifications and update the triggered alert record
+          try {
+            console.log(`📧 Sending email notification for ${alert.symbol}...`);
+            await sendAlertEmail(alert.email, alert, freshPriceData, technicalData);
+            console.log(`✅ Email sent successfully for ${alert.symbol}`);
+            
+            // Update triggered alert record with successful notification
+            if (triggeredAlertRecord) {
+              triggeredAlertRecord.notifications[0].status = 'SENT';
+              triggeredAlertRecord.notifications[0].sentAt = new Date();
+              await triggeredAlertRecord.save();
+              console.log(`✅ Triggered alert notification status updated to SENT for ${alert.symbol}`);
+            }
+          } catch (emailError) {
+            console.error('❌ Email sending failed for', alert.symbol, ':', emailError);
+            
+            // Update triggered alert record with failed notification
+            if (triggeredAlertRecord) {
+              triggeredAlertRecord.notifications[0].status = 'FAILED';
+              triggeredAlertRecord.notifications[0].errorMessage = emailError.message;
+              await triggeredAlertRecord.save();
+              console.log(`⚠️ Triggered alert notification status updated to FAILED for ${alert.symbol}`);
+            }
+          }
           
           // Update alert last triggered time
           alert.lastTriggered = new Date();
           await alert.save();
           
-          // Emit socket event with fresh data
-          if (io) {
-            io.emit('alert-triggered', {
+          // Emit socket event with triggered alert data
+          if (io && triggeredAlertRecord) {
+            io.emit('triggered-alert-created', {
+              triggeredAlert: triggeredAlertRecord,
               alertId: alert._id,
               symbol: alert.symbol,
-              price: freshPriceData.price,  // Use fresh price
-              technicalData,
+              price: freshPriceData.price,
+              conditionMet,
               triggeredAt: new Date()
             });
+            console.log(`📡 Socket event emitted for triggered alert: ${alert.symbol}`);
           }
           
           console.log(`✅ Email sent and alert updated for ${alert.symbol}`);

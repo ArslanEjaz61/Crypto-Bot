@@ -22,6 +22,7 @@ import { useCrypto } from './context/CryptoContext';
 import SocketProvider from './context/SocketContext';
 import LazyComponentLoader from './components/LazyComponentLoader';
 import { FilterProvider } from './context/FilterContext';
+import { SelectedPairsProvider } from './context/SelectedPairsContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { useCallback } from 'react';
@@ -161,6 +162,7 @@ function App() {
           <ThemeProvider theme={darkTheme}>
             <CssBaseline />
             <FilterProvider>
+              <SelectedPairsProvider>
               {loading && (
                 <Fade in={loading}>
                   <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
@@ -212,6 +214,7 @@ function App() {
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </Box>
+              </SelectedPairsProvider>
             </FilterProvider>
           </ThemeProvider>
         </SocketProvider>

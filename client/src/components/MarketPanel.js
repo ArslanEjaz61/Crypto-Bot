@@ -15,7 +15,9 @@ import {
   alpha,
   Skeleton,
   CircularProgress,
-  Button
+  Button,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
@@ -29,6 +31,7 @@ import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import { useCrypto } from '../context/CryptoContext';
 import { useFilters } from '../context/FilterContext';
 import { useAlert } from '../context/AlertContext';
+import { useSelectedPairs } from '../context/SelectedPairsContext';
 import SmoothTransition from './SmoothTransition';
 import { useDebounce, useThrottle } from '../utils/requestThrottle';
 
@@ -36,6 +39,14 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   const { cryptos, error, toggleFavorite, checkAlertConditions, loadCryptos } = useCrypto();
   const { filters, getValidationFilters, hasActiveFilters } = useFilters();
   const { alerts } = useAlert(); // Import to get active alerts
+  const { 
+    togglePairSelection, 
+    selectAllPairs, 
+    clearAllSelections, 
+    isPairSelected, 
+    getSelectedCount,
+    getSelectedPairsArray 
+  } = useSelectedPairs();
   const [view, setView] = useState('market');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -44,9 +55,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
   // const [filteredCryptos, setFilteredCryptos] = useState([]);
   const [meetingConditions, setMeetingConditions] = useState({});
   const [, setCheckingConditions] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMorePairs, setHasMorePairs] = useState(true);
+  const [selectAllChecked, setSelectAllChecked] = useState(false);
 
   // Throttled condition checking to prevent API spam
   const checkConditionsThrottled = useCallback(async () => {
@@ -116,18 +125,14 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
 
   /* Filter functionality is handled directly in the component through the context */
 
-  // Load initial data based on spot filter
+  // Load crypto pairs based on FilterSidebar settings
   useEffect(() => {
-    const spotOnly = filters.market?.SPOT || false;
-    console.log('MarketPanel: Loading cryptos with spotOnly =', spotOnly);
-    loadCryptos(1, 50, false, false, spotOnly); // Changed forceRefresh to false for initial load
-    setCurrentPage(1); // Reset current page when filter changes
-  }, [loadCryptos, filters.market?.SPOT]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-    setHasMorePairs(true); // Always assume there are more pairs when filters change
-  }, [filters, searchTerm]);
+    const usdtFilter = filters.pair?.USDT || false;
+    const spotFilter = filters.market?.SPOT || false;
+    
+    console.log(`MarketPanel: Loading crypto pairs - USDT: ${usdtFilter}, Spot: ${spotFilter}`);
+    loadCryptos(1, 5000, false, true, spotFilter, usdtFilter);
+  }, [loadCryptos, filters.pair, filters.market]);
 
   // Memoized filtered cryptos for better performance
   const filteredCryptos = useMemo(() => {
@@ -162,9 +167,35 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
       return b.volume - a.volume;
     });
 
-    // Limit to first 100 items for performance
-    return filtered.slice(0, 100);
+    // Return all filtered items (no artificial limit)
+    return filtered;
   }, [cryptos, view, searchTerm]);
+
+  // Handle select all checkbox
+  const handleSelectAll = useCallback((event) => {
+    const isChecked = event.target.checked;
+    setSelectAllChecked(isChecked);
+    
+    if (isChecked) {
+      selectAllPairs(filteredCryptos);
+    } else {
+      clearAllSelections();
+    }
+  }, [filteredCryptos, selectAllPairs, clearAllSelections]);
+
+  // Update select all checkbox based on current selections
+  useEffect(() => {
+    const selectedCount = getSelectedCount();
+    const totalCount = filteredCryptos.length;
+    
+    if (selectedCount === 0) {
+      setSelectAllChecked(false);
+    } else if (selectedCount === totalCount && totalCount > 0) {
+      setSelectAllChecked(true);
+    } else {
+      setSelectAllChecked(false);
+    }
+  }, [getSelectedCount, filteredCryptos.length]);
 
   // Check conditions when filtered data changes (debounced)
   const debouncedCheckConditions = useDebounce(() => {
@@ -199,40 +230,10 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
     // Set new timeout for debouncing the actual search
     searchTimeoutRef.current = setTimeout(() => {
       setSearchTerm(value);
-      setCurrentPage(1); // Reset to first page on search
-      setHasMorePairs(true); // Reset hasMorePairs on search
     }, 300);
   }, []);
   
-  // Handle loading more pairs
-  const handleLoadMore = useCallback(async () => {
-    if (loadingMore) return;
-    
-    setLoadingMore(true);
-    const nextPage = currentPage + 1;
-    console.log(`Loading more pairs: page ${nextPage}`);
-    
-    try {
-      const spotOnly = filters.market?.SPOT || false;
-      const result = await loadCryptos(nextPage, 50, false, true, spotOnly);
-      
-      // Always assume there are more pairs unless explicitly told otherwise
-      // The backend might not be properly implementing pagination
-      const receivedData = result && result.total !== undefined;
-      const explicitlyNoMore = receivedData && result.hasMore === false;
-      
-      // Only set hasMorePairs to false if the API explicitly says there are no more
-      // or if we received less than the requested limit
-      setHasMorePairs(!explicitlyNoMore);
-      setCurrentPage(nextPage);
-      
-      console.log(`Loaded additional pairs. Assuming more pairs available.`);
-    } catch (error) {
-      console.error('Error loading more pairs:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [currentPage, loadingMore, loadCryptos, filters.market?.SPOT]);
+  // Removed handleLoadMore function - loading all pairs at once
 
   // Format number with abbreviations
   const formatNumber = (num) => {
@@ -281,6 +282,7 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
         </ToggleButton>
       </ToggleButtonGroup>
 
+
       {/* Search input */}
       <Box 
         sx={{ 
@@ -303,6 +305,26 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
           <SearchIcon />
         </IconButton>
       </Box>
+
+      {/* Select All Checkbox */}
+      {filteredCryptos.length > 0 && (
+        <Box sx={{ p: 2, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={selectAllChecked}
+                onChange={handleSelectAll}
+                sx={{ color: '#60A5FA' }}
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ color: '#E2E8F0' }}>
+                Select All ({getSelectedCount()} selected)
+              </Typography>
+            }
+          />
+        </Box>
+      )}
 
       {/* Crypto list */}
       <SmoothTransition type="slide" direction="up" timeout={400}>
@@ -352,17 +374,35 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
             filteredCryptos.map((crypto, index) => (
               <React.Fragment key={crypto.symbol}>
                 <ListItem
-                  component="div"
-                  onClick={() => onSelectCoin && onSelectCoin(crypto)}
                   sx={{
-                    cursor: 'pointer',
                     py: 1,
                     '&:hover': {
                       backgroundColor: alpha('#0066FF', 0.05),
                     },
+                    display: 'flex',
+                    alignItems: 'center'
                   }}
                 >
-                  <ListItemText
+                  {/* Checkbox for pair selection */}
+                  <Checkbox
+                    checked={isPairSelected(crypto.symbol)}
+                    onChange={() => togglePairSelection(crypto.symbol)}
+                    sx={{ 
+                      color: '#60A5FA',
+                      mr: 1,
+                      '& .MuiSvgIcon-root': { fontSize: 18 }
+                    }}
+                  />
+                  
+                  {/* Clickable area for coin selection */}
+                  <Box
+                    onClick={() => onSelectCoin && onSelectCoin(crypto)}
+                    sx={{
+                      flex: 1,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -438,28 +478,15 @@ const MarketPanel = ({ onSelectCoin, onCreateAlert, filterSidebarRef }) => {
                         </Box>
                       )
                     }
-                  />
+                    />
+                  </Box>
                 </ListItem>
                 {index < filteredCryptos.length - 1 && <Divider component="li" />}
               </React.Fragment>
             ))
           )}
         </List>
-        {/* Load More Button */}
-        {filteredCryptos.length > 0 && view === 'market' && (
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-            <Button 
-              variant="contained" 
-              color="primary"
-              disabled={loadingMore}
-              onClick={handleLoadMore}
-              startIcon={loadingMore && <CircularProgress size={20} color="inherit" />}
-              sx={{ width: '100%' }}
-            >
-              {loadingMore ? 'Loading...' : 'Load More Pairs'}
-            </Button>
-          </Box>
-        )}
+        {/* Removed Load More Button - All USDT pairs loaded at once */}
       </SmoothTransition>
     </Paper>
   );

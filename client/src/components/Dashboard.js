@@ -5,6 +5,7 @@ import CryptoList from './CryptoList';
 import MarketPanel from './MarketPanel';
 import FilterSidebar from './FilterSidebar';
 import CoinPriceHeader from './CoinPriceHeader';
+import TriggeredAlertsPanel from './TriggeredAlertsPanel';
 import { useAlert } from '../context/AlertContext';
 import { useCrypto } from '../context/CryptoContext';
 import { useSelectedPair } from '../context/SelectedPairContext';
@@ -21,31 +22,8 @@ const Dashboard = ({ children }) => {
   // Reference to FilterSidebar's createAlert function
   const filterSidebarRef = useRef();
   
-  // Get crypto coins that have alerts
-  const coinsWithAlerts = useMemo(() => {
-    if (!alerts || alerts.length === 0 || !cryptos || cryptos.length === 0) {
-      return [];
-    }
-    
-    // Group alerts by symbol
-    const alertsBySymbol = {};
-    alerts.forEach(alert => {
-      if (!alert.symbol) return;
-      
-      if (!alertsBySymbol[alert.symbol]) {
-        alertsBySymbol[alert.symbol] = [];
-      }
-      alertsBySymbol[alert.symbol].push(alert);
-    });
-    
-    // Match with crypto data
-    return cryptos
-      .filter(crypto => alertsBySymbol[crypto.symbol])
-      .map(crypto => ({
-        ...crypto,
-        alertsCount: alertsBySymbol[crypto.symbol].length
-      }));
-  }, [alerts, cryptos]);
+  // Show triggered alerts instead of regular alerts
+  // This section now displays the TriggeredAlertsPanel component
 
   // Handle creating alert when favorite is clicked
   const handleCreateAlertFromFavorite = (symbol) => {
@@ -59,8 +37,7 @@ const Dashboard = ({ children }) => {
   // Log alerts for debugging
   useEffect(() => {
     console.log('Dashboard - Current alerts state:', alerts);
-    console.log('Dashboard - Coins with alerts:', coinsWithAlerts);
-  }, [alerts, coinsWithAlerts]);
+  }, [alerts]);
 
   // Handle coin selection from market panel
   const handleCoinSelect = (symbol) => {
@@ -144,23 +121,16 @@ const Dashboard = ({ children }) => {
               p: 1
             }}>
               
-              {/* <Box sx={{ p: 2, bgcolor: '#0A0E17', borderRadius: 2, mb: 3 }}>
-                <Typography variant="h6" color="white">Alert Coins</Typography>
-                <Typography variant="body2" color="#94A3B8" sx={{ mt: 1 }}>
-                  Showing coins that have active alerts
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(34, 197, 94, 0.1)', borderRadius: 2, border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                <Typography variant="body2" sx={{ color: '#22C55E' }}>
+                  📈 Triggered Alerts History - Only shows alerts that have been activated
                 </Typography>
-              </Box> */}
+              </Box>
               
-              {/* Crypto List with Alerts */}
-              {coinsWithAlerts.length > 0 ? (
-                <Box sx={{ mt: 2 }}>
-                  <CryptoList cryptos={coinsWithAlerts} />
-                </Box>
-              ) : (
-                <Box sx={{ textAlign: 'center', mt: 3, p: 4, bgcolor: 'rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
-                  <Typography color="#94A3B8">No coins with alerts found</Typography>
-                </Box>
-              )}
+              {/* Triggered Alerts Panel - Only shows alerts that have been triggered */}
+              <Box sx={{ mt: 2, height: 'calc(100vh - 200px)' }}>
+                <TriggeredAlertsPanel />
+              </Box>
             </Box>
           </Box>
         </Grid>

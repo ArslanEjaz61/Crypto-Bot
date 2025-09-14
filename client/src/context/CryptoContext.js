@@ -86,12 +86,9 @@ const cryptoReducer = (state, action) => {
 
 // Helper function to filter cryptos
 const filterCryptos = (cryptos, filter) => {
+  console.log('Filtering cryptos with filter:', filter);
+  
   return cryptos.filter((crypto) => {
-    // Filter by market
-    if (filter.market !== 'all' && !crypto.symbol.endsWith(filter.market)) {
-      return false;
-    }
-    
     // Filter by favorites
     if (filter.favorites && !crypto.isFavorite) {
       return false;
@@ -105,6 +102,93 @@ const filterCryptos = (cryptos, filter) => {
     // Filter by search
     if (filter.search && !crypto.symbol.toLowerCase().includes(filter.search.toLowerCase())) {
       return false;
+    }
+    
+    // PRIORITY 1: Filter by trading pair (USDT, USDC, USD, etc.) - This takes precedence
+    if (filter.pair && Object.values(filter.pair).some(Boolean)) {
+      let pairMatches = false;
+      
+      // console.log(`Checking pair filter for ${crypto.symbol}:`, filter.pair);
+      
+      // Check if USDT filter is enabled - PROPER BINANCE API FILTERING
+      if (filter.pair.USDT === true) {
+        // Use Binance API logic: check quoteAsset is USDT
+        const isUsdtPair = crypto.quoteAsset === 'USDT' || 
+                          (crypto.symbol && crypto.symbol.endsWith('USDT'));
+        
+        if (isUsdtPair) {
+          pairMatches = true;
+          console.log(`${crypto.symbol} matches USDT filter (quoteAsset: ${crypto.quoteAsset})`);
+        } else {
+          console.log(`${crypto.symbol} excluded - not USDT pair (quoteAsset: ${crypto.quoteAsset})`);
+        }
+      }
+      
+      // Check if USDC filter is enabled
+      if (filter.pair.USDC === true) {
+        if (crypto.symbol.endsWith('USDC')) {
+          pairMatches = true;
+          // console.log(`${crypto.symbol} matches USDC filter`);
+        }
+      }
+      
+      // Check if USD filter is enabled (but not USDT or USDC)
+      if (filter.pair.USD === true) {
+        if (crypto.symbol.endsWith('USD') && !crypto.symbol.endsWith('USDT') && !crypto.symbol.endsWith('USDC')) {
+          pairMatches = true;
+          // console.log(`${crypto.symbol} matches USD filter`);
+        }
+      }
+      
+      // If any pair filter is active but symbol doesn't match, exclude it
+      if (!pairMatches) {
+        // console.log(`${crypto.symbol} excluded by pair filter`);
+        return false;
+      }
+    }
+    
+    // PRIORITY 2: Filter by market type (SPOT, FUTURES, etc.) - Only if no pair filter is active
+    if (filter.market && Object.values(filter.market).some(Boolean)) {
+      let marketMatches = false;
+      
+      
+      // Check if SPOT filter is enabled
+      if (filter.market.SPOT === true) {
+        // Use Binance API logic: check permissions or isSpotTradingAllowed
+        const isSpotAllowed = crypto.isSpotTradingAllowed === true ||
+                             (crypto.permissions && crypto.permissions.includes('SPOT')) ||
+                             (crypto.permissionSets && crypto.permissionSets.some(set => set.includes('SPOT'))) ||
+                             // Fallback: if no specific futures indicators
+                             (!crypto.symbol.includes('PERP') && !crypto.symbol.includes('FUTURES'));
+        
+        if (isSpotAllowed) {
+          marketMatches = true;
+          console.log(`${crypto.symbol} matches SPOT filter (isSpotTradingAllowed: ${crypto.isSpotTradingAllowed})`);
+        } else {
+          console.log(`${crypto.symbol} excluded - not spot trading allowed`);
+        }
+      }
+      
+      // Check if FUTURES filter is enabled
+      if (filter.market.FUTURES === true) {
+        if (crypto.symbol.includes('PERP') || crypto.symbol.includes('FUTURES')) {
+          marketMatches = true;
+          // console.log(`${crypto.symbol} matches FUTURES filter`);
+        }
+      }
+      
+      // If any market filter is active but symbol doesn't match, exclude it
+      if (!marketMatches) {
+        // console.log(`${crypto.symbol} excluded by market filter`);
+        return false;
+      }
+    }
+    
+    // FALLBACK: Old market filter for backward compatibility (only if no new filters active)
+    if (!filter.pair && !filter.market && filter.market !== 'all' && typeof filter.market === 'string') {
+      if (!crypto.symbol.endsWith(filter.market)) {
+        return false;
+      }
     }
     
     return true;
@@ -121,7 +205,7 @@ export const CryptoProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cryptoReducer, initialState);
 
   // Optimized request handling with caching
-  const loadCryptos = useCallback(async (page = 1, limit = 50, forceRefresh = false, silentLoading = false, spotOnly = true) => {
+  const loadCryptos = useCallback(async (page = 1, limit = 50, forceRefresh = false, silentLoading = false, spotOnly = true, usdtOnly = true) => {
     // Only dispatch loading state if not in silent mode
     if (!silentLoading) {
       dispatch({ type: 'CRYPTO_REQUEST' });
@@ -151,11 +235,11 @@ export const CryptoProvider = ({ children }) => {
       const baseUrl = process.env.REACT_APP_API_URL || '';
       const endpoint = `${baseUrl}/api/crypto`;
       
-      console.log(`Fetching from: ${endpoint} with spotOnly=${spotOnly}`);
+      console.log(`Fetching from: ${endpoint} with spotOnly=${spotOnly}, usdtOnly=${usdtOnly}`);
       
       // Minimal axios configuration
       const { data } = await axios.get(endpoint, {
-        params: { page, limit, spotOnly }
+        params: { page, limit, spotOnly, usdtOnly }
       });
       
       console.log(`Success! Received ${data.cryptos ? data.cryptos.length : 0} items`);
@@ -229,7 +313,7 @@ export const CryptoProvider = ({ children }) => {
         volumeChangeRequired: 0,
         alertTime: new Date(),
         comment: `Auto-created alert from favorite for ${symbol}`,
-        email: 'kainat.tasadaq3@gmail.com', // Could be populated from user preferences
+        email: ' kainat.tasadaq3@gmail.com', // Could be populated from user preferences
         
         // Change percentage conditions
         changePercentTimeframe: filters.changePercent ? Object.keys(filters.changePercent).find(tf => filters.changePercent[tf]) : null,

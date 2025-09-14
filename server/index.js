@@ -57,6 +57,9 @@ try {
   app.use('/api/notifications', require('./routes/notificationRoutes'));
   console.log('✓ Notification routes registered');
   
+  app.use('/api/triggered-alerts', require('./routes/triggeredAlerts'));
+  console.log('✓ Triggered alerts routes registered');
+  
   console.log('All routes registered successfully');
 } catch (error) {
   console.error('Error registering routes:', error);
