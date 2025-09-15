@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Grid,
@@ -9,7 +9,6 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
-  Fab,
   BottomNavigation,
   BottomNavigationAction,
 } from "@mui/material";
@@ -33,7 +32,6 @@ const Dashboard = ({ children }) => {
     useSelectedPair();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isTablet = useMediaQuery(theme.breakpoints.down("lg"));
 
   // Keep local state for backward compatibility, but sync with context
   const [selectedCoin, setSelectedCoin] = useState(selectedSymbol);
@@ -47,7 +45,7 @@ const Dashboard = ({ children }) => {
 
   // Reference to FilterSidebar's createAlert function
   const filterSidebarRef = useRef();
-  // Reference to MarketPanel's switchToAlertsView function
+  // Reference to MarketPanel functions
   const marketPanelRef = useRef();
 
   // Show triggered alerts instead of regular alerts

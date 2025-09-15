@@ -299,8 +299,6 @@ const LatestAlertDisplay = () => {
             {latestAlert.conditionDetails.actualValue}
             {latestAlert.conditionDetails.timeframe &&
               ` | Timeframe: ${latestAlert.conditionDetails.timeframe}`}
-            {latestAlert.changePercentTimeframe &&
-              ` | Change Timeframe: ${latestAlert.changePercentTimeframe}`}
           </Typography>
         </Box>
       )}

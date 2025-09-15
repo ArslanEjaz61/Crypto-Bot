@@ -99,11 +99,6 @@ const MarketPanel = ({
     const coinList =
       view === "favorites"
         ? cryptos.filter((crypto) => isFavorite(crypto.symbol))
-        : view === "alerts"
-        ? cryptos.filter(
-            (crypto) =>
-              alerts && alerts.some((alert) => alert.symbol === crypto.symbol)
-          )
         : cryptos;
 
     if (!coinList || coinList.length === 0) {
@@ -210,14 +205,9 @@ const MarketPanel = ({
       );
     }
 
-    // Apply market/favorite/alerts filter
+    // Apply market/favorite filter
     if (view === "favorites") {
       filtered = filtered.filter((crypto) => isFavorite(crypto.symbol));
-    } else if (view === "alerts") {
-      filtered = filtered.filter(
-        (crypto) =>
-          alerts && alerts.some((alert) => alert.symbol === crypto.symbol)
-      );
     }
 
     // Apply search filter
@@ -498,17 +488,12 @@ const MarketPanel = ({
     [deleteAlert, isFavorite, toggleFavorite]
   );
 
-  // Function to switch to alerts view (can be called from parent)
-  const switchToAlertsView = useCallback(() => {
-    setView("alerts");
-  }, []);
-
-  // Expose the switchToAlertsView function to parent via callback
+  // Expose functions to parent via callback
   useEffect(() => {
     if (onRef) {
-      onRef({ switchToAlertsView });
+      onRef({});
     }
-  }, [onRef, switchToAlertsView]);
+  }, [onRef]);
 
   return (
     <Paper
@@ -675,9 +660,6 @@ const MarketPanel = ({
         <ToggleButton value="favorites" aria-label="favorites">
           {isMobile ? "Favs" : "Favorites"}
         </ToggleButton>
-        <ToggleButton value="alerts" aria-label="alerts">
-          {isMobile ? "Alerts" : "Alert Generated"}
-        </ToggleButton>
       </ToggleButtonGroup>
 
       {/* Reset Favorites Button - only show when in favorites view and has favorites */}
@@ -707,38 +689,6 @@ const MarketPanel = ({
             }}
           >
             {isResettingFavorites ? "Resetting..." : "🗑️ Clear All Favorites"}
-          </Button>
-        </Box>
-      )}
-
-      {/* Delete All Alerts Button - only show when in alerts view and has alerts */}
-      {view === "alerts" && alerts && alerts.length > 0 && (
-        <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
-          <Button
-            variant="outlined"
-            color="error"
-            size="small"
-            onClick={handleDeleteAllAlerts}
-            disabled={isDeletingAllAlerts}
-            startIcon={<DeleteForeverIcon />}
-            sx={{
-              borderRadius: "20px",
-              textTransform: "none",
-              px: 2,
-              py: 0.5,
-              fontSize: "0.75rem",
-              borderColor: "rgba(244, 67, 54, 0.5)",
-              color: "#f44336",
-              "&:hover": {
-                borderColor: "#f44336",
-                backgroundColor: "rgba(244, 67, 54, 0.1)",
-              },
-              "&:disabled": {
-                opacity: 0.5,
-              },
-            }}
-          >
-            {isDeletingAllAlerts ? "Deleting..." : "Delete All Alerts"}
           </Button>
         </Box>
       )}
@@ -834,8 +784,6 @@ const MarketPanel = ({
               <Typography align="center" variant="body2" color="text.secondary">
                 {view === "favorites"
                   ? "You have no favorite coins yet"
-                  : view === "alerts"
-                  ? "No alerts have been generated yet"
                   : "No coins match your search criteria"}
               </Typography>
             </Box>
@@ -991,19 +939,6 @@ const MarketPanel = ({
                                 variant="outlined"
                               />
                             )}
-                            {alerts &&
-                              alerts.some(
-                                (alert) => alert.symbol === crypto.symbol
-                              ) && (
-                                <Chip
-                                  icon={<NotificationsActiveIcon />}
-                                  label="Generated"
-                                  size="small"
-                                  color="success"
-                                  variant="filled"
-                                  sx={{ ml: 0.5 }}
-                                />
-                              )}
                           </Box>
                           <Box
                             sx={{
@@ -1055,42 +990,6 @@ const MarketPanel = ({
                                 </Typography>
                               </Box>
                             </Box>
-
-                            {/* Delete Alert Button - only show in alerts view */}
-                            {view === "alerts" &&
-                              alerts &&
-                              alerts.some(
-                                (alert) => alert.symbol === crypto.symbol
-                              ) && (
-                                <IconButton
-                                  size="small"
-                                  onClick={() => {
-                                    const alert = alerts.find(
-                                      (alert) => alert.symbol === crypto.symbol
-                                    );
-                                    if (alert) {
-                                      handleDeleteAlert(
-                                        alert._id,
-                                        crypto.symbol
-                                      );
-                                    }
-                                  }}
-                                  disabled={
-                                    deletingAlertId ===
-                                    alerts.find(
-                                      (alert) => alert.symbol === crypto.symbol
-                                    )?._id
-                                  }
-                                  sx={{
-                                    color: "#f44336",
-                                    "&:hover": {
-                                      backgroundColor: "rgba(244, 67, 54, 0.1)",
-                                    },
-                                  }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              )}
                           </Box>
                         </Box>
                       }
