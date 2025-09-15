@@ -14,6 +14,7 @@ import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
+import InfoIcon from "@mui/icons-material/Info";
 import { format } from "date-fns";
 
 const LatestAlertDisplay = () => {
@@ -95,11 +96,53 @@ const LatestAlertDisplay = () => {
           bgcolor: "#0A0E17",
           color: "white",
           borderRadius: 2,
+          border: "2px solid #6B7280",
+          boxShadow: "0 4px 20px rgba(107, 114, 128, 0.2)",
         }}
       >
-        <Typography variant="h6" align="center" sx={{ color: "#94A3B8" }}>
-          No recent alerts available
-        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+          }}
+        >
+          <Typography
+            variant="h5"
+            component="h2"
+            sx={{
+              fontWeight: "bold",
+              color: "#E2E8F0",
+              mb: 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <InfoIcon sx={{ fontSize: "1.5rem", color: "#6B7280" }} />
+            No Latest Alert Found
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              color: "#94A3B8",
+              mb: 2,
+            }}
+          >
+            No alerts have been triggered recently
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "#6B7280",
+              fontStyle: "italic",
+            }}
+          >
+            Create alerts in the Filters panel to start monitoring market
+            conditions
+          </Typography>
+        </Box>
       </Paper>
     );
   }

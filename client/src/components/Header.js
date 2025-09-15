@@ -1,21 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { AppBar, Toolbar, Typography, Box, useTheme, IconButton, Menu, MenuItem, Button, Badge, Popover, Chip } from '@mui/material';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import LogoutIcon from '@mui/icons-material/Logout';
-  
-import { useSocket } from '../context/SocketContext';
-import { useAuth } from '../context/AuthContext';
-import { useAlert } from '../context/AlertContext';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Box,
+  useTheme,
+  useMediaQuery,
+  IconButton,
+  Menu,
+  MenuItem,
+  Button,
+  Badge,
+  Popover,
+  Chip,
+} from "@mui/material";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import LogoutIcon from "@mui/icons-material/Logout";
+
+import { useSocket } from "../context/SocketContext";
+import { useAuth } from "../context/AuthContext";
+import { useAlert } from "../context/AlertContext";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const Header = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isTablet = useMediaQuery(theme.breakpoints.down("lg"));
   const { user, logout } = useAuth();
   const { createAlert } = useAlert();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
- 
 
   const handleOpenUserMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -28,43 +43,48 @@ const Header = () => {
   const handleLogout = () => {
     handleCloseUserMenu();
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   const handleCreateNew = () => {
     // Open create new alert dialog or navigate to create page
     // For now, we'll just trigger the sidebar's create alert function
     createAlert({
-      symbol: 'BTCUSDT',
-      direction: '>',
-      targetType: 'percentage',
+      symbol: "BTCUSDT",
+      direction: ">",
+      targetType: "percentage",
       targetValue: 0.001,
-      trackingMode: 'current',
-      intervalMinutes: 60
+      trackingMode: "current",
+      intervalMinutes: 60,
     });
   };
 
- 
- 
-
-
- 
-
   return (
     <>
-      <AppBar position="sticky" sx={{ backgroundColor: theme.palette.background.paper }}>
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="h5" component="h1" fontWeight="bold">
-              Binance Alerts
+      <AppBar
+        position="sticky"
+        sx={{
+          backgroundColor: theme.palette.background.paper,
+          height: { xs: 56, sm: 64 },
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
+        }}
+      >
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Typography
+              variant={isMobile ? "h6" : "h5"}
+              component="h1"
+              fontWeight="bold"
+              sx={{ fontSize: { xs: "1.1rem", sm: "1.5rem" } }}
+            >
+              {isMobile ? "Binance" : "Binance Alerts"}
             </Typography>
           </Box>
-          
+
           <Box sx={{ flexGrow: 1 }} />
-          
-          
-     
-          
+
           {/* Alert Notifications Bell */}
           {/* <IconButton 
             color="inherit" 
@@ -178,32 +198,59 @@ const Header = () => {
               )}
             </Box>
           </Popover> */}
-          
+
           {/* User menu */}
           {user && (
             <>
-              <IconButton onClick={handleOpenUserMenu} color="inherit">
-                <AccountCircleIcon />
+              <IconButton
+                onClick={handleOpenUserMenu}
+                color="inherit"
+                size={isMobile ? "small" : "medium"}
+              >
+                <AccountCircleIcon fontSize={isMobile ? "small" : "medium"} />
               </IconButton>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                {user.username}
-              </Typography>
+              {!isMobile && (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mr: 1,
+                    display: { xs: "none", sm: "block" },
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                  }}
+                >
+                  {user.username}
+                </Typography>
+              )}
               <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={handleCloseUserMenu}
                 anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'right',
+                  vertical: "bottom",
+                  horizontal: "right",
                 }}
                 transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
+                  vertical: "top",
+                  horizontal: "right",
+                }}
+                PaperProps={{
+                  sx: {
+                    minWidth: { xs: 120, sm: 160 },
+                  },
                 }}
               >
+                {isMobile && (
+                  <MenuItem disabled>
+                    <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                      {user.username}
+                    </Typography>
+                  </MenuItem>
+                )}
                 <MenuItem onClick={handleLogout}>
-                  <LogoutIcon sx={{ mr: 1 }} />
-                  Logout
+                  <LogoutIcon
+                    sx={{ mr: 1, fontSize: { xs: "1rem", sm: "1.25rem" } }}
+                  />
+                  <Typography variant="body2">Logout</Typography>
                 </MenuItem>
               </Menu>
             </>

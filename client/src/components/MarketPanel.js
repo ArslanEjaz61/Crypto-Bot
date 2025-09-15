@@ -24,6 +24,11 @@ import {
   Checkbox,
   FormControlLabel,
   Button,
+  useTheme,
+  useMediaQuery,
+  Card,
+  CardContent,
+  Grid,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
@@ -47,6 +52,10 @@ const MarketPanel = ({
   onAlertsCreated,
   onRef,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isTablet = useMediaQuery(theme.breakpoints.down("lg"));
+
   const {
     cryptos,
     error,
@@ -504,12 +513,13 @@ const MarketPanel = ({
   return (
     <Paper
       sx={{
-        p: 2,
-        borderRadius: 2,
+        p: { xs: 1, sm: 2 },
+        borderRadius: { xs: 1, sm: 2 },
         bgcolor: "background.paper",
         height: "100%",
         display: "flex",
         flexDirection: "column",
+        overflow: "hidden",
       }}
     >
       {/* Debug information banner */}
@@ -567,7 +577,7 @@ const MarketPanel = ({
       <Box
         sx={{
           mb: 2,
-          p: 1.5,
+          p: { xs: 1, sm: 1.5 },
           bgcolor: alpha("#1E293B", 0.3),
           borderRadius: 1,
           border: "1px solid rgba(59, 130, 246, 0.2)",
@@ -578,6 +588,8 @@ const MarketPanel = ({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            flexDirection: { xs: "column", sm: "row" },
+            gap: { xs: 1, sm: 0 },
           }}
         >
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
@@ -648,16 +660,23 @@ const MarketPanel = ({
         onChange={handleViewChange}
         aria-label="market view"
         fullWidth
-        sx={{ mb: 2 }}
+        sx={{
+          mb: 2,
+          "& .MuiToggleButton-root": {
+            fontSize: { xs: "0.75rem", sm: "0.875rem" },
+            py: { xs: 0.5, sm: 1 },
+            px: { xs: 0.5, sm: 1.5 },
+          },
+        }}
       >
         <ToggleButton value="market" aria-label="market">
-          Market
+          {isMobile ? "Market" : "Market"}
         </ToggleButton>
         <ToggleButton value="favorites" aria-label="favorites">
-          Favorites
+          {isMobile ? "Favs" : "Favorites"}
         </ToggleButton>
         <ToggleButton value="alerts" aria-label="alerts">
-          Alert Generated
+          {isMobile ? "Alerts" : "Alert Generated"}
         </ToggleButton>
       </ToggleButtonGroup>
 
@@ -876,12 +895,15 @@ const MarketPanel = ({
               <React.Fragment key={crypto.symbol}>
                 <ListItem
                   sx={{
-                    py: 1,
+                    py: { xs: 0.5, sm: 1 },
+                    px: { xs: 0.5, sm: 1 },
                     "&:hover": {
                       backgroundColor: alpha("#0066FF", 0.05),
                     },
                     display: "flex",
                     alignItems: "center",
+                    flexDirection: { xs: "column", sm: "row" },
+                    gap: { xs: 1, sm: 0 },
                   }}
                 >
                   {/* Checkbox for pair selection and favorite toggle */}
@@ -933,6 +955,7 @@ const MarketPanel = ({
                     sx={{
                       flex: 1,
                       cursor: "pointer",
+                      width: "100%",
                     }}
                   >
                     <ListItemText
@@ -942,6 +965,8 @@ const MarketPanel = ({
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "center",
+                            flexDirection: { xs: "column", sm: "row" },
+                            gap: { xs: 1, sm: 0 },
                           }}
                         >
                           <Box
@@ -982,10 +1007,11 @@ const MarketPanel = ({
                           </Box>
                           <Box
                             sx={{
-                              textAlign: "right",
+                              textAlign: { xs: "center", sm: "right" },
                               display: "flex",
                               alignItems: "center",
                               gap: 1,
+                              flexDirection: { xs: "column", sm: "row" },
                             }}
                           >
                             <Box>

@@ -272,8 +272,9 @@ const FilterSidebar = memo(
     };
 
     const theme = useTheme();
-    const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
-    const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+    const isSmall = useMediaQuery(theme.breakpoints.down("md"));
+    const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
+    const isTablet = useMediaQuery(theme.breakpoints.down("xl"));
 
     // Fallback to context if props not supplied
     const filters = ctxFilters;
@@ -990,21 +991,17 @@ const FilterSidebar = memo(
       <Paper
         sx={{
           bgcolor: "#0d1117",
-          borderRadius: isSmall ? "0px" : "12px",
+          borderRadius: { xs: "0px", md: "12px" },
           height: "100%",
-          p: isSmall ? 2 : 3,
+          p: { xs: 1, sm: 2, md: 3 },
           overflow: "auto",
-          maxHeight: isSmall ? "100vh" : "calc(100vh - 100px)",
-          width: isSmall ? "100%" : "auto",
+          maxHeight: { xs: "100vh", md: "calc(100vh - 100px)" },
+          width: { xs: "100%", md: "auto" },
           color: "white",
-          border: isSmall ? "none" : "1px solid rgba(255, 255, 255, 0.08)",
-          boxShadow: isSmall ? "none" : "0 4px 20px rgba(0, 0, 0, 0.3)",
-          position: isSmall ? "fixed" : "relative",
-          top: isSmall ? 0 : "auto",
-          left: isSmall ? 0 : "auto",
-          right: isSmall ? 0 : "auto",
-          bottom: isSmall ? 0 : "auto",
-          zIndex: isSmall ? 1300 : "auto",
+          border: { xs: "none", md: "1px solid rgba(255, 255, 255, 0.08)" },
+          boxShadow: { xs: "none", md: "0 4px 20px rgba(0, 0, 0, 0.3)" },
+          position: { xs: "relative", md: "relative" },
+          zIndex: "auto",
         }}
       >
         <Box
@@ -1016,7 +1013,7 @@ const FilterSidebar = memo(
             },
           }}
         >
-          {isSmall && (
+          {isMobile && (
             <Box
               sx={{
                 display: "flex",
@@ -1028,7 +1025,7 @@ const FilterSidebar = memo(
               }}
             >
               <Typography variant="h6" sx={{ fontWeight: 600, color: "white" }}>
-                Filters
+                Filters & Alerts
               </Typography>
               <Button
                 onClick={() => {
@@ -1898,8 +1895,9 @@ const FilterSidebar = memo(
               fullWidth
               size="large"
               sx={{
-                py: 1.5,
-                mb: isSmall ? 2 : 0,
+                py: { xs: 1, sm: 1.5 },
+                mb: { xs: 2, md: 0 },
+                fontSize: { xs: "0.875rem", sm: "1rem" },
               }}
               onClick={handleCreateAlert}
               disabled={validateAlertForm().length > 0}
@@ -1924,7 +1922,7 @@ const FilterSidebar = memo(
           )}
 
           {/* Apply Button for mobile */}
-          {isSmall && (
+          {isMobile && (
             <Box
               sx={{
                 mt: 3,

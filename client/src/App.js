@@ -187,11 +187,14 @@ function App() {
                     display: "flex",
                     flexDirection: "column",
                     height: "100vh",
-                    width: "100vw",
+                    width: "100%",
+                    maxWidth: "100%",
                     overflow: "hidden",
                     position: "fixed",
                     top: 0,
                     left: 0,
+                    right: 0,
+                    boxSizing: "border-box",
                   }}
                 >
                   <Routes>
@@ -221,6 +224,9 @@ function App() {
                                 height: "calc(100vh - 64px)",
                                 m: 0,
                                 p: 0,
+                                width: "100%",
+                                maxWidth: "100%",
+                                boxSizing: "border-box",
                               }}
                             >
                               <LazyComponentLoader height={600}>

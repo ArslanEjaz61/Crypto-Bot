@@ -1,25 +1,29 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 html, body {
   margin: 0;
   padding: 0;
-  height: 110%;
+  height: 100%;
   width: 100%;
-  overflow: auto; /* Changed from hidden to auto to enable scrollbars */
+  overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #0A0E17;
-  color: #ffffff;
-  zoom:100% /* Set zoom level to 130% */
+  color: #ffffff; 
 }
 
 #root {
-  min-height: 100%;
+  height: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
-  overflow-y: auto; /* Enable vertical scrolling */
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 code {

@@ -6,6 +6,8 @@ import {
   CircularProgress,
   ButtonGroup,
   Button,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import { createChart, LineSeries } from "lightweight-charts";
 
@@ -26,6 +28,10 @@ const LineChart = ({
   timeframe: propTimeframe = "1h",
   onTimeframeChange,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isTablet = useMediaQuery(theme.breakpoints.down("lg"));
+
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
@@ -283,21 +289,43 @@ const LineChart = ({
   }, [symbol, selectedTimeframe, currentTimeframeConfig]);
 
   return (
-    <Paper sx={{ p: 2, mb: 2, bgcolor: "background.paper", borderRadius: 2 }}>
+    <Paper
+      sx={{
+        p: { xs: 1, sm: 2 },
+        mb: 2,
+        bgcolor: "background.paper",
+        borderRadius: 2,
+      }}
+    >
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: { xs: "flex-start", sm: "center" },
           mb: 2,
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 1, sm: 0 },
         }}
       >
-        <Typography variant="h6">
+        <Typography
+          variant={isMobile ? "subtitle1" : "h6"}
+          sx={{
+            fontSize: { xs: "1rem", sm: "1.25rem" },
+            fontWeight: 600,
+          }}
+        >
           {symbol ? `${symbol} Line Chart` : "Select a coin to view chart"}
         </Typography>
 
         {symbol && (
-          <ButtonGroup size="small" aria-label="timeframe selection">
+          <ButtonGroup
+            size="small"
+            aria-label="timeframe selection"
+            sx={{
+              flexWrap: { xs: "wrap", sm: "nowrap" },
+              gap: { xs: 0.5, sm: 0 },
+            }}
+          >
             {TIMEFRAMES.map((tf) => (
               <Button
                 key={tf.value}
@@ -305,7 +333,12 @@ const LineChart = ({
                 variant={
                   selectedTimeframe === tf.value ? "contained" : "outlined"
                 }
-                sx={{ px: 1, minWidth: "40px" }}
+                sx={{
+                  px: { xs: 0.5, sm: 1 },
+                  minWidth: { xs: "32px", sm: "40px" },
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                  py: { xs: 0.25, sm: 0.5 },
+                }}
               >
                 {tf.label}
               </Button>
@@ -318,7 +351,7 @@ const LineChart = ({
         ref={containerRef}
         sx={{
           width: "100%",
-          height: 400,
+          height: { xs: 250, sm: 300, md: 400 },
           bgcolor: "#222",
           position: "relative",
           borderRadius: 1,
@@ -328,18 +361,32 @@ const LineChart = ({
         }}
       >
         {loading && (
-          <CircularProgress size={40} sx={{ color: "primary.main" }} />
+          <CircularProgress
+            size={isMobile ? 30 : 40}
+            sx={{ color: "primary.main" }}
+          />
         )}
 
         {!loading && error && (
-          <Typography color="error" sx={{ p: 2 }}>
+          <Typography
+            color="error"
+            sx={{
+              p: 2,
+              fontSize: { xs: "0.875rem", sm: "1rem" },
+              textAlign: "center",
+            }}
+          >
             {error}
           </Typography>
         )}
       </Box>
 
       <Box sx={{ mt: 1, textAlign: "center" }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
+        >
           Powered by TradingView Lightweight Charts
         </Typography>
       </Box>
