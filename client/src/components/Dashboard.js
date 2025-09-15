@@ -257,25 +257,6 @@ const Dashboard = ({ children }) => {
       )}
 
       {/* Chart Header - Show if displaying latest triggered alert */}
-      {lastTriggeredSymbol === selectedCoin && (
-        <Box
-          sx={{
-            mb: 1,
-            p: 1.5,
-            bgcolor: "rgba(34, 197, 94, 0.1)",
-            borderRadius: 1,
-            border: "1px solid rgba(34, 197, 94, 0.3)",
-            textAlign: "center",
-          }}
-        >
-          <Typography
-            variant="body2"
-            sx={{ color: "#22C55E", fontWeight: "bold" }}
-          >
-            📊 Chart showing latest triggered alert pair: {selectedCoin}
-          </Typography>
-        </Box>
-      )}
 
       {/* LineChart with selected coin */}
       <LineChart
