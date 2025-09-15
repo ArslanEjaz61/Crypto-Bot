@@ -6,8 +6,7 @@ const apiCache = {
   data: {},
   timestamps: {},
   locks: {},
-};
-
+};  
 // Cache configuration from environment variables or defaults
 const CACHE_TTL = parseInt(process.env.API_CACHE_TTL || "60000"); // Cache TTL in milliseconds (1 minute)
 const MIN_REFRESH_INTERVAL = parseInt(

@@ -738,7 +738,28 @@ const MarketPanel = ({
 
       {/* Crypto list */}
       <SmoothTransition type="slide" direction="up" timeout={400}>
-        <List sx={{ flexGrow: 1, overflow: "auto", p: 0 }}>
+        <List
+          sx={{
+            flexGrow: 1,
+            overflow: "auto",
+            p: 0,
+            maxHeight: "calc(100vh - 300px)",
+            "&::-webkit-scrollbar": {
+              width: "6px",
+            },
+            "&::-webkit-scrollbar-track": {
+              background: "rgba(255, 255, 255, 0.1)",
+              borderRadius: "3px",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              background: "rgba(255, 255, 255, 0.3)",
+              borderRadius: "3px",
+              "&:hover": {
+                background: "rgba(255, 255, 255, 0.5)",
+              },
+            },
+          }}
+        >
           {/* Only show error states, not loading states */}
           {error ? (
             <Box

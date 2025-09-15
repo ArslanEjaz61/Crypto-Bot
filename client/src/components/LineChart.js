@@ -122,15 +122,23 @@ const LineChart = ({
         console.log(
           `Fetching data for ${symbolStr} (${selectedTimeframe}), limit: ${limit}...`
         );
-        const response = await fetch(
-          `/api/crypto/${symbolStr}/chart?timeframe=${selectedTimeframe}&limit=${limit}`
-        );
+        const apiUrl = `/api/crypto/${symbolStr}/chart?timeframe=${selectedTimeframe}&limit=${limit}`;
+        console.log("📊 Chart API URL:", apiUrl);
+        const response = await fetch(apiUrl);
 
         if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
+          console.error(
+            "📊 Chart API Error:",
+            response.status,
+            response.statusText
+          );
+          throw new Error(
+            `API error: ${response.status} - ${response.statusText}`
+          );
         }
 
         const data = await response.json();
+        console.log("📊 Chart API Response:", data);
 
         if (!data || data.length === 0) {
           setError("No data available");

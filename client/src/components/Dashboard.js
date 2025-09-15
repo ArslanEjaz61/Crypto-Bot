@@ -118,6 +118,38 @@ const Dashboard = ({ children }) => {
     initializeChart();
   }, []);
 
+  // Load latest triggered alert on component mount
+  useEffect(() => {
+    const loadLatestAlert = async () => {
+      try {
+        const API_URL =
+          process.env.REACT_APP_API_URL || "http://localhost:5000";
+        const response = await fetch(
+          `${API_URL}/api/triggered-alerts?limit=1&sort=createdAt&order=desc`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.triggeredAlerts && data.triggeredAlerts.length > 0) {
+            const latestAlert = data.triggeredAlerts[0];
+            console.log("📊 Dashboard loaded latest alert:", latestAlert);
+
+            // Set the latest triggered symbol
+            setLastTriggeredSymbol(latestAlert.symbol);
+
+            // Automatically switch chart to show the latest triggered symbol
+            setSelectedCoin(latestAlert.symbol);
+            selectSymbol(latestAlert.symbol);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading latest alert:", error);
+      }
+    };
+
+    loadLatestAlert();
+  }, [selectSymbol]);
+
   // Set up socket connection to listen for new triggered alerts
   useEffect(() => {
     const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -259,6 +291,12 @@ const Dashboard = ({ children }) => {
       {/* Chart Header - Show if displaying latest triggered alert */}
 
       {/* LineChart with selected coin */}
+      {console.log(
+        "📊 Dashboard rendering LineChart with symbol:",
+        selectedCoin,
+        "timeframe:",
+        localTimeframe
+      )}
       <LineChart
         symbol={selectedCoin}
         timeframe={localTimeframe}

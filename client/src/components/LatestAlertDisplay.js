@@ -55,7 +55,16 @@ const LatestAlertDisplay = () => {
 
       const data = await response.json();
       if (data.triggeredAlerts && data.triggeredAlerts.length > 0) {
-        setLatestAlert(data.triggeredAlerts[0]);
+        const alert = data.triggeredAlerts[0];
+        console.log("📊 LatestAlertDisplay loaded latest alert:", alert);
+        console.log("📊 MarketData price:", alert.marketData?.price);
+        console.log(
+          "📊 ConditionDetails actualValue:",
+          alert.conditionDetails?.actualValue
+        );
+        setLatestAlert(alert);
+      } else {
+        console.log("📊 No triggered alerts found");
       }
       setError(null);
     } catch (err) {
@@ -208,6 +217,8 @@ const LatestAlertDisplay = () => {
             $
             {latestAlert.marketData?.price
               ? latestAlert.marketData.price.toFixed(4)
+              : latestAlert.conditionDetails?.actualValue
+              ? parseFloat(latestAlert.conditionDetails.actualValue).toFixed(4)
               : "0.0000"}
           </Typography>
         </Box>
@@ -246,6 +257,8 @@ const LatestAlertDisplay = () => {
             $
             {latestAlert.marketData?.price
               ? latestAlert.marketData.price.toFixed(4)
+              : latestAlert.conditionDetails?.actualValue
+              ? parseFloat(latestAlert.conditionDetails.actualValue).toFixed(4)
               : "0.0000"}
           </Typography>
         </Grid>
