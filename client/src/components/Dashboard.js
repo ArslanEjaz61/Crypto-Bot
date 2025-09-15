@@ -232,31 +232,7 @@ const Dashboard = ({ children }) => {
       <LatestAlertDisplay />
 
       {/* Coin Price Header - Shows detailed coin price info */}
-      {selectedCoin && (
-        <Box sx={{ position: "relative" }}>
-          <CoinPriceHeader symbol={selectedCoin} />
-          {/* Show indicator if this is the last triggered symbol */}
-          {lastTriggeredSymbol === selectedCoin && (
-            <Box
-              sx={{
-                position: "absolute",
-                top: 8,
-                right: 8,
-                bgcolor: "#22C55E",
-                color: "white",
-                px: 1,
-                py: 0.5,
-                borderRadius: 1,
-                fontSize: "0.75rem",
-                fontWeight: "bold",
-                zIndex: 1,
-              }}
-            >
-              🔥 TRIGGERED
-            </Box>
-          )}
-        </Box>
-      )}
+      {selectedCoin && <CoinPriceHeader symbol={selectedCoin} />}
 
       {/* Show button to switch to last triggered symbol if different from current */}
       {lastTriggeredSymbol && lastTriggeredSymbol !== selectedCoin && (

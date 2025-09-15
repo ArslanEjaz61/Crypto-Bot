@@ -182,6 +182,11 @@ const LatestAlertDisplay = () => {
             {latestAlert.conditionDetails?.description ||
               latestAlert.conditionMet ||
               "Alert triggered"}
+            {latestAlert.changePercentTimeframe && (
+              <span style={{ marginLeft: "8px", color: "#60A5FA" }}>
+                | Timeframe: {latestAlert.changePercentTimeframe}
+              </span>
+            )}
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -294,6 +299,8 @@ const LatestAlertDisplay = () => {
             {latestAlert.conditionDetails.actualValue}
             {latestAlert.conditionDetails.timeframe &&
               ` | Timeframe: ${latestAlert.conditionDetails.timeframe}`}
+            {latestAlert.changePercentTimeframe &&
+              ` | Change Timeframe: ${latestAlert.changePercentTimeframe}`}
           </Typography>
         </Box>
       )}
