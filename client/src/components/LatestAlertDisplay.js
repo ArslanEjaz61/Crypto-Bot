@@ -92,12 +92,12 @@ const LatestAlertDisplay = () => {
       <Paper
         sx={{
           p: 3,
-          mb: 2,
+          mb: 0,
           bgcolor: "#0A0E17",
           color: "white",
-          borderRadius: 2,
-          border: "2px solid #6B7280",
-          boxShadow: "0 4px 20px rgba(107, 114, 128, 0.2)",
+          borderRadius: 0,
+          border: "none",
+          boxShadow: "none",
         }}
       >
         <Box
@@ -153,12 +153,12 @@ const LatestAlertDisplay = () => {
     <Paper
       sx={{
         p: 3,
-        mb: 2,
+        mb: 0,
         bgcolor: "#0A0E17",
         color: "white",
-        borderRadius: 2,
-        border: "2px solid #22C55E",
-        boxShadow: "0 4px 20px rgba(34, 197, 94, 0.3)",
+        borderRadius: 0,
+        border: "none",
+        boxShadow: "none",
       }}
     >
       {/* Header */}
