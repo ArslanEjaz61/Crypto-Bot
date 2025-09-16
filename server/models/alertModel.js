@@ -39,12 +39,11 @@ const alertSchema = mongoose.Schema(
       type: Number,
       default: 0,
     },
-    // Candle conditions
-    candleTimeframe: {
+    // Candle conditions - Support multiple timeframes
+    candleTimeframes: [{
       type: String,
       enum: ["5MIN", "15MIN", "1HR", "4HR", "12HR", "D", "W"],
-      default: "1HR",
-    },
+    }],
     candleCondition: {
       type: String,
       enum: [
@@ -55,11 +54,23 @@ const alertSchema = mongoose.Schema(
         "BULLISH_HAMMER",
         "BEARISH_HAMMER",
         "DOJI",
+        "HAMMER",
         "LONG_UPPER_WICK",
         "LONG_LOWER_WICK",
         "NONE",
       ],
       default: "NONE",
+    },
+    
+    // Candle state tracking to prevent spam alerts
+    candleAlertStates: {
+      type: Map,
+      of: {
+        triggered: { type: Boolean, default: false },
+        lastTriggeredCandle: { type: String }, // Store the openTime of the last triggered candle
+        lastChecked: { type: Date, default: Date.now }
+      },
+      default: new Map()
     },
 
     // RSI conditions
@@ -358,80 +369,96 @@ alertSchema.methods.checkConditions = function (data) {
   }
 
   // ==========================================
-  // Check candle condition
+  // Check candle condition for multiple timeframes
   // ==========================================
   let candleConditionMet = true; // Default to true if no condition set
+  let triggeredTimeframes = []; // Track which timeframes triggered
 
-  if (this.candleCondition !== "NONE" && candle) {
-    // Find the candle data for the specified timeframe
-    const candleData = candle[this.candleTimeframe] || candle["1HR"]; // Default to 1HR if specified timeframe not available
+  if (this.candleCondition !== "NONE" && candle && this.candleTimeframes && this.candleTimeframes.length > 0) {
+    candleConditionMet = false; // Start with false, set to true if any timeframe meets condition
 
-    if (candleData) {
-      const { open, high, low, close } = candleData;
-      const bodySize = Math.abs(close - open);
-      const upperWick = high - Math.max(open, close);
-      const lowerWick = Math.min(open, close) - low;
-      const totalRange = high - low;
+    // Check each selected timeframe
+    for (const timeframe of this.candleTimeframes) {
+      const candleData = candle[timeframe];
+      
+      if (candleData) {
+        const { open, high, low, close } = candleData;
+        const bodySize = Math.abs(close - open);
+        const upperWick = high - Math.max(open, close);
+        const lowerWick = Math.min(open, close) - low;
+        const totalRange = high - low;
 
-      switch (this.candleCondition) {
-        case "ABOVE_OPEN":
-          if (close <= open) candleConditionMet = false;
-          break;
+        let timeframeConditionMet = false;
 
-        case "BELOW_OPEN":
-          if (close >= open) candleConditionMet = false;
-          break;
+        switch (this.candleCondition) {
+          case "ABOVE_OPEN":
+            timeframeConditionMet = close > open;
+            break;
 
-        case "GREEN_CANDLE":
-          if (close <= open) candleConditionMet = false;
-          break;
+          case "BELOW_OPEN":
+            timeframeConditionMet = close < open;
+            break;
 
-        case "RED_CANDLE":
-          if (close >= open) candleConditionMet = false;
-          break;
+          case "GREEN_CANDLE":
+            timeframeConditionMet = close > open;
+            break;
 
-        case "BULLISH_HAMMER":
-          // Small body at top, long lower wick, short upper wick
-          if (
-            !(lowerWick > bodySize * 2 && upperWick < bodySize && close > open)
-          ) {
-            candleConditionMet = false;
+          case "RED_CANDLE":
+            timeframeConditionMet = close < open;
+            break;
+
+          case "BULLISH_HAMMER":
+            // Small body at top, long lower wick, short upper wick, bullish
+            timeframeConditionMet = lowerWick > bodySize * 2 && upperWick < bodySize && close > open;
+            break;
+
+          case "BEARISH_HAMMER":
+            // Small body at bottom, long upper wick, short lower wick, bearish
+            timeframeConditionMet = upperWick > bodySize * 2 && lowerWick < bodySize && close < open;
+            break;
+
+          case "HAMMER":
+            // Generic hammer: small body, long lower wick, short upper wick
+            timeframeConditionMet = lowerWick > bodySize * 2 && upperWick < bodySize;
+            break;
+
+          case "DOJI":
+            // Open and close are very close (within 0.1% of the range)
+            timeframeConditionMet = bodySize <= totalRange * 0.001;
+            break;
+
+          case "LONG_UPPER_WICK":
+            // Upper wick is at least 2x the body size
+            timeframeConditionMet = upperWick >= bodySize * 2;
+            break;
+
+          case "LONG_LOWER_WICK":
+            // Lower wick is at least 2x the body size
+            timeframeConditionMet = lowerWick >= bodySize * 2;
+            break;
+
+          default:
+            timeframeConditionMet = false;
+        }
+
+        // Check if this timeframe should trigger (condition met and not already triggered for this candle)
+        if (timeframeConditionMet) {
+          const candleKey = `${timeframe}_${candleData.openTime || Date.now()}`;
+          const alertState = this.candleAlertStates.get(timeframe);
+          
+          // Only trigger if we haven't already triggered for this specific candle
+          if (!alertState || alertState.lastTriggeredCandle !== candleKey) {
+            triggeredTimeframes.push(timeframe);
+            candleConditionMet = true;
+            
+            // Update the alert state for this timeframe
+            this.candleAlertStates.set(timeframe, {
+              triggered: true,
+              lastTriggeredCandle: candleKey,
+              lastChecked: new Date()
+            });
           }
-          break;
-
-        case "BEARISH_HAMMER":
-          // Small body at bottom, long upper wick, short lower wick
-          if (
-            !(upperWick > bodySize * 2 && lowerWick < bodySize && close < open)
-          ) {
-            candleConditionMet = false;
-          }
-          break;
-
-        case "DOJI":
-          // Open and close are very close (within 0.1% of the range)
-          if (bodySize > totalRange * 0.001) {
-            candleConditionMet = false;
-          }
-          break;
-
-        case "LONG_UPPER_WICK":
-          // Upper wick is at least 2x the body size
-          if (upperWick < bodySize * 2) {
-            candleConditionMet = false;
-          }
-          break;
-
-        case "LONG_LOWER_WICK":
-          // Lower wick is at least 2x the body size
-          if (lowerWick < bodySize * 2) {
-            candleConditionMet = false;
-          }
-          break;
-
-        default:
-          // Unknown condition, default to false
-          candleConditionMet = false;
+        }
       }
     }
   }
@@ -570,6 +597,42 @@ alertSchema.methods.markNotificationSent = function (type, error = null) {
 
   // Update lastTriggered timestamp
   this.lastTriggered = new Date();
+};
+
+// Method to reset candle alert states for new candles
+alertSchema.methods.resetCandleAlertStates = function (timeframe, newCandleOpenTime) {
+  if (!this.candleAlertStates) {
+    this.candleAlertStates = new Map();
+  }
+
+  const alertState = this.candleAlertStates.get(timeframe);
+  if (alertState && alertState.lastTriggeredCandle) {
+    const currentCandleKey = `${timeframe}_${newCandleOpenTime}`;
+    
+    // If this is a new candle, reset the triggered state
+    if (alertState.lastTriggeredCandle !== currentCandleKey) {
+      this.candleAlertStates.set(timeframe, {
+        triggered: false,
+        lastTriggeredCandle: null,
+        lastChecked: new Date()
+      });
+    }
+  }
+};
+
+// Method to check if candle alert was already triggered for current candle
+alertSchema.methods.wasCandleAlertTriggered = function (timeframe, candleOpenTime) {
+  if (!this.candleAlertStates) {
+    return false;
+  }
+
+  const alertState = this.candleAlertStates.get(timeframe);
+  if (!alertState) {
+    return false;
+  }
+
+  const currentCandleKey = `${timeframe}_${candleOpenTime}`;
+  return alertState.lastTriggeredCandle === currentCandleKey && alertState.triggered;
 };
 
 const Alert = mongoose.model("Alert", alertSchema);
