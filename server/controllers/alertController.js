@@ -37,7 +37,7 @@ const createAlert = async (req, res) => {
       comment,
       email,
       // Candle section
-      candleTimeframe,
+      candleTimeframes,
       candleCondition,
       // RSI section
       rsiEnabled,
@@ -107,11 +107,12 @@ const createAlert = async (req, res) => {
     };
 
     // Only add candle conditions if explicitly enabled
-    if (candleCondition && candleCondition !== "NONE") {
-      alertData.candleTimeframe = candleTimeframe || "1HR";
+    if (candleCondition && candleCondition !== 'NONE') {
+      alertData.candleTimeframes = candleTimeframes && candleTimeframes.length > 0 ? candleTimeframes : ['1HR'];
       alertData.candleCondition = candleCondition;
     } else {
-      alertData.candleCondition = "NONE";
+      alertData.candleCondition = 'NONE';
+      alertData.candleTimeframes = [];
     }
 
     // Only add RSI conditions if explicitly enabled
@@ -202,7 +203,7 @@ const updateAlert = async (req, res) => {
       comment,
       email,
       // Candle section
-      candleTimeframe,
+      candleTimeframes,
       candleCondition,
       // RSI section
       rsiEnabled,
@@ -248,7 +249,7 @@ const updateAlert = async (req, res) => {
     if (email) alert.email = email;
 
     // Update Candle section
-    if (candleTimeframe) alert.candleTimeframe = candleTimeframe;
+    if (candleTimeframes) alert.candleTimeframes = candleTimeframes;
     if (candleCondition) alert.candleCondition = candleCondition;
 
     // Update RSI section
