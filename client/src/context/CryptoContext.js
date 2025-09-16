@@ -642,18 +642,11 @@ export const CryptoProvider = ({ children }) => {
       } catch (error) {
         console.error(`Error toggling favorite for ${symbol}:`, error);
 
-        // Revert optimistic update on error
-        setFavoritesMap((prev) => {
-          const newMap = new Map(prev);
-          const originalStatus =
-            state.cryptos.find((c) => c.symbol === symbol)?.isFavorite || false;
-          if (originalStatus) {
-            newMap.set(symbol, true);
-          } else {
-            newMap.delete(symbol);
-          }
-          return newMap;
-        });
+        // Don't revert optimistic update on error - respect user's action
+        // The user clicked unfavorite, so we should keep it unfavorited even if there was an error
+        console.log(
+          `Error occurred but keeping user's action for ${symbol} - not reverting optimistic update`
+        );
 
         // Remove from pending operations
         setPendingOperations((prev) => {
