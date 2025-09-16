@@ -19,7 +19,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
 import { useAlert } from "./context/AlertContext";
 import { useCrypto } from "./context/CryptoContext";
-import SocketProvider from "./context/SocketContext";
 import LazyComponentLoader from "./components/LazyComponentLoader";
 import { FilterProvider } from "./context/FilterContext";
 import { SelectedPairsProvider } from "./context/SelectedPairsContext";
@@ -162,102 +161,100 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <SocketProvider>
-          <ThemeProvider theme={darkTheme}>
-            <CssBaseline />
-            <FilterProvider>
-              <SelectedPairsProvider>
-                {loading && (
-                  <Fade in={loading}>
-                    <Box
-                      sx={{
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        zIndex: 9999,
-                      }}
-                    >
-                      <LinearProgress color="primary" sx={{ height: 3 }} />
-                    </Box>
-                  </Fade>
-                )}
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    height: "100vh",
-                    width: "100%",
-                    maxWidth: "100%",
-                    overflow: "hidden",
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <Routes>
+        <ThemeProvider theme={darkTheme}>
+          <CssBaseline />
+          <FilterProvider>
+            <SelectedPairsProvider>
+              {loading && (
+                <Fade in={loading}>
+                  <Box
+                    sx={{
+                      position: "fixed",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      zIndex: 9999,
+                    }}
+                  >
+                    <LinearProgress color="primary" sx={{ height: 3 }} />
+                  </Box>
+                </Fade>
+              )}
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100vh",
+                  width: "100%",
+                  maxWidth: "100%",
+                  overflow: "hidden",
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  boxSizing: "border-box",
+                }}
+              >
+                <Routes>
+                  <Route
+                    path="/login"
+                    element={
+                      <LazyComponentLoader height={400}>
+                        <Login />
+                      </LazyComponentLoader>
+                    }
+                  />
+
+                  {/* Protected routes */}
+                  <Route element={<ProtectedRoute />}>
                     <Route
-                      path="/login"
+                      path="/dashboard"
                       element={
-                        <LazyComponentLoader height={400}>
-                          <Login />
-                        </LazyComponentLoader>
+                        <>
+                          <Header />
+                          <Box
+                            component="main"
+                            sx={{
+                              flexGrow: 1,
+                              overflow: "hidden",
+                              display: "flex",
+                              flexDirection: "column",
+                              height: "calc(100vh - 64px)",
+                              m: 0,
+                              p: 0,
+                              width: "100%",
+                              maxWidth: "100%",
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            <LazyComponentLoader height={600}>
+                              <Dashboard />
+                            </LazyComponentLoader>
+                          </Box>
+                          <LazyComponentLoader height={100}>
+                            <Notification />
+                          </LazyComponentLoader>
+                        </>
                       }
                     />
+                  </Route>
 
-                    {/* Protected routes */}
-                    <Route element={<ProtectedRoute />}>
-                      <Route
-                        path="/dashboard"
-                        element={
-                          <>
-                            <Header />
-                            <Box
-                              component="main"
-                              sx={{
-                                flexGrow: 1,
-                                overflow: "hidden",
-                                display: "flex",
-                                flexDirection: "column",
-                                height: "calc(100vh - 64px)",
-                                m: 0,
-                                p: 0,
-                                width: "100%",
-                                maxWidth: "100%",
-                                boxSizing: "border-box",
-                              }}
-                            >
-                              <LazyComponentLoader height={600}>
-                                <Dashboard />
-                              </LazyComponentLoader>
-                            </Box>
-                            <LazyComponentLoader height={100}>
-                              <Notification />
-                            </LazyComponentLoader>
-                          </>
-                        }
-                      />
-                    </Route>
+                  {/* Redirect root to dashboard (protected) */}
+                  <Route
+                    path="/"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
 
-                    {/* Redirect root to dashboard (protected) */}
-                    <Route
-                      path="/"
-                      element={<Navigate to="/dashboard" replace />}
-                    />
-
-                    {/* Catch all other routes */}
-                    <Route
-                      path="*"
-                      element={<Navigate to="/dashboard" replace />}
-                    />
-                  </Routes>
-                </Box>
-              </SelectedPairsProvider>
-            </FilterProvider>
-          </ThemeProvider>
-        </SocketProvider>
+                  {/* Catch all other routes */}
+                  <Route
+                    path="*"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
+                </Routes>
+              </Box>
+            </SelectedPairsProvider>
+          </FilterProvider>
+        </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
   );

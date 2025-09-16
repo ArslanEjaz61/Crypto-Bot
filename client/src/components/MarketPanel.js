@@ -883,7 +883,7 @@ const MarketPanel = ({
                       const isCurrentlyFavorite = isFavorite(crypto.symbol);
 
                       if (isCurrentlyFavorite) {
-                        // Unchecking: remove from favorites
+                        // Unchecking: remove from favorites (this will automatically delete alerts)
                         toggleFavorite(crypto.symbol);
                         togglePairSelection(crypto.symbol);
 
@@ -894,7 +894,7 @@ const MarketPanel = ({
                           return newSet;
                         });
                       } else {
-                        // Checking: add to favorites
+                        // Checking: add to favorites (no automatic alert creation)
                         toggleFavorite(crypto.symbol);
                         togglePairSelection(crypto.symbol);
 
