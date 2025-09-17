@@ -290,6 +290,7 @@ const FilterSidebar = memo(
           "minDaily",
           "changePercent",
           "alertCount",
+          "candle",
         ];
 
         let newFilters = { ...ctxFilters };
@@ -447,6 +448,15 @@ const FilterSidebar = memo(
           if (fast >= slow) {
             errors.push("EMA Fast period must be less than Slow period");
           }
+        }
+      }
+
+      // Validate Candle specific requirements
+      if (hasCandle) {
+        if (!filters.candleCondition || filters.candleCondition === "NONE") {
+          errors.push(
+            "Candle condition is required when Candle timeframe is selected"
+          );
         }
       }
 
@@ -777,10 +787,10 @@ const FilterSidebar = memo(
                   : null,
                 alertCountEnabled: Boolean(alertCountEnabled),
 
-                // Candle configuration - null if not selected
-                candleTimeframe: candleTimeframe
-                  ? String(candleTimeframe)
-                  : null,
+                // Candle configuration - single timeframe like other conditions
+                candleTimeframes: candleTimeframe
+                  ? [String(candleTimeframe)]
+                  : [],
                 candleCondition: candleTimeframe
                   ? (() => {
                       const condition = filters.candleCondition || "NONE";
@@ -1428,7 +1438,7 @@ const FilterSidebar = memo(
               aria-controls="candle-content"
               id="candle-header"
             >
-              <DarkTypography>Candle (Multiple)</DarkTypography>
+              <DarkTypography>Candle</DarkTypography>
             </CustomAccordionSummary>
             <AccordionDetails>
               <Box

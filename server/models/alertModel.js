@@ -446,10 +446,19 @@ alertSchema.methods.checkConditions = function (data) {
           const candleKey = `${timeframe}_${candleData.openTime || Date.now()}`;
           const alertState = this.candleAlertStates.get(timeframe);
           
+          console.log(`🔍 Checking candle alert for ${this.symbol} ${timeframe}:`);
+          console.log(`   Condition: ${this.candleCondition}`);
+          console.log(`   OHLC: O:${open} H:${high} L:${low} C:${close}`);
+          console.log(`   Candle Key: ${candleKey}`);
+          console.log(`   Alert State:`, alertState);
+          
           // Only trigger if we haven't already triggered for this specific candle
           if (!alertState || alertState.lastTriggeredCandle !== candleKey) {
             triggeredTimeframes.push(timeframe);
             candleConditionMet = true;
+            
+            console.log(`🚨 CANDLE ALERT TRIGGERED: ${this.symbol} ${timeframe} ${this.candleCondition}`);
+            console.log(`   ✅ First time triggering for this candle: ${candleKey}`);
             
             // Update the alert state for this timeframe
             this.candleAlertStates.set(timeframe, {
@@ -457,7 +466,12 @@ alertSchema.methods.checkConditions = function (data) {
               lastTriggeredCandle: candleKey,
               lastChecked: new Date()
             });
+          } else {
+            console.log(`⏳ Candle alert already triggered for ${this.symbol} ${timeframe} candle: ${candleKey}`);
+            console.log(`   ❌ Skipping duplicate trigger`);
           }
+        } else {
+          console.log(`❌ Candle condition not met for ${this.symbol} ${timeframe} ${this.candleCondition}`);
         }
       }
     }
@@ -606,17 +620,32 @@ alertSchema.methods.resetCandleAlertStates = function (timeframe, newCandleOpenT
   }
 
   const alertState = this.candleAlertStates.get(timeframe);
+  const currentCandleKey = `${timeframe}_${newCandleOpenTime}`;
+  
+  console.log(`🔄 Checking candle state reset for ${this.symbol} ${timeframe}:`);
+  console.log(`   Current candle key: ${currentCandleKey}`);
+  console.log(`   Previous alert state:`, alertState);
+  
   if (alertState && alertState.lastTriggeredCandle) {
-    const currentCandleKey = `${timeframe}_${newCandleOpenTime}`;
-    
     // If this is a new candle, reset the triggered state
     if (alertState.lastTriggeredCandle !== currentCandleKey) {
+      console.log(`   ✅ New candle detected! Resetting alert state for ${timeframe}`);
       this.candleAlertStates.set(timeframe, {
         triggered: false,
         lastTriggeredCandle: null,
         lastChecked: new Date()
       });
+    } else {
+      console.log(`   ⏳ Same candle, keeping alert state`);
     }
+  } else {
+    // Initialize alert state for this timeframe
+    console.log(`   🆕 Initializing alert state for ${timeframe}`);
+    this.candleAlertStates.set(timeframe, {
+      triggered: false,
+      lastTriggeredCandle: null,
+      lastChecked: new Date()
+    });
   }
 };
 
@@ -632,7 +661,15 @@ alertSchema.methods.wasCandleAlertTriggered = function (timeframe, candleOpenTim
   }
 
   const currentCandleKey = `${timeframe}_${candleOpenTime}`;
-  return alertState.lastTriggeredCandle === currentCandleKey && alertState.triggered;
+  const wasTriggered = alertState.lastTriggeredCandle === currentCandleKey && alertState.triggered;
+  
+  console.log(`🔍 Checking if alert was triggered for ${this.symbol} ${timeframe}:`);
+  console.log(`   Current candle key: ${currentCandleKey}`);
+  console.log(`   Last triggered candle: ${alertState.lastTriggeredCandle}`);
+  console.log(`   Triggered: ${alertState.triggered}`);
+  console.log(`   Was triggered: ${wasTriggered}`);
+  
+  return wasTriggered;
 };
 
 const Alert = mongoose.model("Alert", alertSchema);
