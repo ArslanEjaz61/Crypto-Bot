@@ -8,31 +8,22 @@ import React, {
   useMemo,
   useRef,
 } from "react";
+import axios from "axios";
 import {
   Box,
   Paper,
   Typography,
-  FormControl,
-  FormLabel,
   FormGroup,
   FormControlLabel,
   Checkbox,
   TextField,
-  Select,
   MenuItem,
   Button,
-  Divider,
   Alert,
-  Collapse,
-  IconButton,
   InputAdornment,
-  Chip,
-  CircularProgress,
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  ToggleButton,
-  ToggleButtonGroup,
   useTheme,
   useMediaQuery,
 } from "@mui/material";
@@ -153,21 +144,6 @@ const DarkTextField = styled(TextField)({
   },
 });
 
-const DarkToggleButton = styled(ToggleButton)({
-  color: "white",
-  backgroundColor: "#151b26",
-  borderColor: "#30363d",
-  "&.Mui-selected": {
-    backgroundColor: "#4f80ff",
-    color: "white",
-    "&:hover": {
-      backgroundColor: "#3b6ae8",
-    },
-  },
-  "&:hover": {
-    backgroundColor: "#1c2637",
-  },
-});
 
 const DarkButton = styled(Button)({
   borderColor: "#30363d",
@@ -197,22 +173,6 @@ const DarkButton = styled(Button)({
   },
 });
 
-const DarkToggleButtonGroup = styled(ToggleButtonGroup)({
-  "& .MuiToggleButtonGroup-grouped": {
-    margin: 0,
-    border: "1px solid #30363d",
-    "&:not(:first-of-type)": {
-      borderRadius: 0,
-      borderLeft: "1px solid #30363d",
-    },
-    "&:first-of-type": {
-      borderRadius: "4px 0 0 4px",
-    },
-    "&:last-of-type": {
-      borderRadius: "0 4px 4px 0",
-    },
-  },
-});
 
 const StyledFormControlLabel = styled(FormControlLabel)({
   "& .MuiFormControlLabel-label": {
@@ -261,20 +221,18 @@ const FilterSidebar = memo(
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
     const [percentageValue, setPercentageValue] = useState("");
-    const [isExpanded, setIsExpanded] = useState(true);
     const [isCreatingAlert, setIsCreatingAlert] = useState(false);
 
-    // Simple event bus for notifications
-    const eventBus = {
+    // Simple event bus for notifications - memoized to prevent re-renders
+    const eventBus = useMemo(() => ({
       emit: (event, data) => {
         console.log(`Event: ${event}`, data);
       },
-    };
+    }), []);
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down("md"));
     const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
-    const isTablet = useMediaQuery(theme.breakpoints.down("xl"));
 
     // Fallback to context if props not supplied
     const filters = ctxFilters;
@@ -453,7 +411,22 @@ const FilterSidebar = memo(
 
       // Validate Candle specific requirements
       if (hasCandle) {
-        if (!filters.candleCondition || filters.candleCondition === "NONE") {
+        const condition = filters.candleCondition || "NONE";
+        const conditionMap = {
+          "Candle Above Open": "ABOVE_OPEN",
+          "Candle Below Open": "BELOW_OPEN",
+          "Green Candle": "GREEN_CANDLE",
+          "Red Candle": "RED_CANDLE",
+          "Bullish Hammer": "BULLISH_HAMMER",
+          "Bearish Hammer": "BEARISH_HAMMER",
+          Doji: "DOJI",
+          "Long Upper Wick": "LONG_UPPER_WICK",
+          "Long Lower Wick": "LONG_LOWER_WICK",
+          None: "NONE",
+        };
+        const mappedCondition = conditionMap[condition] || "NONE";
+        
+        if (!condition || condition === "None" || mappedCondition === "NONE") {
           errors.push(
             "Candle condition is required when Candle timeframe is selected"
           );
@@ -649,6 +622,9 @@ const FilterSidebar = memo(
         setIsCreatingAlert(true);
         setErrorMessage("");
         setSuccessMessage("");
+        
+        // Show progress message
+        setSuccessMessage(`Creating alerts for ${symbolsToProcess.length} pairs...`);
 
         try {
           const now = new Date();
@@ -737,51 +713,66 @@ const FilterSidebar = memo(
             finalPercentageValue
           );
 
-          // First, delete existing alerts for all symbols to replace them with new conditions
+          // First, delete existing alerts for all symbols using bulk delete for better performance
           console.log(
-            "Deleting existing alerts for symbols:",
+            "Bulk deleting existing alerts for symbols:",
             symbolsToProcess
           );
-          const deletionResults = [];
+          
+          // Update progress message
+          setSuccessMessage(`Deleting existing alerts for ${symbolsToProcess.length} pairs...`);
+          
+          let deletionResults = [];
+          try {
+            // Use bulk delete endpoint for better performance
+            const response = await axios.delete('/api/alerts/bulk-delete', {
+              data: { symbols: symbolsToProcess.map(s => s.trim()) }
+            });
+            
+            console.log(`Bulk deleted ${response.data.deletedCount} alerts for ${symbolsToProcess.length} symbols`);
+            
+            deletionResults = symbolsToProcess.map(symbol => ({
+              symbol: symbol.trim(),
+              deletedCount: response.data.deletedCount / symbolsToProcess.length, // Approximate
+              success: true,
+            }));
+          } catch (error) {
+            console.error("Error in bulk delete, falling back to individual deletes:", error);
+            
+            // Fallback to individual deletes if bulk delete fails
+            const deletionPromises = symbolsToProcess.map(async (currentSymbol) => {
+              try {
+                const cleanSymbol = currentSymbol.trim();
+                const deletionResult = await deleteAlertsBySymbol(cleanSymbol);
+                return {
+                  symbol: cleanSymbol,
+                  deletedCount: deletionResult.deletedCount,
+                  success: true,
+                };
+              } catch (error) {
+                console.error(`Error deleting existing alerts for ${currentSymbol}:`, error);
+                return {
+                  symbol: currentSymbol,
+                  deletedCount: 0,
+                  success: false,
+                  error: error.message,
+                };
+              }
+            });
 
-          for (const currentSymbol of symbolsToProcess) {
-            try {
-              const cleanSymbol = currentSymbol.trim();
-              console.log(
-                `Deleting existing alerts for symbol: ${cleanSymbol}`
-              );
-
-              const deletionResult = await deleteAlertsBySymbol(cleanSymbol);
-              deletionResults.push({
-                symbol: cleanSymbol,
-                deletedCount: deletionResult.deletedCount,
-                success: true,
-              });
-
-              console.log(
-                `Deleted ${deletionResult.deletedCount} existing alerts for ${cleanSymbol}`
-              );
-            } catch (error) {
-              console.error(
-                `Error deleting existing alerts for ${currentSymbol}:`,
-                error
-              );
-              deletionResults.push({
-                symbol: currentSymbol,
-                deletedCount: 0,
-                success: false,
-                error: error.message,
-              });
-            }
+            deletionResults = await Promise.all(deletionPromises);
           }
 
           console.log("Deletion results:", deletionResults);
 
-          // Now create new alerts for all selected symbols
+          // Update progress message
+          setSuccessMessage(`Creating new alerts for ${symbolsToProcess.length} pairs...`);
+
+          // Now create new alerts for all selected symbols in parallel for better performance
           const alertResults = [];
           const failedAlerts = [];
 
-          for (const currentSymbol of symbolsToProcess) {
+          const alertCreationPromises = symbolsToProcess.map(async (currentSymbol) => {
             try {
               // Validate each symbol
               if (
@@ -790,11 +781,11 @@ const FilterSidebar = memo(
                 currentSymbol.trim() === ""
               ) {
                 console.error("Invalid symbol in batch:", currentSymbol);
-                failedAlerts.push({
+                return {
                   symbol: currentSymbol,
+                  success: false,
                   error: "Invalid symbol format",
-                });
-                continue;
+                };
               }
 
               const cleanSymbol = currentSymbol.trim();
@@ -905,13 +896,14 @@ const FilterSidebar = memo(
                 cleanSymbol,
                 created
               );
-              alertResults.push({
+
+              eventBus.emit("ALERT_CREATED", created);
+              
+              return {
                 symbol: cleanSymbol,
                 success: true,
                 alert: created,
-              });
-
-              eventBus.emit("ALERT_CREATED", created);
+              };
             } catch (error) {
               console.error(
                 "Error creating alert for",
@@ -924,9 +916,26 @@ const FilterSidebar = memo(
                 error.response?.data ||
                 error.message ||
                 "Unknown error";
-              failedAlerts.push({ symbol: currentSymbol, error: errorMsg });
+              
+              return {
+                symbol: currentSymbol,
+                success: false,
+                error: errorMsg,
+              };
             }
-          }
+          });
+
+          // Wait for all alert creation promises to complete
+          const alertCreationResults = await Promise.all(alertCreationPromises);
+          
+          // Separate successful and failed results
+          alertCreationResults.forEach(result => {
+            if (result.success) {
+              alertResults.push(result);
+            } else {
+              failedAlerts.push(result);
+            }
+          });
 
           // Provide feedback based on results
           const successCount = alertResults.length;
@@ -1011,6 +1020,18 @@ const FilterSidebar = memo(
         getSelectedPairsArray,
         getSelectedCount,
         selectedSymbol,
+        deleteAlertsBySymbol,
+        validateAlertForm,
+        filters.candle,
+        filters.candleCondition,
+        filters.market,
+        filters.exchange,
+        filters.pair,
+        filters.percentageValue,
+        percentageValue,
+        marketPanelRef,
+        cryptos,
+        getFavoritePairsForAlerts,
       ]
     );
 

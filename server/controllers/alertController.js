@@ -426,6 +426,44 @@ const deleteAlertsBySymbol = async (req, res) => {
   }
 };
 
+// @desc    Delete alerts by multiple symbols (bulk operation)
+// @route   DELETE /api/alerts/bulk-delete
+// @access  Public
+const deleteAlertsBySymbols = async (req, res) => {
+  try {
+    const { symbols } = req.body;
+
+    if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
+      return res.status(400).json({ message: "Symbols array is required" });
+    }
+
+    console.log(`Bulk deleting alerts for symbols: ${symbols.join(', ')}`);
+
+    // Delete all alerts for these symbols in one operation
+    const result = await Alert.deleteMany({ symbol: { $in: symbols.map(s => s.toUpperCase()) } });
+
+    console.log(`Bulk deleted ${result.deletedCount} alerts for ${symbols.length} symbols`);
+
+    // Emit event to socket.io for real-time updates
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("alerts-bulk-deleted", {
+        symbols: symbols.map(s => s.toUpperCase()),
+        deletedCount: result.deletedCount,
+      });
+    }
+
+    res.json({
+      message: `Bulk deleted ${result.deletedCount} alerts for ${symbols.length} symbols`,
+      deletedCount: result.deletedCount,
+      symbols: symbols.map(s => s.toUpperCase()),
+    });
+  } catch (error) {
+    console.error("Error bulk deleting alerts by symbols:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
 module.exports = {
   getAlerts,
   createAlert,
@@ -433,6 +471,7 @@ module.exports = {
   updateAlert,
   deleteAlert,
   deleteAlertsBySymbol,
+  deleteAlertsBySymbols,
   startAllAlerts,
   stopAllAlerts,
 };

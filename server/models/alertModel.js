@@ -380,39 +380,39 @@ alertSchema.methods.checkConditions = function (data) {
     // Check each selected timeframe
     for (const timeframe of this.candleTimeframes) {
       const candleData = candle[timeframe];
-      
-      if (candleData) {
-        const { open, high, low, close } = candleData;
-        const bodySize = Math.abs(close - open);
-        const upperWick = high - Math.max(open, close);
-        const lowerWick = Math.min(open, close) - low;
-        const totalRange = high - low;
+
+    if (candleData) {
+      const { open, high, low, close } = candleData;
+      const bodySize = Math.abs(close - open);
+      const upperWick = high - Math.max(open, close);
+      const lowerWick = Math.min(open, close) - low;
+      const totalRange = high - low;
 
         let timeframeConditionMet = false;
 
-        switch (this.candleCondition) {
-          case "ABOVE_OPEN":
+      switch (this.candleCondition) {
+        case "ABOVE_OPEN":
             timeframeConditionMet = close > open;
-            break;
+          break;
 
-          case "BELOW_OPEN":
+        case "BELOW_OPEN":
             timeframeConditionMet = close < open;
-            break;
+          break;
 
-          case "GREEN_CANDLE":
+        case "GREEN_CANDLE":
             timeframeConditionMet = close > open;
-            break;
+          break;
 
-          case "RED_CANDLE":
+        case "RED_CANDLE":
             timeframeConditionMet = close < open;
-            break;
+          break;
 
-          case "BULLISH_HAMMER":
+        case "BULLISH_HAMMER":
             // Small body at top, long lower wick, short upper wick, bullish
             timeframeConditionMet = lowerWick > bodySize * 2 && upperWick < bodySize && close > open;
-            break;
+          break;
 
-          case "BEARISH_HAMMER":
+        case "BEARISH_HAMMER":
             // Small body at bottom, long upper wick, short lower wick, bearish
             timeframeConditionMet = upperWick > bodySize * 2 && lowerWick < bodySize && close < open;
             break;
@@ -420,24 +420,24 @@ alertSchema.methods.checkConditions = function (data) {
           case "HAMMER":
             // Generic hammer: small body, long lower wick, short upper wick
             timeframeConditionMet = lowerWick > bodySize * 2 && upperWick < bodySize;
-            break;
+          break;
 
-          case "DOJI":
-            // Open and close are very close (within 0.1% of the range)
+        case "DOJI":
+          // Open and close are very close (within 0.1% of the range)
             timeframeConditionMet = bodySize <= totalRange * 0.001;
-            break;
+          break;
 
-          case "LONG_UPPER_WICK":
-            // Upper wick is at least 2x the body size
+        case "LONG_UPPER_WICK":
+          // Upper wick is at least 2x the body size
             timeframeConditionMet = upperWick >= bodySize * 2;
-            break;
+          break;
 
-          case "LONG_LOWER_WICK":
-            // Lower wick is at least 2x the body size
+        case "LONG_LOWER_WICK":
+          // Lower wick is at least 2x the body size
             timeframeConditionMet = lowerWick >= bodySize * 2;
-            break;
+          break;
 
-          default:
+        default:
             timeframeConditionMet = false;
         }
 
