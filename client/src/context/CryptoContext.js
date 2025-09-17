@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import axios from "axios";
+import { useSocket } from "./SocketContext";
 import { apiCache, getCacheKey } from "../utils/apiCache";
 
 // Initial state
@@ -245,6 +246,7 @@ const filterCryptos = (cryptos, filter) => {
 // Create Provider
 export const CryptoProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cryptoReducer, initialState);
+  const { showNotification } = useSocket();
 
   // Optimized request handling with caching
   const loadCryptos = useCallback(
@@ -603,28 +605,48 @@ export const CryptoProvider = ({ children }) => {
           await createAlertFromFilters(symbol, filterConditions);
         }
 
-        // If removing from favorites, delete any auto-created alerts for this symbol
+        // If removing from favorites, delete ALL alerts for this symbol
         if (!newStatus) {
           console.log(
-            `Removing from favorites: deleting auto-created alerts for ${symbol}`
+            `Removing from favorites: deleting ALL alerts for ${symbol}`
           );
-          await deleteAutoCreatedAlerts(symbol);
+          try {
+            // Use the new deleteAlertsBySymbol function to delete all alerts
+            const baseUrl = process.env.REACT_APP_API_URL || "";
+            const response = await axios.delete(
+              `${baseUrl}/api/alerts/symbol/${symbol}`
+            );
+            const { deletedCount } = response.data;
+
+            if (deletedCount > 0) {
+              console.log(
+                `Successfully deleted ${deletedCount} alerts for ${symbol}`
+              );
+              // Show success notification
+              showNotification(
+                `✅ ${deletedCount} alert(s) removed for ${symbol}`,
+                "success"
+              );
+            } else {
+              console.log(`No alerts found to delete for ${symbol}`);
+            }
+          } catch (error) {
+            console.error(`Error deleting alerts for ${symbol}:`, error);
+            // Show error notification
+            showNotification(
+              `❌ Failed to remove alerts for ${symbol}`,
+              "error"
+            );
+          }
         }
       } catch (error) {
         console.error(`Error toggling favorite for ${symbol}:`, error);
 
-        // Revert optimistic update on error
-        setFavoritesMap((prev) => {
-          const newMap = new Map(prev);
-          const originalStatus =
-            state.cryptos.find((c) => c.symbol === symbol)?.isFavorite || false;
-          if (originalStatus) {
-            newMap.set(symbol, true);
-          } else {
-            newMap.delete(symbol);
-          }
-          return newMap;
-        });
+        // Don't revert optimistic update on error - respect user's action
+        // The user clicked unfavorite, so we should keep it unfavorited even if there was an error
+        console.log(
+          `Error occurred but keeping user's action for ${symbol} - not reverting optimistic update`
+        );
 
         // Remove from pending operations
         setPendingOperations((prev) => {
@@ -829,7 +851,7 @@ export const CryptoProvider = ({ children }) => {
 
       throw error;
     }
-  }, [favoritesMap, state.cryptos, dispatch]);
+  }, [favoritesMap, state.cryptos, dispatch, showNotification]);
 
   // RSI cache now handled by apiCache utility
 

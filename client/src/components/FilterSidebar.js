@@ -249,7 +249,7 @@ const FilterSidebar = memo(
       setFilters: setCtxFilters,
       getFilterValues,
     } = useFilters();
-    const { createAlert } = useAlert();
+    const { createAlert, deleteAlertsBySymbol } = useAlert();
     const { selectedSymbol } = useSelectedPair();
     const { cryptos, updateFilter: updateCryptoFilter } = useCrypto();
     const {
@@ -737,7 +737,47 @@ const FilterSidebar = memo(
             finalPercentageValue
           );
 
-          // Create alerts for all selected symbols
+          // First, delete existing alerts for all symbols to replace them with new conditions
+          console.log(
+            "Deleting existing alerts for symbols:",
+            symbolsToProcess
+          );
+          const deletionResults = [];
+
+          for (const currentSymbol of symbolsToProcess) {
+            try {
+              const cleanSymbol = currentSymbol.trim();
+              console.log(
+                `Deleting existing alerts for symbol: ${cleanSymbol}`
+              );
+
+              const deletionResult = await deleteAlertsBySymbol(cleanSymbol);
+              deletionResults.push({
+                symbol: cleanSymbol,
+                deletedCount: deletionResult.deletedCount,
+                success: true,
+              });
+
+              console.log(
+                `Deleted ${deletionResult.deletedCount} existing alerts for ${cleanSymbol}`
+              );
+            } catch (error) {
+              console.error(
+                `Error deleting existing alerts for ${currentSymbol}:`,
+                error
+              );
+              deletionResults.push({
+                symbol: currentSymbol,
+                deletedCount: 0,
+                success: false,
+                error: error.message,
+              });
+            }
+          }
+
+          console.log("Deletion results:", deletionResults);
+
+          // Now create new alerts for all selected symbols
           const alertResults = [];
           const failedAlerts = [];
 

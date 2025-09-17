@@ -6,7 +6,7 @@ const apiCache = {
   data: {},
   timestamps: {},
   locks: {},
-};  
+};
 // Cache configuration from environment variables or defaults
 const CACHE_TTL = parseInt(process.env.API_CACHE_TTL || "60000"); // Cache TTL in milliseconds (1 minute)
 const MIN_REFRESH_INTERVAL = parseInt(
@@ -502,9 +502,20 @@ const updateFavoriteStatus = async (req, res) => {
       return res.status(404).json({ message: "Crypto not found" });
     }
 
-    crypto.isFavorite = !crypto.isFavorite;
+    // Use the isFavorite value from the request body instead of toggling
+    const { isFavorite } = req.body;
+    if (typeof isFavorite !== "boolean") {
+      return res
+        .status(400)
+        .json({ message: "isFavorite must be a boolean value" });
+    }
+
+    crypto.isFavorite = isFavorite;
     await crypto.save();
 
+    console.log(
+      `Updated favorite status for ${req.params.symbol} to ${isFavorite}`
+    );
     res.json(crypto);
   } catch (error) {
     console.error(error);

@@ -1,18 +1,18 @@
-const Alert = require('../models/alertModel');
-const Crypto = require('../models/cryptoModel');
+const Alert = require("../models/alertModel");
+const Crypto = require("../models/cryptoModel");
 
 // @desc    Get all alerts
 // @route   GET /api/alerts
 // @access  Public
 const getAlerts = async (req, res) => {
   try {
-    console.log('Getting all alerts');
+    console.log("Getting all alerts");
     const alerts = await Alert.find({}).sort({ createdAt: -1 });
     console.log(`Found ${alerts.length} alerts`);
     res.json(alerts);
   } catch (error) {
-    console.error('Error in getAlerts:', error);
-    res.status(500).json({ message: 'Server Error' });
+    console.error("Error in getAlerts:", error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -21,7 +21,10 @@ const getAlerts = async (req, res) => {
 // @access  Public
 const createAlert = async (req, res) => {
   try {
-    console.log('Creating new alert with body:', JSON.stringify(req.body, null, 2));
+    console.log(
+      "Creating new alert with body:",
+      JSON.stringify(req.body, null, 2)
+    );
     const {
       symbol,
       direction,
@@ -55,19 +58,19 @@ const createAlert = async (req, res) => {
       market,
       exchange,
       tradingPair,
-      minDailyVolume
+      minDailyVolume,
     } = req.body;
 
     if (!symbol) {
-      console.error('Missing symbol in request body');
-      return res.status(400).json({ message: 'Symbol is required' });
+      console.error("Missing symbol in request body");
+      return res.status(400).json({ message: "Symbol is required" });
     }
 
     // Check if the symbol exists
     const crypto = await Crypto.findOne({ symbol });
     if (!crypto) {
       console.error(`Invalid crypto symbol: ${symbol}`);
-      return res.status(400).json({ message: 'Invalid crypto symbol' });
+      return res.status(400).json({ message: "Invalid crypto symbol" });
     }
 
     console.log(`Found crypto ${symbol} with price ${crypto.price}`);
@@ -76,30 +79,33 @@ const createAlert = async (req, res) => {
     // Create base alert object with required fields
     const alertData = {
       symbol,
-      direction: direction || '>',
-      targetType: targetType || 'percentage',
+      direction: direction || ">",
+      targetType: targetType || "percentage",
       // CRITICAL FIX: Ensure targetValue is properly parsed as a float and not defaulted to 0
       targetValue: targetValue !== undefined ? Number(targetValue) : 1,
       currentPrice,
       basePrice: currentPrice, // Store current price as base for future comparisons
-      trackingMode: trackingMode || 'current',
-      intervalMinutes: trackingMode === 'interval' ? intervalMinutes : 0,
+      trackingMode: trackingMode || "current",
+      intervalMinutes: trackingMode === "interval" ? intervalMinutes : 0,
       alertTime,
       comment: comment || `Auto-created alert for ${symbol}`,
-      email: email || ' kainat.tasadaq3@gmail.com',
+      email: email || " kainat.tasadaq3@gmail.com",
       // Default market filters
-      market: market || 'ALL',
-      exchange: exchange || 'ALL',
-      
-      tradingPair: tradingPair || 'ALL',
+      market: market || "ALL",
+      exchange: exchange || "ALL",
+
+      tradingPair: tradingPair || "ALL",
       minDailyVolume: parseFloat(minDailyVolume) || 0,
       // Default change percentage settings
-      changePercentTimeframe: req.body.changePercentTimeframe || '1MIN',
-      changePercentValue: req.body.changePercentValue !== undefined ? parseFloat(req.body.changePercentValue) : 1,
+      changePercentTimeframe: req.body.changePercentTimeframe || "1MIN",
+      changePercentValue:
+        req.body.changePercentValue !== undefined
+          ? parseFloat(req.body.changePercentValue)
+          : 1,
       // Default alert count settings
-      alertCountTimeframe: req.body.alertCountTimeframe || '5MIN'
+      alertCountTimeframe: req.body.alertCountTimeframe || "5MIN",
     };
-    
+
     // Only add candle conditions if explicitly enabled
     if (candleCondition && candleCondition !== 'NONE') {
       alertData.candleTimeframes = candleTimeframes && candleTimeframes.length > 0 ? candleTimeframes : ['1HR'];
@@ -108,52 +114,53 @@ const createAlert = async (req, res) => {
       alertData.candleCondition = 'NONE';
       alertData.candleTimeframes = [];
     }
-    
+
     // Only add RSI conditions if explicitly enabled
     if (rsiEnabled) {
       alertData.rsiEnabled = true;
-      alertData.rsiTimeframe = rsiTimeframe || '1HR';
+      alertData.rsiTimeframe = rsiTimeframe || "1HR";
       alertData.rsiPeriod = parseInt(rsiPeriod) || 14;
-      alertData.rsiCondition = rsiCondition || 'ABOVE';
+      alertData.rsiCondition = rsiCondition || "ABOVE";
       alertData.rsiLevel = parseInt(rsiLevel) || 70;
     } else {
       alertData.rsiEnabled = false;
     }
-    
+
     // Only add EMA conditions if explicitly enabled
     if (emaEnabled) {
       alertData.emaEnabled = true;
-      alertData.emaTimeframe = emaTimeframe || '1HR';
+      alertData.emaTimeframe = emaTimeframe || "1HR";
       alertData.emaFastPeriod = parseInt(emaFastPeriod) || 12;
       alertData.emaSlowPeriod = parseInt(emaSlowPeriod) || 26;
-      alertData.emaCondition = emaCondition || 'ABOVE';
+      alertData.emaCondition = emaCondition || "ABOVE";
     } else {
       alertData.emaEnabled = false;
     }
-    
+
     // Only add volume spike conditions if explicitly enabled
     if (volumeEnabled) {
       alertData.volumeEnabled = true;
-      alertData.volumeSpikeMultiplier = parseFloat(volumeSpikeMultiplier) || 2.0;
+      alertData.volumeSpikeMultiplier =
+        parseFloat(volumeSpikeMultiplier) || 2.0;
     } else {
       alertData.volumeEnabled = false;
     }
-    
-    console.log('Creating alert with filtered conditions:', alertData);
+
+    console.log("Creating alert with filtered conditions:", alertData);
     const alert = new Alert(alertData);
 
     const createdAlert = await alert.save();
-    
+
     // Emit event to socket.io for real-time updates
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io) {
-      io.emit('alert-created', createdAlert);
+      io.emit("alert-created", createdAlert);
     }
 
     res.status(201).json(createdAlert);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server Error' });
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -165,16 +172,16 @@ const getAlertById = async (req, res) => {
     const alert = await Alert.findById(req.params.id);
 
     if (!alert) {
-      return res.status(404).json({ message: 'Alert not found' });
+      return res.status(404).json({ message: "Alert not found" });
     }
 
     res.json(alert);
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Alert not found' });
+    if (error.kind === "ObjectId") {
+      return res.status(404).json({ message: "Alert not found" });
     }
-    res.status(500).json({ message: 'Server Error' });
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -217,13 +224,13 @@ const updateAlert = async (req, res) => {
       market,
       exchange,
       tradingPair,
-      minDailyVolume
+      minDailyVolume,
     } = req.body;
 
     const alert = await Alert.findById(req.params.id);
 
     if (!alert) {
-      return res.status(404).json({ message: 'Alert not found' });
+      return res.status(404).json({ message: "Alert not found" });
     }
 
     // Update the alert fields
@@ -232,40 +239,47 @@ const updateAlert = async (req, res) => {
     if (targetType) alert.targetType = targetType;
     if (targetValue !== undefined) alert.targetValue = parseFloat(targetValue);
     if (trackingMode) alert.trackingMode = trackingMode;
-    if (intervalMinutes !== undefined && trackingMode === 'interval') alert.intervalMinutes = parseInt(intervalMinutes);
-    if (volumeChangeRequired !== undefined) alert.volumeChangeRequired = parseFloat(volumeChangeRequired);
+    if (intervalMinutes !== undefined && trackingMode === "interval")
+      alert.intervalMinutes = parseInt(intervalMinutes);
+    if (volumeChangeRequired !== undefined)
+      alert.volumeChangeRequired = parseFloat(volumeChangeRequired);
     if (alertTime) alert.alertTime = alertTime;
     if (isActive !== undefined) alert.isActive = isActive;
     if (comment !== undefined) alert.comment = comment;
     if (email) alert.email = email;
-    
+
     // Update Candle section
     if (candleTimeframes) alert.candleTimeframes = candleTimeframes;
     if (candleCondition) alert.candleCondition = candleCondition;
-    
+
     // Update RSI section
     if (rsiEnabled !== undefined) alert.rsiEnabled = Boolean(rsiEnabled);
     if (rsiTimeframe) alert.rsiTimeframe = rsiTimeframe;
     if (rsiPeriod !== undefined) alert.rsiPeriod = parseInt(rsiPeriod);
     if (rsiCondition) alert.rsiCondition = rsiCondition;
     if (rsiLevel !== undefined) alert.rsiLevel = parseInt(rsiLevel);
-    
+
     // Update EMA section
     if (emaEnabled !== undefined) alert.emaEnabled = Boolean(emaEnabled);
     if (emaTimeframe) alert.emaTimeframe = emaTimeframe;
-    if (emaFastPeriod !== undefined) alert.emaFastPeriod = parseInt(emaFastPeriod);
-    if (emaSlowPeriod !== undefined) alert.emaSlowPeriod = parseInt(emaSlowPeriod);
+    if (emaFastPeriod !== undefined)
+      alert.emaFastPeriod = parseInt(emaFastPeriod);
+    if (emaSlowPeriod !== undefined)
+      alert.emaSlowPeriod = parseInt(emaSlowPeriod);
     if (emaCondition) alert.emaCondition = emaCondition;
-    
+
     // Update Volume Spike section
-    if (volumeEnabled !== undefined) alert.volumeEnabled = Boolean(volumeEnabled);
-    if (volumeSpikeMultiplier !== undefined) alert.volumeSpikeMultiplier = parseFloat(volumeSpikeMultiplier);
-    
+    if (volumeEnabled !== undefined)
+      alert.volumeEnabled = Boolean(volumeEnabled);
+    if (volumeSpikeMultiplier !== undefined)
+      alert.volumeSpikeMultiplier = parseFloat(volumeSpikeMultiplier);
+
     // Update Market filters
     if (market) alert.market = market;
     if (exchange) alert.exchange = exchange;
     if (tradingPair) alert.tradingPair = tradingPair;
-    if (minDailyVolume !== undefined) alert.minDailyVolume = parseFloat(minDailyVolume);
+    if (minDailyVolume !== undefined)
+      alert.minDailyVolume = parseFloat(minDailyVolume);
 
     // If symbol changed, update currentPrice
     if (symbol && symbol !== alert.symbol) {
@@ -276,20 +290,20 @@ const updateAlert = async (req, res) => {
     }
 
     const updatedAlert = await alert.save();
-    
+
     // Emit event to socket.io for real-time updates
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io) {
-      io.emit('alert-updated', updatedAlert);
+      io.emit("alert-updated", updatedAlert);
     }
 
     res.json(updatedAlert);
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Alert not found' });
+    if (error.kind === "ObjectId") {
+      return res.status(404).json({ message: "Alert not found" });
     }
-    res.status(500).json({ message: 'Server Error' });
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -301,24 +315,24 @@ const deleteAlert = async (req, res) => {
     const alert = await Alert.findById(req.params.id);
 
     if (!alert) {
-      return res.status(404).json({ message: 'Alert not found' });
+      return res.status(404).json({ message: "Alert not found" });
     }
 
     await Alert.deleteOne({ _id: req.params.id });
-    
+
     // Emit event to socket.io for real-time updates
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io) {
-      io.emit('alert-deleted', req.params.id);
+      io.emit("alert-deleted", req.params.id);
     }
 
-    res.json({ message: 'Alert removed' });
+    res.json({ message: "Alert removed" });
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Alert not found' });
+    if (error.kind === "ObjectId") {
+      return res.status(404).json({ message: "Alert not found" });
     }
-    res.status(500).json({ message: 'Server Error' });
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -327,23 +341,23 @@ const deleteAlert = async (req, res) => {
 // @access  Public
 const startAllAlerts = async (req, res) => {
   try {
-    console.log('Starting all alerts');
+    console.log("Starting all alerts");
     const result = await Alert.updateMany({}, { isActive: true });
     console.log(`Started ${result.modifiedCount} alerts`);
-    
+
     // Emit event to socket.io for real-time updates
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io) {
-      io.emit('alerts-started', { count: result.modifiedCount });
+      io.emit("alerts-started", { count: result.modifiedCount });
     }
-    
-    res.json({ 
+
+    res.json({
       message: `${result.modifiedCount} alerts started successfully`,
-      modifiedCount: result.modifiedCount
+      modifiedCount: result.modifiedCount,
     });
   } catch (error) {
-    console.error('Error starting all alerts:', error);
-    res.status(500).json({ message: 'Server Error' });
+    console.error("Error starting all alerts:", error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -352,23 +366,63 @@ const startAllAlerts = async (req, res) => {
 // @access  Public
 const stopAllAlerts = async (req, res) => {
   try {
-    console.log('Stopping all alerts');
+    console.log("Stopping all alerts");
     const result = await Alert.updateMany({}, { isActive: false });
     console.log(`Stopped ${result.modifiedCount} alerts`);
-    
+
     // Emit event to socket.io for real-time updates
-    const io = req.app.get('io');
+    const io = req.app.get("io");
     if (io) {
-      io.emit('alerts-stopped', { count: result.modifiedCount });
+      io.emit("alerts-stopped", { count: result.modifiedCount });
     }
-    
-    res.json({ 
+
+    res.json({
       message: `${result.modifiedCount} alerts stopped successfully`,
-      modifiedCount: result.modifiedCount
+      modifiedCount: result.modifiedCount,
     });
   } catch (error) {
-    console.error('Error stopping all alerts:', error);
-    res.status(500).json({ message: 'Server Error' });
+    console.error("Error stopping all alerts:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// @desc    Delete alerts by symbol
+// @route   DELETE /api/alerts/symbol/:symbol
+// @access  Public
+const deleteAlertsBySymbol = async (req, res) => {
+  try {
+    const { symbol } = req.params;
+
+    if (!symbol) {
+      return res.status(400).json({ message: "Symbol is required" });
+    }
+
+    console.log(`Deleting all alerts for symbol: ${symbol}`);
+
+    // Find and delete all alerts for this symbol
+    const result = await Alert.deleteMany({ symbol: symbol.toUpperCase() });
+
+    console.log(`Deleted ${result.deletedCount} alerts for symbol: ${symbol}`);
+
+    // Emit event to socket.io for real-time updates
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("alerts-deleted-by-symbol", {
+        symbol: symbol.toUpperCase(),
+        deletedCount: result.deletedCount,
+      });
+    }
+
+    res.json({
+      message: `${
+        result.deletedCount
+      } alerts deleted for symbol ${symbol.toUpperCase()}`,
+      deletedCount: result.deletedCount,
+      symbol: symbol.toUpperCase(),
+    });
+  } catch (error) {
+    console.error("Error deleting alerts by symbol:", error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -378,6 +432,7 @@ module.exports = {
   getAlertById,
   updateAlert,
   deleteAlert,
+  deleteAlertsBySymbol,
   startAllAlerts,
-  stopAllAlerts
+  stopAllAlerts,
 };

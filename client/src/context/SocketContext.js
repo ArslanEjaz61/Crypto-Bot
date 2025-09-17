@@ -1,23 +1,31 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { io } from 'socket.io-client';
-import { useAlert } from './AlertContext';
-import { useCrypto } from './CryptoContext';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import { io } from "socket.io-client";
 
 const SocketContext = createContext();
 
 const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
-   const [notification, setNotification] = useState({ open: false, message: '', type: 'info' });
+  const [notification, setNotification] = useState({
+    open: false,
+    message: "",
+    type: "info",
+  });
   const [notifications, setNotifications] = useState([]);
   const [alertNotifications, setAlertNotifications] = useState([]);
-  
-  const { loadAlerts } = useAlert();
-  const { loadCryptos } = useCrypto();
-
- 
 
   // Show notification
-  const showNotification = (message, type = 'info', isAlertTriggered = false, alertData = null) => {
+  const showNotification = (
+    message,
+    type = "info",
+    isAlertTriggered = false,
+    alertData = null
+  ) => {
     setNotification({ open: true, message, type });
 
     // Add to notifications list
@@ -28,15 +36,15 @@ const SocketProvider = ({ children }) => {
       read: false,
       timestamp: new Date().toISOString(),
       isAlertTriggered: isAlertTriggered,
-      alertData: alertData
+      alertData: alertData,
     };
-    
+
     // Add to general notifications
-    setNotifications(prev => [newNotification, ...prev]);
-    
+    setNotifications((prev) => [newNotification, ...prev]);
+
     // Also add to alert notifications if it's a triggered alert
     if (isAlertTriggered) {
-      setAlertNotifications(prev => [newNotification, ...prev]);
+      setAlertNotifications((prev) => [newNotification, ...prev]);
     }
 
     // Auto hide after 5 seconds
@@ -49,35 +57,43 @@ const SocketProvider = ({ children }) => {
   const hideNotification = () => {
     setNotification((prev) => ({ ...prev, open: false }));
   };
-  
+
   // Mark notification as read
   const markNotificationAsRead = useCallback((notificationId) => {
-    setNotifications(prev => prev.map(notif => 
-      notif.id === notificationId ? { ...notif, read: true } : notif
-    ));
-    
-    setAlertNotifications(prev => prev.map(notif => 
-      notif.id === notificationId ? { ...notif, read: true } : notif
-    ));
+    setNotifications((prev) =>
+      prev.map((notif) =>
+        notif.id === notificationId ? { ...notif, read: true } : notif
+      )
+    );
+
+    setAlertNotifications((prev) =>
+      prev.map((notif) =>
+        notif.id === notificationId ? { ...notif, read: true } : notif
+      )
+    );
   }, []);
-  
+
   // Mark all notifications as read
   const markAllNotificationsAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
-    setAlertNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+    setNotifications((prev) => prev.map((notif) => ({ ...notif, read: true })));
+    setAlertNotifications((prev) =>
+      prev.map((notif) => ({ ...notif, read: true }))
+    );
   }, []);
 
   return (
-    <SocketContext.Provider value={{
-      socket,
-      notification,
-      notifications,
-      alertNotifications,
-      showNotification,
-      hideNotification,
-      markNotificationAsRead,
-      markAllNotificationsAsRead
-    }}>
+    <SocketContext.Provider
+      value={{
+        socket,
+        notification,
+        notifications,
+        alertNotifications,
+        showNotification,
+        hideNotification,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+      }}
+    >
       {children}
     </SocketContext.Provider>
   );
