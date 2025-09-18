@@ -252,8 +252,7 @@ const Dashboard = ({ children }) => {
       sx={{
         display: "flex",
         flexDirection: "column",
-        height: "100%",
-        overflow: "hidden",
+        minHeight: "100vh",
         p: { xs: 1, sm: 0.5 },
       }}
     >
@@ -314,8 +313,8 @@ const Dashboard = ({ children }) => {
         <Box
           sx={{
             mt: 1,
-            height: { xs: "calc(100vh - 400px)", sm: "calc(100vh - 350px)" },
-            overflow: "hidden",
+            minHeight: { xs: "400px", sm: "350px" },
+            overflow: "auto",
           }}
         >
           <TriggeredAlertsPanel />
@@ -329,7 +328,7 @@ const Dashboard = ({ children }) => {
       sx={{
         width: "100%",
         height: "100vh",
-        overflow: "hidden",
+        overflow: "auto",
         bgcolor: "#0A0E17",
         display: "flex",
         flexDirection: "column",
@@ -337,6 +336,26 @@ const Dashboard = ({ children }) => {
         p: 0,
         maxWidth: "100%",
         boxSizing: "border-box",
+        // Custom scrollbar styling for dashboard scroll
+        "&::-webkit-scrollbar": {
+          width: "4px",
+          height: "2px",
+        },
+        "&::-webkit-scrollbar-track": {
+          background: "#1a1a1a",
+          borderRadius: "4px",
+        },
+        "&::-webkit-scrollbar-thumb": {
+          background: "#4f80ff",
+          borderRadius: "4px",
+          minHeight: "20px",
+          "&:hover": {
+            background: "#3b6ae8",
+          },
+        },
+        "&::-webkit-scrollbar-corner": {
+          background: "#1a1a1a",
+        },
       }}
     >
       {/* Desktop Layout */}
@@ -346,13 +365,13 @@ const Dashboard = ({ children }) => {
           spacing={0}
           sx={{
             flexGrow: 1,
-            height: "100%",
-            overflow: "hidden",
+            minHeight: "100vh",
             m: 0,
             p: 0,
             maxWidth: "100%",
             width: "100%",
             boxSizing: "border-box",
+            overflow: "visible",
           }}
         >
           {/* Left Section - Filters Sidebar */}
@@ -362,8 +381,7 @@ const Dashboard = ({ children }) => {
             md={3}
             lg={3}
             sx={{
-              height: "100vh",
-              overflow: "hidden",
+              minHeight: "100vh",
               display: { xs: "none", md: "block" },
               p: 0,
               maxWidth: "25%",
@@ -374,11 +392,13 @@ const Dashboard = ({ children }) => {
             <Paper
               sx={{
                 p: 1,
-                height: "100%",
+                height: "100vh",
                 overflow: "auto",
                 bgcolor: "#0A0E17",
                 borderRadius: 0,
                 m: 0,
+                position: "sticky",
+                top: 0,
               }}
             >
               <FilterSidebar
@@ -396,8 +416,7 @@ const Dashboard = ({ children }) => {
             md={6}
             lg={6}
             sx={{
-              height: "100vh",
-              overflow: "hidden",
+              minHeight: "100vh",
               display: "flex",
               flexDirection: "column",
               p: 0,
@@ -406,7 +425,16 @@ const Dashboard = ({ children }) => {
               boxSizing: "border-box",
             }}
           >
-            {renderChartView()}
+            <Box
+              sx={{
+                height: "100vh",
+                overflow: "auto",
+                position: "sticky",
+                top: 0,
+              }}
+            >
+              {renderChartView()}
+            </Box>
           </Grid>
 
           {/* Right Section - Market Panel */}
@@ -416,8 +444,7 @@ const Dashboard = ({ children }) => {
             md={3}
             lg={3}
             sx={{
-              height: "100vh",
-              overflow: "hidden",
+              minHeight: "100vh",
               display: { xs: "none", md: "block" },
               p: 0,
               maxWidth: "25%",
@@ -428,11 +455,13 @@ const Dashboard = ({ children }) => {
             <Paper
               sx={{
                 p: 1,
-                height: "100%",
+                height: "100vh",
                 overflow: "auto",
                 bgcolor: "#0A0E17",
                 borderRadius: 0,
                 m: 0,
+                position: "sticky",
+                top: 0,
               }}
             >
               <MarketPanel
@@ -450,8 +479,7 @@ const Dashboard = ({ children }) => {
         <Box
           sx={{
             flexGrow: 1,
-            height: "100%",
-            overflow: "hidden",
+            minHeight: "100vh",
             display: "flex",
             flexDirection: "column",
             pb: 7, // Space for bottom navigation
@@ -483,7 +511,32 @@ const Dashboard = ({ children }) => {
           </Box>
 
           {/* Mobile Content Area */}
-          <Box sx={{ flexGrow: 1, overflow: "hidden" }}>
+          <Box 
+            sx={{ 
+              flexGrow: 1, 
+              overflow: "auto",
+              // Custom scrollbar styling for mobile
+              "&::-webkit-scrollbar": {
+                width: "6px",
+                height: "6px",
+              },
+              "&::-webkit-scrollbar-track": {
+                background: "#1a1a1a",
+                borderRadius: "4px",
+              },
+              "&::-webkit-scrollbar-thumb": {
+                background: "#4f80ff",
+                borderRadius: "4px",
+                minHeight: "15px",
+                "&:hover": {
+                  background: "#3b6ae8",
+                },
+              },
+              "&::-webkit-scrollbar-corner": {
+                background: "#1a1a1a",
+              },
+            }}
+          >
             {renderMobileView()}
           </Box>
 

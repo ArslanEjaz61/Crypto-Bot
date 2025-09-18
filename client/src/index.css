@@ -5,9 +5,9 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 70%;  /* Changed from 100% to 70% */
+  height: 100%;
   width: 100%;
-  overflow: hidden;
+  overflow: auto;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -18,11 +18,11 @@ html, body {
 }
 
 #root {
-  height: 70%;
+  height: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
   box-sizing: border-box;
 }
 
@@ -31,21 +31,38 @@ code {
     monospace;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Main Page */
+html, body {
+  scrollbar-width: auto;
+  scrollbar-color: #4f80ff #1a1a1a;
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1c252b;
+  background: #1a1a1a;
+  border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3875d7;
-  border-radius: 4px;
+  background: #4f80ff;
+  border-radius: 6px;
+  border: 2px solid #1a1a1a;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2c5bac;
+  background: #3b6ae8;
+}
+
+::-webkit-scrollbar-corner {
+  background: #1a1a1a;
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: #4f80ff #1a1a1a;
 }

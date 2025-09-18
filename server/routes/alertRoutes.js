@@ -6,6 +6,7 @@ const {
   updateAlert,
   deleteAlert,
   deleteAlertsBySymbol,
+  deleteAlertsBySymbols,
   getAlertById,
   startAllAlerts,
   stopAllAlerts,
@@ -40,6 +41,11 @@ router.delete("/:id", deleteAlert);
 // @desc    Delete all alerts for a symbol
 // @access  Public
 router.delete("/symbol/:symbol", deleteAlertsBySymbol);
+
+// @route   DELETE api/alerts/bulk-delete
+// @desc    Delete all alerts for multiple symbols (bulk operation)
+// @access  Public
+router.delete("/bulk-delete", deleteAlertsBySymbols);
 
 // @route   POST api/alerts/start-all
 // @desc    Start all alerts

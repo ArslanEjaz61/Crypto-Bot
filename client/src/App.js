@@ -184,15 +184,31 @@ function App() {
                 sx={{
                   display: "flex",
                   flexDirection: "column",
-                  height: "100vh",
+                  minHeight: "100vh",
                   width: "100%",
                   maxWidth: "100%",
-                  overflow: "hidden",
-                  position: "fixed",
-                  top: 0,
-                  left: 0,
-                  right: 0,
+                  overflow: "auto",
+                  position: "relative",
                   boxSizing: "border-box",
+                  // Custom scrollbar styling for main page scroll
+                  "&::-webkit-scrollbar": {
+                    width: "12px",
+                    height: "12px",
+                  },
+                  "&::-webkit-scrollbar-track": {
+                    background: "#1a1a1a",
+                    borderRadius: "6px",
+                  },
+                  "&::-webkit-scrollbar-thumb": {
+                    background: "#4f80ff",
+                    borderRadius: "6px",
+                    "&:hover": {
+                      background: "#3b6ae8",
+                    },
+                  },
+                  "&::-webkit-scrollbar-corner": {
+                    background: "#1a1a1a",
+                  },
                 }}
               >
                 <Routes>
@@ -216,10 +232,9 @@ function App() {
                             component="main"
                             sx={{
                               flexGrow: 1,
-                              overflow: "hidden",
                               display: "flex",
                               flexDirection: "column",
-                              height: "calc(100vh - 64px)",
+                              minHeight: "calc(100vh - 64px)",
                               m: 0,
                               p: 0,
                               width: "100%",

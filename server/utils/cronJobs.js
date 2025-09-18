@@ -551,18 +551,72 @@ const checkAlerts = async (io) => {
           };
 
           // Check specific conditions to determine trigger type
-          if (
-            alert.candleCondition !== "NONE" &&
-            alert.candleTimeframes &&
-            alert.candleTimeframes.length > 0
-          ) {
-            // Find which timeframe triggered
-            const triggeredTimeframe = alert.candleTimeframes.find((tf) => {
+          if (alert.candleCondition !== "NONE" && alert.candleTimeframes && alert.candleTimeframes.length > 0) {
+            // Find which timeframe triggered by checking if condition is met AND not already triggered
+            const triggeredTimeframe = alert.candleTimeframes.find(tf => {
               const candleData = technicalData.candle[tf];
-              return (
-                candleData &&
-                alert.wasCandleAlertTriggered(tf, candleData.openTime)
-              );
+              if (!candleData) return false;
+              
+              // Check if candle condition is met
+              const { open, high, low, close } = candleData;
+              let conditionMet = false;
+              
+              switch (alert.candleCondition) {
+                case "ABOVE_OPEN":
+                  conditionMet = close > open;
+                  break;
+                case "BELOW_OPEN":
+                  conditionMet = close < open;
+                  break;
+                case "GREEN_CANDLE":
+                  conditionMet = close > open;
+                  break;
+                case "RED_CANDLE":
+                  conditionMet = close < open;
+                  break;
+                case "BULLISH_HAMMER":
+                  const bodySize = Math.abs(close - open);
+                  const upperWick = high - Math.max(open, close);
+                  const lowerWick = Math.min(open, close) - low;
+                  conditionMet = lowerWick > bodySize * 2 && upperWick < bodySize && close > open;
+                  break;
+                case "BEARISH_HAMMER":
+                  const bodySize2 = Math.abs(close - open);
+                  const upperWick2 = high - Math.max(open, close);
+                  const lowerWick2 = Math.min(open, close) - low;
+                  conditionMet = upperWick2 > bodySize2 * 2 && lowerWick2 < bodySize2 && close < open;
+                  break;
+                case "HAMMER":
+                  const bodySize3 = Math.abs(close - open);
+                  const upperWick3 = high - Math.max(open, close);
+                  const lowerWick3 = Math.min(open, close) - low;
+                  conditionMet = lowerWick3 > bodySize3 * 2 && upperWick3 < bodySize3;
+                  break;
+                case "DOJI":
+                  const bodySize4 = Math.abs(close - open);
+                  const totalRange = high - low;
+                  conditionMet = bodySize4 <= totalRange * 0.001;
+                  break;
+                case "LONG_UPPER_WICK":
+                  const bodySize5 = Math.abs(close - open);
+                  const upperWick5 = high - Math.max(open, close);
+                  conditionMet = upperWick5 >= bodySize5 * 2;
+                  break;
+                case "LONG_LOWER_WICK":
+                  const bodySize6 = Math.abs(close - open);
+                  const lowerWick6 = Math.min(open, close) - low;
+                  conditionMet = lowerWick6 >= bodySize6 * 2;
+                  break;
+              }
+              
+              // If condition is met, check if we haven't already triggered for this candle
+              if (conditionMet) {
+                const candleKey = `${tf}_${candleData.openTime || Date.now()}`;
+                const alertState = alert.candleAlertStates.get(tf);
+                return !alertState || alertState.lastTriggeredCandle !== candleKey;
+              }
+              
+              return false;
             });
 
             if (triggeredTimeframe) {
