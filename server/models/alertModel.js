@@ -40,10 +40,12 @@ const alertSchema = mongoose.Schema(
       default: 0,
     },
     // Candle conditions - Support multiple timeframes
-    candleTimeframes: [{
-      type: String,
-      enum: ["5MIN", "15MIN", "1HR", "4HR", "12HR", "D", "W"],
-    }],
+    candleTimeframes: [
+      {
+        type: String,
+        enum: ["5MIN", "15MIN", "1HR", "4HR", "12HR", "D", "W"],
+      },
+    ],
     candleCondition: {
       type: String,
       enum: [
@@ -61,16 +63,16 @@ const alertSchema = mongoose.Schema(
       ],
       default: "NONE",
     },
-    
+
     // Candle state tracking to prevent spam alerts
     candleAlertStates: {
       type: Map,
       of: {
         triggered: { type: Boolean, default: false },
         lastTriggeredCandle: { type: String }, // Store the openTime of the last triggered candle
-        lastChecked: { type: Date, default: Date.now }
+        lastChecked: { type: Date, default: Date.now },
       },
-      default: new Map()
+      default: new Map(),
     },
 
     // RSI conditions
@@ -397,7 +399,12 @@ alertSchema.methods.checkConditions = function (data) {
   let candleConditionMet = true; // Default to true if no condition set
   let triggeredTimeframes = []; // Track which timeframes triggered
 
-  if (this.candleCondition !== "NONE" && candle && this.candleTimeframes && this.candleTimeframes.length > 0) {
+  if (
+    this.candleCondition !== "NONE" &&
+    candle &&
+    this.candleTimeframes &&
+    this.candleTimeframes.length > 0
+  ) {
     candleConditionMet = false; // Start with false, set to true if any timeframe meets condition
 
     // Check each selected timeframe
@@ -437,7 +444,8 @@ alertSchema.methods.checkConditions = function (data) {
 
         case "BEARISH_HAMMER":
             // Small body at bottom, long upper wick, short lower wick, bearish
-            timeframeConditionMet = upperWick > bodySize * 2 && lowerWick < bodySize && close < open;
+            timeframeConditionMet =
+              upperWick > bodySize * 2 && lowerWick < bodySize && close < open;
             break;
 
           case "HAMMER":
@@ -487,7 +495,7 @@ alertSchema.methods.checkConditions = function (data) {
             this.candleAlertStates.set(timeframe, {
               triggered: true,
               lastTriggeredCandle: candleKey,
-              lastChecked: new Date()
+              lastChecked: new Date(),
             });
           } else {
             console.log(`⏳ Candle alert already triggered for ${this.symbol} ${timeframe} candle: ${candleKey}`);
@@ -637,7 +645,10 @@ alertSchema.methods.markNotificationSent = function (type, error = null) {
 };
 
 // Method to reset candle alert states for new candles
-alertSchema.methods.resetCandleAlertStates = function (timeframe, newCandleOpenTime) {
+alertSchema.methods.resetCandleAlertStates = function (
+  timeframe,
+  newCandleOpenTime
+) {
   if (!this.candleAlertStates) {
     this.candleAlertStates = new Map();
   }
@@ -650,13 +661,15 @@ alertSchema.methods.resetCandleAlertStates = function (timeframe, newCandleOpenT
   console.log(`   Previous alert state:`, alertState);
   
   if (alertState && alertState.lastTriggeredCandle) {
+    const currentCandleKey = `${timeframe}_${newCandleOpenTime}`;
+
     // If this is a new candle, reset the triggered state
     if (alertState.lastTriggeredCandle !== currentCandleKey) {
       console.log(`   ✅ New candle detected! Resetting alert state for ${timeframe}`);
       this.candleAlertStates.set(timeframe, {
         triggered: false,
         lastTriggeredCandle: null,
-        lastChecked: new Date()
+        lastChecked: new Date(),
       });
     } else {
       console.log(`   ⏳ Same candle, keeping alert state`);
@@ -673,7 +686,10 @@ alertSchema.methods.resetCandleAlertStates = function (timeframe, newCandleOpenT
 };
 
 // Method to check if candle alert was already triggered for current candle
-alertSchema.methods.wasCandleAlertTriggered = function (timeframe, candleOpenTime) {
+alertSchema.methods.wasCandleAlertTriggered = function (
+  timeframe,
+  candleOpenTime
+) {
   if (!this.candleAlertStates) {
     return false;
   }

@@ -21,7 +21,6 @@ import MarketPanel from "./MarketPanel";
 import FilterSidebar from "./FilterSidebar";
 import CoinPriceHeader from "./CoinPriceHeader";
 import TriggeredAlertsPanel from "./TriggeredAlertsPanel";
-import LatestAlertDisplay from "./LatestAlertDisplay";
 import { useAlert } from "../context/AlertContext";
 import { useSelectedPair } from "../context/SelectedPairContext";
 import io from "socket.io-client";
@@ -258,9 +257,6 @@ const Dashboard = ({ children }) => {
         gap: 0.2,
       }}
     >
-      {/* Latest Alert Display - Shows latest recent alert with chart at the top */}
-      <LatestAlertDisplay />
-
       {/* Coin Price Header - Shows detailed coin price info */}
       {selectedCoin && <CoinPriceHeader symbol={selectedCoin} />}
 

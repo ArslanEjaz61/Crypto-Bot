@@ -10,6 +10,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { createChart, LineSeries } from "lightweight-charts";
+import { format } from "date-fns";
 
 // Available timeframes
 const TIMEFRAMES = [
@@ -30,7 +31,6 @@ const LineChart = ({
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isTablet = useMediaQuery(theme.breakpoints.down("lg"));
 
   const containerRef = useRef(null);
   const chartRef = useRef(null);
@@ -38,10 +38,61 @@ const LineChart = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedTimeframe, setSelectedTimeframe] = useState(propTimeframe);
+  const [latestAlert, setLatestAlert] = useState(null);
 
   // Get the current timeframe config
   const currentTimeframeConfig =
     TIMEFRAMES.find((tf) => tf.value === selectedTimeframe) || TIMEFRAMES[4]; // Default to 1h
+
+  // Fetch latest alert and set up real-time updates
+  useEffect(() => {
+    const fetchLatestAlert = async () => {
+      try {
+        const API_URL =
+          process.env.REACT_APP_API_URL || "http://localhost:5000";
+        const response = await fetch(
+          `${API_URL}/api/triggered-alerts?limit=1&sort=createdAt&order=desc`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.triggeredAlerts && data.triggeredAlerts.length > 0) {
+            setLatestAlert(data.triggeredAlerts[0]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching latest alert:", error);
+      }
+    };
+
+    fetchLatestAlert();
+
+    // Set up Socket.IO connection for real-time updates
+    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+    const io = require("socket.io-client");
+    const socket = io(API_URL);
+
+    // Listen for new triggered alerts
+    socket.on("triggered-alert-created", (data) => {
+      console.log("📡 Chart received new triggered alert via socket:", data);
+      setLatestAlert(data.triggeredAlert);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  // Helper function to format numbers
+  const formatNumber = (num) => {
+    if (num >= 1e9) {
+      return (num / 1e9).toFixed(1) + "B";
+    } else if (num >= 1e6) {
+      return (num / 1e6).toFixed(1) + "M";
+    } else if (num >= 1e3) {
+      return (num / 1e3).toFixed(1) + "K";
+    }
+    return num.toFixed(0);
+  };
 
   // Use a key to force remounting when symbol/timeframe changes
   const chartKey = `${symbol || "none"}-${selectedTimeframe}`;
@@ -218,19 +269,6 @@ const LineChart = ({
           const day = String(dateObj.getDate()).padStart(2, "0");
           const timeString = `${year}-${month}-${day}`;
 
-          // Store additional time info for debugging but don't use in the chart
-          let debugTimeInfo = "";
-          if (["1m", "5m", "15m", "30m"].includes(selectedTimeframe)) {
-            // For minute-based timeframes
-            const hours = String(dateObj.getHours()).padStart(2, "0");
-            const minutes = String(dateObj.getMinutes()).padStart(2, "0");
-            debugTimeInfo = `${hours}:${minutes}`;
-          } else if (["1h", "4h"].includes(selectedTimeframe)) {
-            // For hour-based timeframes
-            const hours = String(dateObj.getHours()).padStart(2, "0");
-            debugTimeInfo = `${hours}:00`;
-          }
-
           return {
             time: timeString,
             value: Number(item.close),
@@ -305,33 +343,187 @@ const LineChart = ({
         borderRadius: 2,
       }}
     >
+      {/* Top Section - Pair Name, Alert Details, Volume, Price, Time, Date */}
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: { xs: "flex-start", sm: "center" },
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: { xs: 1, sm: 2 },
           mb: 2,
-          flexDirection: { xs: "column", sm: "row" },
-          gap: { xs: 1, sm: 0 },
+          p: 2,
+          bgcolor: "#0A0E17",
+          borderRadius: 1,
+          color: "white",
         }}
       >
+        {/* Pair Name */}
         <Typography
-          variant={isMobile ? "subtitle1" : "h6"}
+          variant="h6"
           sx={{
+            fontWeight: "bold",
+            color: "#E2E8F0",
             fontSize: { xs: "1rem", sm: "1.25rem" },
-            fontWeight: 600,
           }}
         >
-          {symbol ? `${symbol} Line Chart` : "Select a coin to view chart"}
+          {symbol || "Select a coin"}
         </Typography>
 
-        {symbol && (
+        {/* Separator */}
+        <Typography sx={{ color: "#6B7280" }}>|</Typography>
+
+        {/* Alert Details */}
+        {latestAlert && (
+          <>
+            <Typography variant="body2" sx={{ color: "#94A3B8" }}>
+              {latestAlert.conditionDetails?.description ||
+                latestAlert.conditionMet ||
+                "Alert triggered"}
+              {latestAlert.changePercentTimeframe && (
+                <span style={{ marginLeft: "8px", color: "#60A5FA" }}>
+                  | Timeframe: {latestAlert.changePercentTimeframe}
+                </span>
+              )}
+            </Typography>
+
+            {/* Separator */}
+            <Typography sx={{ color: "#6B7280" }}>|</Typography>
+          </>
+        )}
+
+        {/* Alert Details - Target, Actual, Timeframe */}
+        {latestAlert && latestAlert.conditionDetails && (
+          <>
+            <Box>
+              <Typography
+                variant="caption"
+                sx={{ color: "#94A3B8", display: "block" }}
+              >
+                Alert Details
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: "#E2E8F0", fontWeight: "bold" }}
+              >
+                Target: {latestAlert.conditionDetails.targetValue} | Actual:{" "}
+                {latestAlert.conditionDetails.actualValue}
+                {latestAlert.conditionDetails.timeframe &&
+                  ` | Timeframe: ${latestAlert.conditionDetails.timeframe}`}
+              </Typography>
+            </Box>
+
+            {/* Separator */}
+            <Typography sx={{ color: "#6B7280" }}>|</Typography>
+          </>
+        )}
+
+        {/* Volume */}
+        {latestAlert && (
+          <>
+            <Box>
+              <Typography
+                variant="caption"
+                sx={{ color: "#94A3B8", display: "block" }}
+              >
+                Volume (24h)
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: "#E2E8F0", fontWeight: "bold" }}
+              >
+                ${formatNumber(latestAlert.marketData?.volume || 0)}
+              </Typography>
+            </Box>
+
+            {/* Separator */}
+            <Typography sx={{ color: "#6B7280" }}>|</Typography>
+          </>
+        )}
+
+        {/* Last Price */}
+        {latestAlert && (
+          <>
+            <Box>
+              <Typography
+                variant="caption"
+                sx={{ color: "#94A3B8", display: "block" }}
+              >
+                Last Price
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: "#E2E8F0", fontWeight: "bold" }}
+              >
+                $
+                {latestAlert.marketData?.price
+                  ? latestAlert.marketData.price.toFixed(4)
+                  : latestAlert.conditionDetails?.actualValue
+                  ? parseFloat(
+                      latestAlert.conditionDetails.actualValue
+                    ).toFixed(4)
+                  : "0.0000"}
+              </Typography>
+            </Box>
+
+            {/* Separator */}
+            <Typography sx={{ color: "#6B7280" }}>|</Typography>
+          </>
+        )}
+
+        {/* Time */}
+        {latestAlert && (
+          <>
+            <Box>
+              <Typography
+                variant="caption"
+                sx={{ color: "#94A3B8", display: "block" }}
+              >
+                Time
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: "#E2E8F0", fontWeight: "bold" }}
+              >
+                {format(new Date(latestAlert.triggeredAt), "HH:mm:ss")}
+              </Typography>
+            </Box>
+
+            {/* Separator */}
+            <Typography sx={{ color: "#6B7280" }}>|</Typography>
+          </>
+        )}
+
+        {/* Date */}
+        {latestAlert && (
+          <Box>
+            <Typography
+              variant="caption"
+              sx={{ color: "#94A3B8", display: "block" }}
+            >
+              Date
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "#E2E8F0", fontWeight: "bold" }}
+            >
+              {format(new Date(latestAlert.triggeredAt), "MMM dd, yyyy")}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+
+      {/* Timeframe Buttons */}
+      {symbol && (
+        <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
           <ButtonGroup
             size="small"
             aria-label="timeframe selection"
             sx={{
-              flexWrap: { xs: "wrap", sm: "nowrap" },
-              gap: { xs: 0.5, sm: 0 },
+              "& .MuiButton-root": {
+                minWidth: "50px",
+                fontSize: "0.75rem",
+                py: 0.5,
+              },
             }}
           >
             {TIMEFRAMES.map((tf) => (
@@ -341,20 +533,15 @@ const LineChart = ({
                 variant={
                   selectedTimeframe === tf.value ? "contained" : "outlined"
                 }
-                sx={{
-                  px: { xs: 0.5, sm: 1 },
-                  minWidth: { xs: "32px", sm: "40px" },
-                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                  py: { xs: 0.25, sm: 0.5 },
-                }}
               >
                 {tf.label}
               </Button>
             ))}
           </ButtonGroup>
-        )}
-      </Box>
+        </Box>
+      )}
 
+      {/* Chart */}
       <Box
         ref={containerRef}
         sx={{

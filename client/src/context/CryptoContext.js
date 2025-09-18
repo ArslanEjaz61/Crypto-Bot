@@ -519,6 +519,7 @@ export const CryptoProvider = ({ children }) => {
   useEffect(() => {
     const favoritesArray = Array.from(favoritesMap.keys());
     localStorage.setItem("crypto_favorites", JSON.stringify(favoritesArray));
+    console.log("Saved favorites to localStorage:", favoritesArray);
   }, [favoritesMap]);
 
   // Sync favoritesMap with cryptos data
@@ -561,8 +562,20 @@ export const CryptoProvider = ({ children }) => {
           const newMap = new Map(prev);
           if (newStatus) {
             newMap.set(symbol, true);
+            console.log(`Added ${symbol} to favoritesMap`);
           } else {
             newMap.delete(symbol);
+            console.log(`Removed ${symbol} from favoritesMap`);
+            // Immediately update localStorage to ensure it's removed
+            const currentFavorites = Array.from(newMap.keys());
+            localStorage.setItem(
+              "crypto_favorites",
+              JSON.stringify(currentFavorites)
+            );
+            console.log(
+              `Immediately updated localStorage after removing ${symbol}:`,
+              currentFavorites
+            );
           }
           return newMap;
         });
@@ -806,6 +819,9 @@ export const CryptoProvider = ({ children }) => {
 
       // Optimistic update - clear all favorites immediately
       setFavoritesMap(new Map());
+      // Immediately clear localStorage
+      localStorage.setItem("crypto_favorites", JSON.stringify([]));
+      console.log("Cleared all favorites from favoritesMap and localStorage");
 
       // Mark all as pending operations
       setPendingOperations(new Set(favoriteSymbols));
