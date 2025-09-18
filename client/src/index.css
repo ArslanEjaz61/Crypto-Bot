@@ -2,6 +2,10 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: 80%; /* Global scaling reduction of 20% for more compact UI */
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -65,4 +69,79 @@ html, body {
 * {
   scrollbar-width: auto;
   scrollbar-color: #4f80ff #1a1a1a;
+}
+
+/* Additional compact styling for better space utilization */
+.MuiButton-root {
+  min-height: 28px !important; /* Further reduced from 32px */
+  padding: 4px 12px !important; /* Reduced padding */
+}
+
+.MuiPaper-root {
+  border-radius: 4px !important; /* Smaller border radius */
+}
+
+.MuiTypography-h6 {
+  font-size: 0.9rem !important; /* Further reduced from 1rem */
+}
+
+.MuiTypography-body1 {
+  font-size: 0.8rem !important; /* Further reduced from 0.875rem */
+}
+
+.MuiTypography-body2 {
+  font-size: 0.7rem !important; /* Further reduced from 0.75rem */
+}
+
+/* Additional compact styling for cards and containers */
+.MuiCard-root {
+  padding: 8px !important; /* Reduced card padding */
+}
+
+.MuiBox-root {
+  gap: 4px !important; /* Reduced gap between elements */
+}
+
+/* Compact table styling */
+.MuiTableRow-root {
+  height: 36px !important; /* Reduced row height */
+}
+
+.MuiTableCell-root {
+  padding: 6px 8px !important; /* Reduced cell padding */
+}
+
+/* Compact icon sizing */
+.MuiSvgIcon-root {
+  font-size: 1.1rem !important; /* Slightly smaller icons */
+}
+
+/* Compact chart and data visualization */
+.recharts-wrapper {
+  font-size: 0.8rem !important; /* Smaller chart text */
+}
+
+.recharts-cartesian-axis-tick-value {
+  font-size: 0.7rem !important; /* Smaller axis labels */
+}
+
+/* Compact list and alert styling */
+.MuiListItem-root {
+  min-height: 32px !important; /* Reduced list item height */
+  padding: 4px 8px !important; /* Reduced list item padding */
+}
+
+.MuiAlert-root {
+  padding: 6px 8px !important; /* Reduced alert padding */
+  margin: 2px 0 !important; /* Reduced alert margins */
+}
+
+/* Compact form controls */
+.MuiTextField-root {
+  margin: 4px 0 !important; /* Reduced form field margins */
+}
+
+.MuiInputBase-root {
+  font-size: 0.8rem !important; /* Smaller input text */
+  padding: 6px 8px !important; /* Reduced input padding */
 }

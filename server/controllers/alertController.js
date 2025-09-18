@@ -90,6 +90,8 @@ const createAlert = async (req, res) => {
       alertTime,
       comment: comment || `Auto-created alert for ${symbol}`,
       email: email || " kainat.tasadaq3@gmail.com",
+      // CRITICAL: Mark this alert as explicitly created by user action
+      userExplicitlyCreated: true,
       // Default market filters
       market: market || "ALL",
       exchange: exchange || "ALL",
@@ -104,6 +106,8 @@ const createAlert = async (req, res) => {
           : 1,
       // Default alert count settings
       alertCountTimeframe: req.body.alertCountTimeframe || "5MIN",
+      alertCountEnabled: Boolean(req.body.alertCountEnabled),
+      maxAlertsPerTimeframe: Number(req.body.maxAlertsPerTimeframe) || 1,
     };
 
     // Only add candle conditions if explicitly enabled

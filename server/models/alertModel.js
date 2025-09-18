@@ -160,6 +160,25 @@ const alertSchema = mongoose.Schema(
       enum: ["5MIN", "15MIN", "1HR", "4HR", "12HR", "D"],
       default: "5MIN",
     },
+    alertCountEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    maxAlertsPerTimeframe: {
+      type: Number,
+      default: 1, // Maximum alerts allowed per timeframe candle
+    },
+
+    // Per-timeframe alert counter tracking
+    timeframeAlertCounters: {
+      type: Map,
+      of: {
+        count: { type: Number, default: 0 },
+        lastCandleOpenTime: { type: String }, // Store the openTime of the last candle
+        lastResetTime: { type: Date, default: Date.now }
+      },
+      default: new Map()
+    },
 
     // Basic alert settings
     alertTime: {
@@ -169,6 +188,10 @@ const alertSchema = mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    userExplicitlyCreated: {
+      type: Boolean,
+      default: false, // CRITICAL: Only alerts with this flag set to true will be processed
     },
     lastTriggered: {
       type: Date,
@@ -670,6 +693,104 @@ alertSchema.methods.wasCandleAlertTriggered = function (timeframe, candleOpenTim
   console.log(`   Was triggered: ${wasTriggered}`);
   
   return wasTriggered;
+};
+
+// Method to check if alert count limit is reached for a timeframe
+alertSchema.methods.isAlertCountLimitReached = function (timeframe, candleOpenTime) {
+  if (!this.alertCountEnabled || !this.alertCountTimeframe) {
+    return false; // No limit if alert count is not enabled
+  }
+
+  // Only check limit for the configured alert count timeframe
+  if (timeframe !== this.alertCountTimeframe) {
+    return false;
+  }
+
+  if (!this.timeframeAlertCounters) {
+    this.timeframeAlertCounters = new Map();
+  }
+
+  const counter = this.timeframeAlertCounters.get(timeframe);
+  if (!counter) {
+    return false; // No counter means no alerts sent yet
+  }
+
+  // Check if this is a new candle (different open time)
+  const isNewCandle = counter.lastCandleOpenTime !== candleOpenTime;
+  
+  console.log(`🔍 Checking alert count limit for ${this.symbol} ${timeframe}:`);
+  console.log(`   Current candle open time: ${candleOpenTime}`);
+  console.log(`   Last candle open time: ${counter.lastCandleOpenTime}`);
+  console.log(`   Current count: ${counter.count}`);
+  console.log(`   Max allowed: ${this.maxAlertsPerTimeframe}`);
+  console.log(`   Is new candle: ${isNewCandle}`);
+
+  // If it's a new candle, reset the counter
+  if (isNewCandle) {
+    console.log(`   ✅ New candle detected! Resetting counter for ${timeframe}`);
+    this.timeframeAlertCounters.set(timeframe, {
+      count: 0,
+      lastCandleOpenTime: candleOpenTime,
+      lastResetTime: new Date()
+    });
+    return false; // Counter reset, can send alert
+  }
+
+  // Check if limit is reached
+  const limitReached = counter.count >= this.maxAlertsPerTimeframe;
+  console.log(`   Limit reached: ${limitReached}`);
+  
+  return limitReached;
+};
+
+// Method to increment alert count for a timeframe
+alertSchema.methods.incrementAlertCount = function (timeframe, candleOpenTime) {
+  if (!this.alertCountEnabled || !this.alertCountTimeframe) {
+    return; // No counting if alert count is not enabled
+  }
+
+  // Only count for the configured alert count timeframe
+  if (timeframe !== this.alertCountTimeframe) {
+    return;
+  }
+
+  if (!this.timeframeAlertCounters) {
+    this.timeframeAlertCounters = new Map();
+  }
+
+  const counter = this.timeframeAlertCounters.get(timeframe);
+  
+  // Check if this is a new candle (different open time)
+  const isNewCandle = !counter || counter.lastCandleOpenTime !== candleOpenTime;
+  
+  if (isNewCandle) {
+    // New candle, reset counter and increment
+    this.timeframeAlertCounters.set(timeframe, {
+      count: 1,
+      lastCandleOpenTime: candleOpenTime,
+      lastResetTime: new Date()
+    });
+    console.log(`🔄 New candle detected! Reset and incremented counter for ${this.symbol} ${timeframe}: 1`);
+  } else {
+    // Same candle, just increment
+    const newCount = (counter.count || 0) + 1;
+    this.timeframeAlertCounters.set(timeframe, {
+      count: newCount,
+      lastCandleOpenTime: candleOpenTime,
+      lastResetTime: counter.lastResetTime
+    });
+    console.log(`📈 Incremented alert count for ${this.symbol} ${timeframe}: ${newCount}`);
+  }
+};
+
+// Method to get current alert count for a timeframe
+alertSchema.methods.getAlertCount = function (timeframe) {
+  if (!this.timeframeAlertCounters) {
+    return 0;
+  }
+
+  const counter = this.timeframeAlertCounters.get(timeframe);
+  return counter ? counter.count : 0;
 };
 
 const Alert = mongoose.model("Alert", alertSchema);

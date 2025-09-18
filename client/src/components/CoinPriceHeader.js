@@ -59,7 +59,7 @@ const CoinPriceHeader = ({ symbol }) => {
       sx={{
         bgcolor: "#0A0E17",
         color: "white",
-        p: 2,
+        p: 1,
         mb: 0,
         borderRadius: 0,
         border: "none",
@@ -75,14 +75,14 @@ const CoinPriceHeader = ({ symbol }) => {
           variant="h6"
           fontWeight="600"
           component="div"
-          sx={{ fontSize: "1.1rem" }}
+          sx={{ fontSize: "1rem" }}
         >
           {getDisplaySymbol()}/USDT
         </Typography>
         <Typography
           variant="body2"
           color="#94A3B8"
-          sx={{ fontSize: "0.75rem", mt: 0.5 }}
+          sx={{ fontSize: "0.7rem", mt: 0.25 }}
         >
           {getCoinName()} to USD Tether
         </Typography>
@@ -93,7 +93,7 @@ const CoinPriceHeader = ({ symbol }) => {
           variant="h6"
           fontWeight="600"
           component="div"
-          sx={{ fontSize: "1.2rem" }}
+          sx={{ fontSize: "1.1rem" }}
         >
           {formatPrice(crypto.price)}
         </Typography>
@@ -103,7 +103,7 @@ const CoinPriceHeader = ({ symbol }) => {
             display: "flex",
             alignItems: "center",
             justifyContent: "flex-end",
-            mt: 0.5,
+            mt: 0.25,
           }}
         >
           <Box

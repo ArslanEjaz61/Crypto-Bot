@@ -8,6 +8,52 @@ const axios = require('axios');
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
 
 /**
+ * Get the current candle's open time based on timeframe
+ * @param {string} timeframe - Timeframe (5MIN, 15MIN, 1HR, etc.)
+ * @returns {string} Candle open time as ISO string
+ */
+function getCurrentCandleOpenTime(timeframe) {
+  const now = new Date();
+  let candleOpenTime;
+  
+  switch (timeframe) {
+    case '5MIN':
+      // Round down to nearest 5-minute interval
+      const minutes5 = Math.floor(now.getMinutes() / 5) * 5;
+      candleOpenTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), minutes5, 0, 0);
+      break;
+    case '15MIN':
+      // Round down to nearest 15-minute interval
+      const minutes15 = Math.floor(now.getMinutes() / 15) * 15;
+      candleOpenTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), minutes15, 0, 0);
+      break;
+    case '1HR':
+      // Round down to nearest hour
+      candleOpenTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), 0, 0, 0);
+      break;
+    case '4HR':
+      // Round down to nearest 4-hour interval
+      const hours4 = Math.floor(now.getHours() / 4) * 4;
+      candleOpenTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours4, 0, 0, 0);
+      break;
+    case '12HR':
+      // Round down to nearest 12-hour interval
+      const hours12 = Math.floor(now.getHours() / 12) * 12;
+      candleOpenTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours12, 0, 0, 0);
+      break;
+    case 'D':
+      // Round down to start of day
+      candleOpenTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      break;
+    default:
+      // Default to current time for unknown timeframes
+      candleOpenTime = now;
+  }
+  
+  return candleOpenTime.toISOString();
+}
+
+/**
  * Fetch historical price data for percentage change calculations
  * @param {string} symbol - Trading pair symbol
  * @param {string} timeframe - Timeframe for historical data
@@ -287,26 +333,71 @@ const processAlerts = async () => {
     triggered: 0,
     notificationsSent: 0,
     errors: 0,
+    skipped: 0,
   };
 
   try {
     // Get all active alerts
     const activeAlerts = await Alert.find({ isActive: true });
-    stats.processed = activeAlerts.length;
     
     if (activeAlerts.length === 0) {
       console.log('No active alerts to process');
       return stats;
     }
 
-    console.log(`Processing ${activeAlerts.length} active alerts`);
+    console.log(`Found ${activeAlerts.length} active alerts`);
+
+    // CRITICAL: Only process alerts that were explicitly created by user action
+    // Filter out any alerts that don't have userExplicitlyCreated flag
+    const userCreatedAlerts = activeAlerts.filter(alert => {
+      const isUserCreated = alert.userExplicitlyCreated === true;
+      if (!isUserCreated) {
+        console.log(`🚫 SKIPPING BACKGROUND ALERT: ${alert.symbol} - Not explicitly created by user`);
+        stats.skipped++;
+      }
+      return isUserCreated;
+    });
+
+    if (userCreatedAlerts.length === 0) {
+      console.log('🚫 No user-created alerts to process - background alerts disabled');
+      return stats;
+    }
+
+    console.log(`✅ Processing ${userCreatedAlerts.length} user-created alerts (skipped ${stats.skipped} background alerts)`);
+
+    // Get all favorite pairs from the database
+    const favoriteCryptos = await Crypto.find({ isFavorite: true });
+    const favoriteSymbols = favoriteCryptos.map(crypto => crypto.symbol);
     
-    // Get unique symbols that have active alerts
-    const alertSymbols = [...new Set(activeAlerts.map(alert => alert.symbol))];
-    console.log(`Alert processing for symbols:`, alertSymbols);
+    console.log(`🔍 FAVORITES FILTER: Found ${favoriteSymbols.length} favorite pairs:`, favoriteSymbols);
     
-    // Process each alert
-    for (const alert of activeAlerts) {
+    // Filter user-created alerts to only process those for favorite pairs
+    const favoriteAlerts = userCreatedAlerts.filter(alert => {
+      const isFavorite = favoriteSymbols.includes(alert.symbol);
+      if (!isFavorite) {
+        console.log(`⏭️ SKIPPING NON-FAV PAIR: ${alert.symbol} - NOT in favorites`);
+        stats.skipped++;
+      } else {
+        console.log(`✅ PROCESSING FAV PAIR: ${alert.symbol} - IS in favorites`);
+      }
+      return isFavorite;
+    });
+    
+    stats.processed = favoriteAlerts.length;
+    
+    if (favoriteAlerts.length === 0) {
+      console.log('🚫 No user-created alerts for favorite pairs to process');
+      return stats;
+    }
+
+    console.log(`✅ Processing ${favoriteAlerts.length} user-created alerts for favorite pairs (skipped ${stats.skipped} non-favorite alerts)`);
+    
+    // Get unique symbols that have active alerts for favorites
+    const alertSymbols = [...new Set(favoriteAlerts.map(alert => alert.symbol))];
+    console.log(`Alert processing for favorite symbols:`, alertSymbols);
+    
+    // Process each alert (only for favorite pairs)
+    for (const alert of favoriteAlerts) {
       try {
         // Get current crypto data for this alert
         const crypto = await Crypto.findOne({ symbol: alert.symbol });
@@ -354,85 +445,133 @@ const processAlerts = async () => {
         const shouldTrigger = alert.shouldTrigger(data);
         
         if (shouldTrigger) {
-          stats.triggered++;
+          // Check if alert count limit is reached for the alert count timeframe
+          let canSendAlert = true;
+          let alertCountTimeframe = null;
+          let candleOpenTime = null;
           
-          // Create web notification for the triggered alert
-          try {
-            await Notification.createFromAlert(alert, data);
-            console.log(`Web notification created for ${alert.symbol}`);
+          if (alert.alertCountEnabled && alert.alertCountTimeframe) {
+            alertCountTimeframe = alert.alertCountTimeframe;
             
-            // Emit real-time notification via Socket.IO
-            const io = req?.app?.get('io');
-            if (io) {
-              io.emit('new-notification', {
-                symbol: alert.symbol,
-                message: `${alert.symbol} alert triggered`,
-                timestamp: new Date(),
-                type: 'ALERT_TRIGGERED'
-              });
-            }
-          } catch (webNotificationError) {
-            console.error(`Error creating web notification for ${alert._id}:`, webNotificationError);
-            // Don't increment errors as this shouldn't block other notifications
-          }
-          
-          // If alert conditions are met and notification hasn't been sent yet
-          const telegramStatus = alert.notificationStatus?.telegram;
-          const emailStatus = alert.notificationStatus?.email;
-          
-          // Send Email notification (primary notification like before)
-          if (!emailStatus || !emailStatus.sent) {
-            try {
-              await sendAlertEmail(alert.email, alert, {
-                price: crypto.price,
-                volume24h: crypto.volume24h,
-                priceChangePercent24h: crypto.priceChangePercent24h
-              }, {
-                candle: candleData,
-                rsi: rsiData,
-                ema: emaData
-              });
+            // Get candle open time for the alert count timeframe
+            // We need to fetch the current candle data for the alert count timeframe
+            const alertCountCandleData = await fetchCandleData(alert.symbol, alertCountTimeframe);
+            if (alertCountCandleData && alertCountCandleData[alertCountTimeframe]) {
+              // Calculate the current candle's open time based on timeframe
+              candleOpenTime = getCurrentCandleOpenTime(alertCountTimeframe);
               
-              // Update notification status
-              alert.markNotificationSent('email');
-              await alert.save();
-              
-              stats.notificationsSent++;
-              console.log(`📧 Email alert notification sent to ${alert.email} for ${alert.symbol}`);
-            } catch (emailError) {
-              stats.errors++;
-              console.error(`Error sending email alert notification for ${alert._id}:`, emailError);
-              
-              // Mark failed attempt
-              alert.markNotificationSent('email', emailError);
-              await alert.save();
+              // Check if alert count limit is reached
+              const limitReached = alert.isAlertCountLimitReached(alertCountTimeframe, candleOpenTime);
+              if (limitReached) {
+                console.log(`🚫 Alert count limit reached for ${alert.symbol} ${alertCountTimeframe}. Skipping alert.`);
+                canSendAlert = false;
+              }
             }
           }
           
-          // Send Telegram notification (secondary notification)
-          if (!telegramStatus || !telegramStatus.sent) {
+          if (canSendAlert) {
+            stats.triggered++;
+            
+            // ==========================================
+            // CRITICAL DEBUG LOGGING FOR ALERT TRIGGERS
+            // ==========================================
+            console.log("🚨 === ALERT TRIGGERED ===");
+            console.log("🚨 PAIR + CONDITION MET:", alert.symbol);
+            console.log("🚨 Alert ID:", alert._id);
+            console.log("🚨 Conditions met:", {
+              changePercent: alert.changePercentValue,
+              rsi: alert.rsiEnabled ? `${alert.rsiCondition} ${alert.rsiLevel}` : 'disabled',
+              ema: alert.emaEnabled ? `${alert.emaCondition}` : 'disabled',
+              candle: alert.candleCondition !== 'NONE' ? alert.candleCondition : 'disabled'
+            });
+            console.log("🚨 Current price:", crypto.price);
+            console.log("🚨 Base price:", alert.basePrice);
+            console.log("🚨 Timestamp:", new Date().toISOString());
+            
+            // Increment alert count if alert count is enabled
+            if (alert.alertCountEnabled && alertCountTimeframe && candleOpenTime) {
+              alert.incrementAlertCount(alertCountTimeframe, candleOpenTime);
+              console.log(`📊 Alert count incremented for ${alert.symbol} ${alertCountTimeframe}`);
+            }
+            
+            // Create web notification for the triggered alert
             try {
-              const success = await sendAlertNotification(alert, data);
+              await Notification.createFromAlert(alert, data);
+              console.log(`Web notification created for ${alert.symbol}`);
               
-              if (success) {
+              // Emit real-time notification via Socket.IO
+              const io = req?.app?.get('io');
+              if (io) {
+                io.emit('new-notification', {
+                  symbol: alert.symbol,
+                  message: `${alert.symbol} alert triggered`,
+                  timestamp: new Date(),
+                  type: 'ALERT_TRIGGERED'
+                });
+              }
+            } catch (webNotificationError) {
+              console.error(`Error creating web notification for ${alert._id}:`, webNotificationError);
+              // Don't increment errors as this shouldn't block other notifications
+            }
+            
+            // If alert conditions are met and notification hasn't been sent yet
+            const telegramStatus = alert.notificationStatus?.telegram;
+            const emailStatus = alert.notificationStatus?.email;
+            
+            // Send Email notification (primary notification like before)
+            if (!emailStatus || !emailStatus.sent) {
+              try {
+                await sendAlertEmail(alert.email, alert, {
+                  price: crypto.price,
+                  volume24h: crypto.volume24h,
+                  priceChangePercent24h: crypto.priceChangePercent24h
+                }, {
+                  candle: candleData,
+                  rsi: rsiData,
+                  ema: emaData
+                });
+                
                 // Update notification status
-                alert.markNotificationSent('telegram');
+                alert.markNotificationSent('email');
                 await alert.save();
                 
-                console.log(`📱 Telegram alert notification sent for ${alert.symbol}`);
-              } else {
-                console.error(`Failed to send Telegram notification for ${alert._id}`);
+                stats.notificationsSent++;
+                console.log(`📧 Email alert notification sent to ${alert.email} for ${alert.symbol}`);
+              } catch (emailError) {
+                stats.errors++;
+                console.error(`Error sending email alert notification for ${alert._id}:`, emailError);
                 
                 // Mark failed attempt
-                alert.markNotificationSent('telegram', new Error('Telegram send failed'));
+                alert.markNotificationSent('email', emailError);
                 await alert.save();
               }
-            } catch (telegramError) {
-              console.error(`Error sending Telegram alert notification for ${alert._id}:`, telegramError);
-              
-              // Mark failed attempt
-              alert.markNotificationSent('telegram', telegramError);
-              await alert.save();
+            }
+            
+            // Send Telegram notification (secondary notification)
+            if (!telegramStatus || !telegramStatus.sent) {
+              try {
+                const success = await sendAlertNotification(alert, data);
+                
+                if (success) {
+                  // Update notification status
+                  alert.markNotificationSent('telegram');
+                  await alert.save();
+                  
+                  console.log(`📱 Telegram alert notification sent for ${alert.symbol}`);
+                } else {
+                  console.error(`Failed to send Telegram notification for ${alert._id}`);
+                  
+                  // Mark failed attempt
+                  alert.markNotificationSent('telegram', new Error('Telegram send failed'));
+                  await alert.save();
+                }
+              } catch (telegramError) {
+                console.error(`Error sending Telegram alert notification for ${alert._id}:`, telegramError);
+                
+                // Mark failed attempt
+                alert.markNotificationSent('telegram', telegramError);
+                await alert.save();
+              }
             }
           }
         }

@@ -439,15 +439,28 @@ const FilterSidebar = memo(
     // Memoized create alert function - now supports multiple pairs and favorites
     const handleCreateAlert = useCallback(
       async (symbolOverride = null) => {
-        // Debug selectedSymbol to understand its structure
-        console.log("=== FilterSidebar Alert Creation Debug ===");
-        console.log("selectedSymbol type:", typeof selectedSymbol);
-        console.log("selectedSymbol value:", selectedSymbol);
-        console.log("symbolOverride:", symbolOverride);
-        console.log(
-          "selectedSymbol JSON:",
-          JSON.stringify(selectedSymbol, null, 2)
-        );
+        // ==========================================
+        // CRITICAL DEBUG LOGGING FOR ALERT CREATION
+        // ==========================================
+        console.log("🚨 === CREATE ALERT CLICKED - DEBUG LOGGING ===");
+        console.log("🚨 Timestamp:", new Date().toISOString());
+        console.log("🚨 selectedSymbol type:", typeof selectedSymbol);
+        console.log("🚨 selectedSymbol value:", selectedSymbol);
+        console.log("🚨 symbolOverride:", symbolOverride);
+        console.log("🚨 selectedSymbol JSON:", JSON.stringify(selectedSymbol, null, 2));
+        
+        // Log current filter conditions
+        console.log("🚨 === CURRENT FILTER CONDITIONS ===");
+        console.log("🚨 Filters object:", JSON.stringify(filters, null, 2));
+        console.log("🚨 Percentage value:", percentageValue);
+        
+        // Get favorite pairs for validation
+        const favoritePairs = getFavoritePairsForAlerts(cryptos);
+        console.log("🚨 === FAVORITE PAIRS VALIDATION ===");
+        console.log("🚨 Favorite pairs count:", favoritePairs.length);
+        console.log("🚨 Favorite pairs list:", favoritePairs);
+        console.log("🚨 All cryptos count:", cryptos.length);
+        console.log("🚨 Cryptos with isFavorite=true:", cryptos.filter(c => c.isFavorite).map(c => c.symbol));
 
         // Deep debugging of selectedSymbol object structure
         if (selectedSymbol && typeof selectedSymbol === "object") {
@@ -576,41 +589,72 @@ const FilterSidebar = memo(
         let symbolsToProcess = [];
 
         // Check if we're in favorites context and should use favorite pairs
-        const favoritePairs = getFavoritePairsForAlerts(cryptos);
         console.log(
-          "DEBUG - favoritePairs from getFavoritePairsForAlerts:",
+          "🔍 FAVORITES DEBUG - favoritePairs from getFavoritePairsForAlerts:",
           favoritePairs
         );
-        console.log("DEBUG - favoritePairs.length:", favoritePairs.length);
+        console.log("🔍 FAVORITES DEBUG - favoritePairs.length:", favoritePairs.length);
+        console.log("🔍 FAVORITES DEBUG - All cryptos count:", cryptos.length);
+        console.log("🔍 FAVORITES DEBUG - Cryptos with isFavorite=true:", cryptos.filter(c => c.isFavorite).map(c => c.symbol));
 
         // Priority order: Selected pairs > Favorite pairs > Single symbol > Fallback
         if (selectedCount > 0) {
           // Use selected pairs from MarketPanel checkboxes
           symbolsToProcess = selectedPairs;
-          console.log("Creating alerts for selected pairs:", symbolsToProcess);
+          console.log("🎯 Creating alerts for SELECTED pairs:", symbolsToProcess);
         } else if (favoritePairs.length > 0) {
           // Use favorite pairs if no specific selection
           symbolsToProcess = favoritePairs;
-          console.log("Creating alerts for favorite pairs:", symbolsToProcess);
-          console.log(
-            "DEBUG - symbolsToProcess.length:",
-            symbolsToProcess.length
-          );
+          console.log("⭐ Creating alerts for FAVORITE pairs:", symbolsToProcess);
+          console.log("⭐ FAVORITES DEBUG - symbolsToProcess.length:", symbolsToProcess.length);
         } else if (symbolOverride) {
           // Single symbol override
           symbolsToProcess = [symbol];
-          console.log("Creating alert for single override symbol:", symbol);
+          console.log("🎯 Creating alert for single override symbol:", symbol);
         } else if (selectedSymbol) {
           // Use current selected symbol
           symbolsToProcess = [symbol];
-          console.log("Creating alert for current selected symbol:", symbol);
+          console.log("🎯 Creating alert for current selected symbol:", symbol);
         } else {
           // Fallback
           symbolsToProcess = ["BTCUSDT"];
-          console.log("Using fallback symbol");
+          console.log("⚠️ Using fallback symbol - no favorites or selections found");
         }
 
         console.log("Final symbols for alert creation:", symbolsToProcess);
+
+        // ==========================================
+        // CRITICAL VALIDATION: CHECK FAVORITE PAIRS AND CONDITIONS
+        // ==========================================
+        console.log("🚨 === VALIDATION CHECKS ===");
+        
+        // Check if we have favorite pairs
+        if (favoritePairs.length === 0) {
+          console.log("🚫 VALIDATION FAILED: No favorite pairs found");
+          setErrorMessage("❌ No favorite pairs found. Please add some pairs to favorites before creating alerts.");
+          return;
+        }
+        
+        // Check if we have active conditions
+        const hasActiveConditions = validateAlertForm().length === 0;
+        if (!hasActiveConditions) {
+          console.log("🚫 VALIDATION FAILED: No active conditions found");
+          setErrorMessage("❌ Please select at least one condition (Change %, RSI, EMA, or Candle) before creating alerts.");
+          return;
+        }
+        
+        // Check if symbols to process are in favorites
+        const nonFavoriteSymbols = symbolsToProcess.filter(symbol => !favoritePairs.includes(symbol));
+        if (nonFavoriteSymbols.length > 0) {
+          console.log("🚫 VALIDATION FAILED: Some symbols are not in favorites:", nonFavoriteSymbols);
+          setErrorMessage(`❌ The following symbols are not in your favorites: ${nonFavoriteSymbols.join(', ')}. Please add them to favorites first.`);
+          return;
+        }
+        
+        console.log("✅ VALIDATION PASSED: All checks successful");
+        console.log("✅ Favorite pairs available:", favoritePairs.length);
+        console.log("✅ Active conditions found:", hasActiveConditions);
+        console.log("✅ All symbols are in favorites");
 
         // Validate form before proceeding
         const validationErrors = validateAlertForm();
@@ -817,6 +861,7 @@ const FilterSidebar = memo(
                   ? String(alertCountTimeframe)
                   : null,
                 alertCountEnabled: Boolean(alertCountEnabled),
+                maxAlertsPerTimeframe: 1, // Default to 1 alert per timeframe candle
 
                 // Candle configuration - single timeframe like other conditions
                 candleTimeframes: candleTimeframe
@@ -891,11 +936,9 @@ const FilterSidebar = memo(
               });
 
               const created = await createAlert(alertData);
-              console.log(
-                "Alert created successfully for:",
-                cleanSymbol,
-                created
-              );
+              console.log("✅ ALERT CREATED SUCCESSFULLY:", cleanSymbol);
+              console.log("✅ Alert data:", JSON.stringify(alertData, null, 2));
+              console.log("✅ Created alert:", created);
 
               eventBus.emit("ALERT_CREATED", created);
               
@@ -1489,6 +1532,41 @@ const FilterSidebar = memo(
                   label="D"
                 />
               </Box>
+              
+              {/* Alert Count Info */}
+              {Object.keys(filters.alertCount || {}).some(key => filters.alertCount[key]) && (
+                <Box
+                  sx={{
+                    mt: 1,
+                    p: 1,
+                    bgcolor: "rgba(34, 197, 94, 0.1)",
+                    borderRadius: 1,
+                    border: "1px solid rgba(34, 197, 94, 0.2)",
+                  }}
+                >
+                  <DarkTypography
+                    variant="body2"
+                    sx={{ 
+                      fontSize: "12px", 
+                      color: "#22C55E",
+                      textAlign: "center"
+                    }}
+                  >
+                    🚨 Alert Count Enabled: Max 1 alert per candle
+                  </DarkTypography>
+                  <DarkTypography
+                    variant="body2"
+                    sx={{ 
+                      fontSize: "11px", 
+                      color: "rgba(255, 255, 255, 0.7)",
+                      textAlign: "center",
+                      mt: 0.5
+                    }}
+                  >
+                    Prevents spam alerts within the same candle timeframe
+                  </DarkTypography>
+                </Box>
+              )}
             </AccordionDetails>
           </DarkAccordion>
 

@@ -400,15 +400,39 @@ const checkAlerts = async (io) => {
     const currentDate = new Date();
 
     // Find all active alerts regardless of time
-    const alerts = await Alert.find({
+    const allAlerts = await Alert.find({
       isActive: true,
     });
 
-    if (alerts.length === 0) {
+    if (allAlerts.length === 0) {
       return; // No active alerts to check
     }
 
-    console.log(`Checking ${alerts.length} active alerts for price conditions`);
+    console.log(`Found ${allAlerts.length} active alerts`);
+
+    // Get all favorite pairs from the database
+    const favoriteCryptos = await Crypto.find({ isFavorite: true });
+    const favoriteSymbols = favoriteCryptos.map(crypto => crypto.symbol);
+    
+    console.log(`🔍 CRON FAVORITES FILTER: Found ${favoriteSymbols.length} favorite pairs:`, favoriteSymbols);
+    
+    // Filter alerts to only process those for favorite pairs
+    const alerts = allAlerts.filter(alert => {
+      const isFavorite = favoriteSymbols.includes(alert.symbol);
+      if (!isFavorite) {
+        console.log(`⏭️ CRON SKIPPING ${alert.symbol} - NOT in favorites`);
+      } else {
+        console.log(`✅ CRON PROCESSING ${alert.symbol} - IS in favorites`);
+      }
+      return isFavorite;
+    });
+
+    if (alerts.length === 0) {
+      console.log('No alerts for favorite pairs to check');
+      return;
+    }
+
+    console.log(`Checking ${alerts.length} alerts for favorite pairs (skipped ${allAlerts.length - alerts.length} non-favorite alerts)`);
 
     // Process each alert
     for (const alert of alerts) {

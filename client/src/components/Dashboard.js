@@ -222,7 +222,7 @@ const Dashboard = ({ children }) => {
     switch (currentMobileView) {
       case "filters":
         return (
-          <Box sx={{ p: 2, height: "100%", overflow: "auto" }}>
+          <Box sx={{ p: 0.4, height: "100%", overflow: "auto" }}>
             <FilterSidebar
               ref={filterSidebarRef}
               selectedSymbol={selectedCoin}
@@ -232,7 +232,7 @@ const Dashboard = ({ children }) => {
         );
       case "market":
         return (
-          <Box sx={{ p: 2, height: "100%", overflow: "auto" }}>
+          <Box sx={{ p: 0.4, height: "100%", overflow: "auto" }}>
             <MarketPanel
               onSelectCoin={handleCoinSelect}
               onCreateAlert={handleCreateAlertFromFavorite}
@@ -254,7 +254,8 @@ const Dashboard = ({ children }) => {
         display: "flex",
         flexDirection: "column",
         minHeight: "100vh",
-        p: { xs: 1, sm: 0.5 },
+        p: { xs: 0.2, sm: 0.1 },
+        gap: 0.2,
       }}
     >
       {/* Latest Alert Display - Shows latest recent alert with chart at the top */}
@@ -265,7 +266,7 @@ const Dashboard = ({ children }) => {
 
       {/* Show button to switch to last triggered symbol if different from current */}
       {lastTriggeredSymbol && lastTriggeredSymbol !== selectedCoin && (
-        <Box sx={{ mb: 1, textAlign: "center" }}>
+        <Box sx={{ mb: 0.2, textAlign: "center" }}>
           <Button
             variant="contained"
             size="small"
@@ -277,12 +278,14 @@ const Dashboard = ({ children }) => {
               bgcolor: "#22C55E",
               color: "white",
               "&:hover": { bgcolor: "#16A34A" },
-              fontSize: "0.75rem",
-              py: 0.5,
-              px: 2,
+              fontSize: "0.6rem",
+              py: 0.1,
+              px: 0.8,
+              minHeight: "20px",
+              borderRadius: 1,
             }}
           >
-            🔥 Show Last Triggered: {lastTriggeredSymbol}
+            🔥 {lastTriggeredSymbol}
           </Button>
         </Box>
       )}
@@ -309,30 +312,29 @@ const Dashboard = ({ children }) => {
           overflow: "auto",
           borderRadius: 1,
           bgcolor: "#0A0E17",
-          p: 1,
-          mt: 1,
+          p: 0.4,
+          mt: 0.2,
         }}
       >
         <Box
           sx={{
-            mb: 2,
-            p: 2,
+            mb: 0.4,
+            p: 0.4,
             bgcolor: "rgba(34, 197, 94, 0.1)",
-            borderRadius: 2,
+            borderRadius: 1,
             border: "1px solid rgba(34, 197, 94, 0.2)",
           }}
         >
-          <Typography variant="body2" sx={{ color: "#22C55E" }}>
-            📈 Triggered Alerts History - Only shows alerts that have been
-            activated
+          <Typography variant="body2" sx={{ color: "#22C55E", fontSize: "0.65rem" }}>
+            📈 Triggered Alerts History
           </Typography>
         </Box>
 
         {/* Triggered Alerts Panel - Only shows alerts that have been triggered */}
         <Box
           sx={{
-            mt: 1,
-            minHeight: { xs: "400px", sm: "350px" },
+            mt: 0.2,
+            minHeight: { xs: "200px", sm: "160px" },
             overflow: "auto",
           }}
         >
@@ -403,14 +405,14 @@ const Dashboard = ({ children }) => {
               minHeight: "100vh",
               display: { xs: "none", md: "block" },
               p: 0,
-              maxWidth: "25%",
-              flexBasis: "25%",
+              maxWidth: "23%",
+              flexBasis: "23%",
               boxSizing: "border-box",
             }}
           >
             <Paper
               sx={{
-                p: 1,
+                p: 0.2,
                 height: "100vh",
                 overflow: "auto",
                 bgcolor: "#0A0E17",
@@ -439,8 +441,8 @@ const Dashboard = ({ children }) => {
               display: "flex",
               flexDirection: "column",
               p: 0,
-              maxWidth: "50%",
-              flexBasis: "50%",
+              maxWidth: "54%",
+              flexBasis: "54%",
               boxSizing: "border-box",
             }}
           >
@@ -466,14 +468,14 @@ const Dashboard = ({ children }) => {
               minHeight: "100vh",
               display: { xs: "none", md: "block" },
               p: 0,
-              maxWidth: "25%",
-              flexBasis: "25%",
+              maxWidth: "23%",
+              flexBasis: "23%",
               boxSizing: "border-box",
             }}
           >
             <Paper
               sx={{
-                p: 1,
+                p: 0.2,
                 height: "100vh",
                 overflow: "auto",
                 bgcolor: "#0A0E17",
@@ -501,7 +503,7 @@ const Dashboard = ({ children }) => {
             minHeight: "100vh",
             display: "flex",
             flexDirection: "column",
-            pb: 7, // Space for bottom navigation
+            pb: 4, // Reduced space for bottom navigation
           }}
         >
           {/* Mobile Header with Menu Button */}
@@ -509,7 +511,7 @@ const Dashboard = ({ children }) => {
             sx={{
               display: "flex",
               alignItems: "center",
-              p: 1,
+              p: 0.4,
               bgcolor: "rgba(0, 0, 0, 0.2)",
               borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
             }}
@@ -520,7 +522,7 @@ const Dashboard = ({ children }) => {
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6" sx={{ color: "white", flexGrow: 1 }}>
+            <Typography variant="h6" sx={{ color: "white", flexGrow: 1, fontSize: "0.9rem" }}>
               {currentMobileView === "chart"
                 ? "Trading Dashboard"
                 : currentMobileView === "filters"
@@ -603,7 +605,7 @@ const Dashboard = ({ children }) => {
           sx={{
             display: "flex",
             alignItems: "center",
-            p: 2,
+            p: 0.4,
             borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
           }}
         >
@@ -613,7 +615,7 @@ const Dashboard = ({ children }) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ color: "white" }}>
+          <Typography variant="h6" sx={{ color: "white", fontSize: "0.9rem" }}>
             {currentMobileView === "filters"
               ? "Filters & Alerts"
               : "Market Panel"}
