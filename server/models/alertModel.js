@@ -40,10 +40,12 @@ const alertSchema = mongoose.Schema(
       default: 0,
     },
     // Candle conditions - Support multiple timeframes
-    candleTimeframes: [{
-      type: String,
-      enum: ["5MIN", "15MIN", "1HR", "4HR", "12HR", "D", "W"],
-    }],
+    candleTimeframes: [
+      {
+        type: String,
+        enum: ["5MIN", "15MIN", "1HR", "4HR", "12HR", "D", "W"],
+      },
+    ],
     candleCondition: {
       type: String,
       enum: [
@@ -61,16 +63,16 @@ const alertSchema = mongoose.Schema(
       ],
       default: "NONE",
     },
-    
+
     // Candle state tracking to prevent spam alerts
     candleAlertStates: {
       type: Map,
       of: {
         triggered: { type: Boolean, default: false },
         lastTriggeredCandle: { type: String }, // Store the openTime of the last triggered candle
-        lastChecked: { type: Date, default: Date.now }
+        lastChecked: { type: Date, default: Date.now },
       },
-      default: new Map()
+      default: new Map(),
     },
 
     // RSI conditions
@@ -374,13 +376,18 @@ alertSchema.methods.checkConditions = function (data) {
   let candleConditionMet = true; // Default to true if no condition set
   let triggeredTimeframes = []; // Track which timeframes triggered
 
-  if (this.candleCondition !== "NONE" && candle && this.candleTimeframes && this.candleTimeframes.length > 0) {
+  if (
+    this.candleCondition !== "NONE" &&
+    candle &&
+    this.candleTimeframes &&
+    this.candleTimeframes.length > 0
+  ) {
     candleConditionMet = false; // Start with false, set to true if any timeframe meets condition
 
     // Check each selected timeframe
     for (const timeframe of this.candleTimeframes) {
       const candleData = candle[timeframe];
-      
+
       if (candleData) {
         const { open, high, low, close } = candleData;
         const bodySize = Math.abs(close - open);
@@ -409,17 +416,20 @@ alertSchema.methods.checkConditions = function (data) {
 
           case "BULLISH_HAMMER":
             // Small body at top, long lower wick, short upper wick, bullish
-            timeframeConditionMet = lowerWick > bodySize * 2 && upperWick < bodySize && close > open;
+            timeframeConditionMet =
+              lowerWick > bodySize * 2 && upperWick < bodySize && close > open;
             break;
 
           case "BEARISH_HAMMER":
             // Small body at bottom, long upper wick, short lower wick, bearish
-            timeframeConditionMet = upperWick > bodySize * 2 && lowerWick < bodySize && close < open;
+            timeframeConditionMet =
+              upperWick > bodySize * 2 && lowerWick < bodySize && close < open;
             break;
 
           case "HAMMER":
             // Generic hammer: small body, long lower wick, short upper wick
-            timeframeConditionMet = lowerWick > bodySize * 2 && upperWick < bodySize;
+            timeframeConditionMet =
+              lowerWick > bodySize * 2 && upperWick < bodySize;
             break;
 
           case "DOJI":
@@ -445,17 +455,17 @@ alertSchema.methods.checkConditions = function (data) {
         if (timeframeConditionMet) {
           const candleKey = `${timeframe}_${candleData.openTime || Date.now()}`;
           const alertState = this.candleAlertStates.get(timeframe);
-          
+
           // Only trigger if we haven't already triggered for this specific candle
           if (!alertState || alertState.lastTriggeredCandle !== candleKey) {
             triggeredTimeframes.push(timeframe);
             candleConditionMet = true;
-            
+
             // Update the alert state for this timeframe
             this.candleAlertStates.set(timeframe, {
               triggered: true,
               lastTriggeredCandle: candleKey,
-              lastChecked: new Date()
+              lastChecked: new Date(),
             });
           }
         }
@@ -600,7 +610,10 @@ alertSchema.methods.markNotificationSent = function (type, error = null) {
 };
 
 // Method to reset candle alert states for new candles
-alertSchema.methods.resetCandleAlertStates = function (timeframe, newCandleOpenTime) {
+alertSchema.methods.resetCandleAlertStates = function (
+  timeframe,
+  newCandleOpenTime
+) {
   if (!this.candleAlertStates) {
     this.candleAlertStates = new Map();
   }
@@ -608,20 +621,23 @@ alertSchema.methods.resetCandleAlertStates = function (timeframe, newCandleOpenT
   const alertState = this.candleAlertStates.get(timeframe);
   if (alertState && alertState.lastTriggeredCandle) {
     const currentCandleKey = `${timeframe}_${newCandleOpenTime}`;
-    
+
     // If this is a new candle, reset the triggered state
     if (alertState.lastTriggeredCandle !== currentCandleKey) {
       this.candleAlertStates.set(timeframe, {
         triggered: false,
         lastTriggeredCandle: null,
-        lastChecked: new Date()
+        lastChecked: new Date(),
       });
     }
   }
 };
 
 // Method to check if candle alert was already triggered for current candle
-alertSchema.methods.wasCandleAlertTriggered = function (timeframe, candleOpenTime) {
+alertSchema.methods.wasCandleAlertTriggered = function (
+  timeframe,
+  candleOpenTime
+) {
   if (!this.candleAlertStates) {
     return false;
   }
@@ -632,7 +648,9 @@ alertSchema.methods.wasCandleAlertTriggered = function (timeframe, candleOpenTim
   }
 
   const currentCandleKey = `${timeframe}_${candleOpenTime}`;
-  return alertState.lastTriggeredCandle === currentCandleKey && alertState.triggered;
+  return (
+    alertState.lastTriggeredCandle === currentCandleKey && alertState.triggered
+  );
 };
 
 const Alert = mongoose.model("Alert", alertSchema);

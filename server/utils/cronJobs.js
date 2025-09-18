@@ -6,10 +6,10 @@ const { sendAlertEmail } = require("./emailService");
 const {
   createTriggeredAlert,
 } = require("../controllers/triggeredAlertController");
-const { 
-  getCurrentCandleData, 
+const {
+  getCurrentCandleData,
   monitorMultipleTimeframes,
-  convertTimeframeToInterval 
+  convertTimeframeToInterval,
 } = require("../services/candleMonitoringService");
 
 /**
@@ -458,20 +458,39 @@ const checkAlerts = async (io) => {
 
         // Get real-time candle data for candle conditions
         let realTimeCandleData = {};
-        if (alert.candleCondition !== "NONE" && alert.candleTimeframes && alert.candleTimeframes.length > 0) {
+        if (
+          alert.candleCondition !== "NONE" &&
+          alert.candleTimeframes &&
+          alert.candleTimeframes.length > 0
+        ) {
           try {
-            console.log(`Fetching real-time candle data for ${alert.symbol} timeframes:`, alert.candleTimeframes);
-            realTimeCandleData = await getCurrentCandleData(alert.symbol, alert.candleTimeframes);
-            console.log(`Retrieved candle data for ${alert.symbol}:`, Object.keys(realTimeCandleData));
+            console.log(
+              `Fetching real-time candle data for ${alert.symbol} timeframes:`,
+              alert.candleTimeframes
+            );
+            realTimeCandleData = await getCurrentCandleData(
+              alert.symbol,
+              alert.candleTimeframes
+            );
+            console.log(
+              `Retrieved candle data for ${alert.symbol}:`,
+              Object.keys(realTimeCandleData)
+            );
           } catch (candleError) {
-            console.error(`Error fetching candle data for ${alert.symbol}:`, candleError.message);
+            console.error(
+              `Error fetching candle data for ${alert.symbol}:`,
+              candleError.message
+            );
             // Continue with mock data if real-time data fails
           }
         }
 
         // Merge real-time candle data with technical data
         if (Object.keys(realTimeCandleData).length > 0) {
-          technicalData.candle = { ...technicalData.candle, ...realTimeCandleData };
+          technicalData.candle = {
+            ...technicalData.candle,
+            ...realTimeCandleData,
+          };
         }
 
         // Prepare comprehensive data object for condition checking using FRESH data
@@ -486,7 +505,11 @@ const checkAlerts = async (io) => {
         };
 
         // Reset candle alert states for new candles before checking conditions
-        if (alert.candleCondition !== "NONE" && alert.candleTimeframes && alert.candleTimeframes.length > 0) {
+        if (
+          alert.candleCondition !== "NONE" &&
+          alert.candleTimeframes &&
+          alert.candleTimeframes.length > 0
+        ) {
           for (const timeframe of alert.candleTimeframes) {
             const candleData = technicalData.candle[timeframe];
             if (candleData && candleData.openTime) {
@@ -520,25 +543,40 @@ const checkAlerts = async (io) => {
             description: `Price condition met`,
             targetValue: alert.targetValue,
             actualValue: freshPriceData.price,
-            timeframe: alert.candleTimeframes && alert.candleTimeframes.length > 0 ? alert.candleTimeframes[0] : "1HR",
+            timeframe:
+              alert.candleTimeframes && alert.candleTimeframes.length > 0
+                ? alert.candleTimeframes[0]
+                : "1HR",
             indicator: "PRICE",
           };
 
           // Check specific conditions to determine trigger type
-          if (alert.candleCondition !== "NONE" && alert.candleTimeframes && alert.candleTimeframes.length > 0) {
+          if (
+            alert.candleCondition !== "NONE" &&
+            alert.candleTimeframes &&
+            alert.candleTimeframes.length > 0
+          ) {
             // Find which timeframe triggered
-            const triggeredTimeframe = alert.candleTimeframes.find(tf => {
+            const triggeredTimeframe = alert.candleTimeframes.find((tf) => {
               const candleData = technicalData.candle[tf];
-              return candleData && alert.wasCandleAlertTriggered(tf, candleData.openTime);
+              return (
+                candleData &&
+                alert.wasCandleAlertTriggered(tf, candleData.openTime)
+              );
             });
-            
+
             if (triggeredTimeframe) {
               const candleData = technicalData.candle[triggeredTimeframe];
               conditionMet = {
                 type: "CANDLE_PATTERN",
-                description: `${alert.candleCondition.replace(/_/g, ' ')} pattern detected`,
+                description: `${alert.candleCondition.replace(
+                  /_/g,
+                  " "
+                )} pattern detected`,
                 targetValue: alert.candleCondition,
-                actualValue: candleData ? `${candleData.open}-${candleData.high}-${candleData.low}-${candleData.close}` : "N/A",
+                actualValue: candleData
+                  ? `${candleData.open}-${candleData.high}-${candleData.low}-${candleData.close}`
+                  : "N/A",
                 timeframe: triggeredTimeframe,
                 indicator: "CANDLE",
               };
