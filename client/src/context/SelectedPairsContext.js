@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { useCrypto } from "./CryptoContext";
 
 const SelectedPairsContext = createContext();
@@ -16,6 +16,23 @@ export const useSelectedPairs = () => {
 export const SelectedPairsProvider = ({ children }) => {
   const [selectedPairs, setSelectedPairs] = useState(new Set());
   const { getFavoriteSymbols } = useCrypto();
+
+  // Clean up selected pairs when favorites change
+  useEffect(() => {
+    const favoriteSymbols = getFavoriteSymbols();
+    setSelectedPairs((prev) => {
+      const newSet = new Set();
+      // Only keep selected pairs that are still in favorites
+      for (const symbol of prev) {
+        if (favoriteSymbols.includes(symbol)) {
+          newSet.add(symbol);
+        } else {
+          console.log(`Removed ${symbol} from selected pairs - no longer in favorites`);
+        }
+      }
+      return newSet;
+    });
+  }, [getFavoriteSymbols]);
 
   // Toggle selection of a single pair
   const togglePairSelection = useCallback((symbol) => {
@@ -68,6 +85,18 @@ export const SelectedPairsProvider = ({ children }) => {
     console.log("Set selected pairs from array:", symbolsArray);
   }, []);
 
+  // Remove a pair from selection (useful when it's removed from favorites)
+  const removePairFromSelection = useCallback((symbol) => {
+    setSelectedPairs((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(symbol)) {
+        newSet.delete(symbol);
+        console.log(`Removed ${symbol} from selected pairs due to favorite removal`);
+      }
+      return newSet;
+    });
+  }, []);
+
   // Get favorite pairs for alert creation
   const getFavoritePairsForAlerts = useCallback(
     (cryptos) => {
@@ -91,6 +120,7 @@ export const SelectedPairsProvider = ({ children }) => {
     getSelectedPairsArray,
     getSelectedCount,
     setSelectedPairsFromArray,
+    removePairFromSelection,
     getFavoritePairsForAlerts,
   };
 

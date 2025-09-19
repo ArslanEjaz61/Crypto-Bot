@@ -600,28 +600,42 @@ const FilterSidebar = memo(
         console.log("🔍 FAVORITES DEBUG - All cryptos count:", cryptos.length);
         console.log("🔍 FAVORITES DEBUG - Cryptos with isFavorite=true:", cryptos.filter(c => c.isFavorite).map(c => c.symbol));
 
-        // Priority order: Selected pairs > Favorite pairs > Single symbol > Fallback
+        // Priority order: Intersection of Selected pairs and Favorites > All Favorite pairs > Single symbol > Fallback
         if (selectedCount > 0) {
-          // Use selected pairs from MarketPanel checkboxes
-          symbolsToProcess = selectedPairs;
-          console.log("🎯 Creating alerts for SELECTED pairs:", symbolsToProcess);
+          // Use selected pairs from MarketPanel checkboxes, but only if they are also in favorites
+          const validSelectedPairs = selectedPairs.filter(pair => favoritePairs.includes(pair));
+          if (validSelectedPairs.length > 0) {
+            symbolsToProcess = validSelectedPairs;
+            console.log("🎯 Creating alerts for SELECTED pairs that are in favorites:", symbolsToProcess);
+          } else {
+            // If no selected pairs are in favorites, use all favorite pairs instead
+            symbolsToProcess = favoritePairs;
+            console.log("⭐ No selected pairs in favorites, using all FAVORITE pairs:", symbolsToProcess);
+          }
         } else if (favoritePairs.length > 0) {
           // Use favorite pairs if no specific selection
           symbolsToProcess = favoritePairs;
           console.log("⭐ Creating alerts for FAVORITE pairs:", symbolsToProcess);
           console.log("⭐ FAVORITES DEBUG - symbolsToProcess.length:", symbolsToProcess.length);
         } else if (symbolOverride) {
-          // Single symbol override
-          symbolsToProcess = [symbol];
-          console.log("🎯 Creating alert for single override symbol:", symbol);
-        } else if (selectedSymbol) {
-          // Use current selected symbol
+          // Single symbol override (only if it's in favorites)
+          if (favoritePairs.includes(symbol)) {
+            symbolsToProcess = [symbol];
+            console.log("🎯 Creating alert for single override symbol:", symbol);
+          } else {
+            console.log("⚠️ Override symbol not in favorites, skipping:", symbol);
+            setErrorMessage(`❌ Symbol ${symbol} is not in your favorites. Please add it to favorites first.`);
+            return;
+          }
+        } else if (selectedSymbol && favoritePairs.includes(symbol)) {
+          // Use current selected symbol (only if it's in favorites)
           symbolsToProcess = [symbol];
           console.log("🎯 Creating alert for current selected symbol:", symbol);
         } else {
-          // Fallback
-          symbolsToProcess = ["BTCUSDT"];
-          console.log("⚠️ Using fallback symbol - no favorites or selections found");
+          // No valid symbols found
+          console.log("⚠️ No valid symbols found for alert creation");
+          setErrorMessage("❌ No favorite pairs available for alert creation. Please add some pairs to favorites first.");
+          return;
         }
 
         console.log("Final symbols for alert creation:", symbolsToProcess);
@@ -646,13 +660,8 @@ const FilterSidebar = memo(
           return;
         }
         
-        // Check if symbols to process are in favorites
-        const nonFavoriteSymbols = symbolsToProcess.filter(symbol => !favoritePairs.includes(symbol));
-        if (nonFavoriteSymbols.length > 0) {
-          console.log("🚫 VALIDATION FAILED: Some symbols are not in favorites:", nonFavoriteSymbols);
-          setErrorMessage(`❌ The following symbols are not in your favorites: ${nonFavoriteSymbols.join(', ')}. Please add them to favorites first.`);
-          return;
-        }
+        // Validation: All symbols should now be in favorites due to our filtering above
+        console.log("✅ All symbols are guaranteed to be in favorites due to filtering logic");
         
         console.log("✅ VALIDATION PASSED: All checks successful");
         console.log("✅ Favorite pairs available:", favoritePairs.length);
