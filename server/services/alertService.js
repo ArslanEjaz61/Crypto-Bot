@@ -6,6 +6,53 @@ const { sendAlertEmail } = require('../utils/emailService');
 const axios = require('axios');
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
+const BINANCE_API_BASE = 'https://api.binance.com';
+
+/**
+ * Get current 1-minute candle data from Binance for accurate percentage calculations
+ * @param {string} symbol - Trading pair symbol
+ * @returns {Promise<Object>} Current 1-minute candle data
+ */
+async function getCurrentMinuteCandle(symbol) {
+  try {
+    console.log(`🔍 Fetching 1-minute candle data for ${symbol}...`);
+    
+    const response = await axios.get(`${BINANCE_API_BASE}/api/v3/klines`, {
+      params: {
+        symbol: symbol,
+        interval: '1m',
+        limit: 1 // Get current candle only
+      },
+      timeout: 10000
+    });
+
+    if (!response.data || response.data.length < 1) {
+      throw new Error('No candle data received');
+    }
+
+    const currentKline = response.data[0];
+    
+    const currentCandle = {
+      openTime: parseInt(currentKline[0]),
+      open: parseFloat(currentKline[1]),
+      high: parseFloat(currentKline[2]),
+      low: parseFloat(currentKline[3]),
+      close: parseFloat(currentKline[4]),
+      volume: parseFloat(currentKline[5]),
+      closeTime: parseInt(currentKline[6]),
+      timestamp: new Date(parseInt(currentKline[0]))
+    };
+
+    console.log(`✅ Retrieved 1-minute candle for ${symbol}:`);
+    console.log(`   Open Time: ${currentCandle.timestamp.toISOString()}`);
+    console.log(`   OHLC: O:${currentCandle.open} H:${currentCandle.high} L:${currentCandle.low} C:${currentCandle.close}`);
+
+    return currentCandle;
+  } catch (error) {
+    console.error(`❌ Error fetching 1-minute candle for ${symbol}:`, error.message);
+    return null;
+  }
+}
 
 /**
  * Get the current candle's open time based on timeframe
@@ -148,7 +195,9 @@ async function fetchCandleData(symbol, timeframe) {
       high: data.current.high,
       low: data.current.low,
       close: data.current.close,
-      volume: data.current.volume
+      volume: data.current.volume,
+      openTime: data.current.openTime,  // CRITICAL: Include actual candle open time
+      closeTime: data.current.closeTime
     };
     
     if (data.previous) {
@@ -157,7 +206,9 @@ async function fetchCandleData(symbol, timeframe) {
         high: data.previous.high,
         low: data.previous.low,
         close: data.previous.close,
-        volume: data.previous.volume
+        volume: data.previous.volume,
+        openTime: data.previous.openTime,
+        closeTime: data.previous.closeTime
       };
     }
     
@@ -441,8 +492,33 @@ const processAlerts = async () => {
           marketData: marketData
         };
         
+        // ==========================================
+        // CRITICAL FIX: Use 1-minute candle open price for percentage calculations
+        // ==========================================
+        
+        // Get current 1-minute candle data for accurate percentage calculation
+        const minuteCandle = await getCurrentMinuteCandle(alert.symbol);
+        if (minuteCandle) {
+          // Override the base price with the actual 1-minute candle open price
+          // This ensures percentage changes are calculated from the start of the current minute
+          data.currentPrice = minuteCandle.close; // Use current price from API
+          alert.basePrice = minuteCandle.open; // Use candle open as base for percentage calc
+          
+          console.log(`🔧 FIXED CALCULATION for ${alert.symbol}:`);
+          console.log(`   Using 1-minute candle open: ${minuteCandle.open} (instead of alert base: ${alert.currentPrice})`);
+          console.log(`   Current price: ${data.currentPrice}`);
+          console.log(`   1-minute change: ${(((data.currentPrice - minuteCandle.open) / minuteCandle.open) * 100).toFixed(6)}%`);
+        }
+        
         // Check if alert conditions are met
         const shouldTrigger = alert.shouldTrigger(data);
+        
+        // Log continuous monitoring status
+        if (alert.isContinuousMonitoringEnabled()) {
+          console.log(`🔄 CONTINUOUS MONITORING: ${alert.symbol} is configured for continuous monitoring on ${alert.alertCountTimeframe} timeframe`);
+        } else {
+          console.log(`⚠️ CONTINUOUS MONITORING: ${alert.symbol} is NOT configured for continuous monitoring - using fallback cooldown`);
+        }
         
         if (shouldTrigger) {
           // Check if alert count limit is reached for the alert count timeframe
@@ -453,19 +529,39 @@ const processAlerts = async () => {
           if (alert.alertCountEnabled && alert.alertCountTimeframe) {
             alertCountTimeframe = alert.alertCountTimeframe;
             
-            // Get candle open time for the alert count timeframe
-            // We need to fetch the current candle data for the alert count timeframe
+            // Get the ACTUAL candle open time from Binance API for the alert count timeframe
             const alertCountCandleData = await fetchCandleData(alert.symbol, alertCountTimeframe);
             if (alertCountCandleData && alertCountCandleData[alertCountTimeframe]) {
-              // Calculate the current candle's open time based on timeframe
-              candleOpenTime = getCurrentCandleOpenTime(alertCountTimeframe);
+              // Use the ACTUAL candle open time from Binance, not calculated time
+              const actualCandle = alertCountCandleData[alertCountTimeframe];
+              candleOpenTime = new Date(actualCandle.openTime).toISOString();
+              
+              console.log(`🔍 Alert count check for ${alert.symbol} ${alertCountTimeframe}:`);
+              console.log(`   Actual candle open time: ${candleOpenTime}`);
+              console.log(`   Current time: ${new Date().toISOString()}`);
               
               // Check if alert count limit is reached
               const limitReached = alert.isAlertCountLimitReached(alertCountTimeframe, candleOpenTime);
               if (limitReached) {
-                console.log(`🚫 Alert count limit reached for ${alert.symbol} ${alertCountTimeframe}. Skipping alert.`);
+                console.log(`🚫 === ALERT BLOCKED - COUNT LIMIT REACHED ===`);
+                console.log(`   Symbol: ${alert.symbol}`);
+                console.log(`   Timeframe: ${alertCountTimeframe}`);
+                console.log(`   Current count: ${alert.getAlertCount(alertCountTimeframe)}`);
+                console.log(`   Max allowed: ${alert.maxAlertsPerTimeframe}`);
+                console.log(`   Candle open time: ${candleOpenTime}`);
+                console.log(`   Reason: Already sent max alerts for this candle`);
+                console.log(`   Next alert: When new ${alertCountTimeframe} candle opens`);
                 canSendAlert = false;
+              } else {
+                console.log(`✅ === ALERT ALLOWED - COUNT LIMIT NOT REACHED ===`);
+                console.log(`   Symbol: ${alert.symbol}`);
+                console.log(`   Timeframe: ${alertCountTimeframe}`);
+                console.log(`   Current count: ${alert.getAlertCount(alertCountTimeframe)}`);
+                console.log(`   Max allowed: ${alert.maxAlertsPerTimeframe}`);
+                console.log(`   Status: Can send alert`);
               }
+            } else {
+              console.warn(`⚠️ Could not fetch candle data for ${alert.symbol} ${alertCountTimeframe}. Skipping alert count check.`);
             }
           }
           
@@ -491,7 +587,53 @@ const processAlerts = async () => {
             // Increment alert count if alert count is enabled
             if (alert.alertCountEnabled && alertCountTimeframe && candleOpenTime) {
               alert.incrementAlertCount(alertCountTimeframe, candleOpenTime);
-              console.log(`📊 Alert count incremented for ${alert.symbol} ${alertCountTimeframe}`);
+              console.log(`📊 Alert count incremented for ${alert.symbol} ${alertCountTimeframe} (candle: ${candleOpenTime})`);
+              
+              // Save the alert to persist the updated counter
+              await alert.save();
+            }
+            
+            // Create triggered alert record in database
+            try {
+              const { createTriggeredAlert } = require('../controllers/triggeredAlertController');
+              
+              // Prepare condition met data
+              const conditionMet = {
+                type: 'PERCENTAGE_CHANGE',
+                targetValue: alert.targetValue,
+                actualValue: ((crypto.price - alert.basePrice) / alert.basePrice) * 100,
+                timeframe: alert.changePercentTimeframe || '1MIN',
+                indicator: 'price',
+                description: `Price changed by ${(((crypto.price - alert.basePrice) / alert.basePrice) * 100).toFixed(4)}% (required: ${alert.targetValue}%)`
+              };
+              
+              // Prepare market data
+              const marketData = {
+                price: crypto.price,
+                volume: crypto.volume24h,
+                priceChange24h: crypto.priceChangePercent24h,
+                priceChangePercent24h: crypto.priceChangePercent24h,
+                rsi: rsiData?.rsi || null,
+                ema: emaData?.ema || null
+              };
+              
+              // Prepare notification details
+              const notificationDetails = [
+                {
+                  type: 'EMAIL',
+                  recipient: alert.email,
+                  sentAt: new Date(),
+                  status: 'PENDING',
+                  messageId: null,
+                  errorMessage: null
+                }
+              ];
+              
+              await createTriggeredAlert(alert._id, conditionMet, marketData, notificationDetails);
+              console.log(`✅ Triggered alert record created for ${alert.symbol}`);
+            } catch (triggeredAlertError) {
+              console.error(`Error creating triggered alert record for ${alert._id}:`, triggeredAlertError);
+              // Don't increment errors as this shouldn't block other notifications
             }
             
             // Create web notification for the triggered alert
@@ -500,15 +642,9 @@ const processAlerts = async () => {
               console.log(`Web notification created for ${alert.symbol}`);
               
               // Emit real-time notification via Socket.IO
-              const io = req?.app?.get('io');
-              if (io) {
-                io.emit('new-notification', {
-                  symbol: alert.symbol,
-                  message: `${alert.symbol} alert triggered`,
-                  timestamp: new Date(),
-                  type: 'ALERT_TRIGGERED'
-                });
-              }
+              // Note: Socket.IO is not available in this context during cron job execution
+              // Real-time notifications will be handled by the main server when alerts are triggered
+              console.log(`Real-time notification would be sent for ${alert.symbol}`);
             } catch (webNotificationError) {
               console.error(`Error creating web notification for ${alert._id}:`, webNotificationError);
               // Don't increment errors as this shouldn't block other notifications
@@ -590,60 +726,260 @@ const processAlerts = async () => {
 };
 
 /**
- * Check if it's time to process alerts based on configured alert times
- * @returns {Promise<boolean>} True if any alerts should be processed now
+ * Check for candle boundary changes and reset alert counters automatically
+ * @returns {Promise<Object>} Reset statistics
  */
-const shouldProcessAlerts = async () => {
-  // Get current time in HH:MM format
-  const now = new Date();
-  const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+const checkAndResetCandleBoundaries = async () => {
+  const resetStats = {
+    alertsChecked: 0,
+    countersReset: 0,
+    newAlertsTriggered: 0,
+    errors: 0
+  };
+
+  try {
+    // Get all active alerts with alert count enabled
+    const activeAlerts = await Alert.find({
+      isActive: true,
+      userExplicitlyCreated: true,
+      alertCountEnabled: true
+    });
+
+    console.log(`🕐 Checking candle boundaries for ${activeAlerts.length} alerts...`);
+
+    for (const alert of activeAlerts) {
+      try {
+        resetStats.alertsChecked++;
+        
+        // Get current candle data for the alert count timeframe
+        const candleData = await fetchCandleData(alert.symbol, alert.alertCountTimeframe);
+        if (!candleData || !candleData[alert.alertCountTimeframe]) {
+          console.warn(`⚠️ Could not fetch candle data for ${alert.symbol} ${alert.alertCountTimeframe}`);
+          continue;
+        }
+
+        const currentCandle = candleData[alert.alertCountTimeframe];
+        const currentCandleOpenTime = new Date(currentCandle.openTime).toISOString();
+        
+        // Check if this is a new candle (different from last tracked candle)
+        const counter = alert.timeframeAlertCounters?.get(alert.alertCountTimeframe);
+        const isNewCandle = !counter || counter.lastCandleOpenTime !== currentCandleOpenTime;
+        
+        if (isNewCandle) {
+          console.log(`🔄 === NEW CANDLE DETECTED ===`);
+          console.log(`   Symbol: ${alert.symbol}`);
+          console.log(`   Timeframe: ${alert.alertCountTimeframe}`);
+          console.log(`   Previous candle: ${counter?.lastCandleOpenTime || 'none'}`);
+          console.log(`   Current candle: ${currentCandleOpenTime}`);
+          console.log(`   Previous count: ${counter?.count || 0}`);
+          console.log(`   Reset time: ${new Date().toISOString()}`);
+          
+          // Reset the counter for this timeframe
+          alert.timeframeAlertCounters.set(alert.alertCountTimeframe, {
+            count: 0,
+            lastCandleOpenTime: currentCandleOpenTime,
+            lastResetTime: new Date()
+          });
+          
+          await alert.save();
+          resetStats.countersReset++;
+          
+          console.log(`   ✅ Counter reset completed for ${alert.symbol} ${alert.alertCountTimeframe}`);
+          console.log(`   📊 New count: 0`);
+          console.log(`   🕐 Next alert allowed immediately if conditions met`);
+          
+          // Check if conditions are still met for immediate trigger
+          const crypto = await Crypto.findOne({ symbol: alert.symbol });
+          if (crypto) {
+            // Fetch all necessary data for alert conditions
+            const candleData = await fetchCandleData(alert.symbol, alert.candleTimeframe);
+            const rsiData = await fetchRsiData(alert.symbol, alert.rsiTimeframe, alert.rsiPeriod);
+            const emaData = await fetchEmaData(alert.symbol, alert.emaTimeframe, [alert.emaFastPeriod, alert.emaSlowPeriod]);
+            const volumeHistory = await fetchVolumeHistory(alert.symbol);
+            const marketData = await fetchMarketData(alert.symbol);
+            
+            const data = {
+              currentPrice: crypto.price,
+              currentVolume: crypto.volume || 0,
+              previousPrice: null,
+              previousVolume: null,
+              candle: candleData,
+              rsi: rsiData,
+              emaData: emaData,
+              volumeHistory: volumeHistory,
+              marketData: marketData
+            };
+            
+            // Check if alert conditions are still met
+            const shouldTrigger = alert.shouldTrigger(data);
+            
+            if (shouldTrigger) {
+              console.log(`🚨 === AUTO-TRIGGER AFTER CANDLE RESET ===`);
+              console.log(`   Symbol: ${alert.symbol}`);
+              console.log(`   Timeframe: ${alert.alertCountTimeframe}`);
+              console.log(`   Reason: Conditions still met after candle reset`);
+              console.log(`   Candle open time: ${currentCandleOpenTime}`);
+              
+              // Increment counter and send alert
+              alert.incrementAlertCount(alert.alertCountTimeframe, currentCandleOpenTime);
+              await alert.save();
+              
+              // Send actual notifications
+              try {
+                // Send Email notification
+                const { sendAlertEmail } = require('../utils/emailService');
+                await sendAlertEmail(alert.email, alert, {
+                  price: crypto.price,
+                  volume24h: crypto.volume24h,
+                  priceChangePercent24h: crypto.priceChangePercent24h
+                }, {
+                  candle: candleData,
+                  rsi: rsiData,
+                  ema: emaData
+                });
+                console.log(`📧 Email notification sent for ${alert.symbol} (auto-trigger)`);
+                
+                // Send Telegram notification
+                const { sendAlertNotification } = require('../utils/telegramService');
+                const success = await sendAlertNotification(alert, data);
+                if (success) {
+                  console.log(`📱 Telegram notification sent for ${alert.symbol} (auto-trigger)`);
+                } else {
+                  console.log(`⚠️ Telegram notification failed for ${alert.symbol} (auto-trigger)`);
+                }
+                
+                // Create triggered alert record
+                const { createTriggeredAlert } = require('../controllers/triggeredAlertController');
+                const conditionMet = {
+                  type: 'AUTO_TRIGGER_AFTER_RESET',
+                  targetValue: alert.targetValue,
+                  actualValue: ((crypto.price - alert.basePrice) / alert.basePrice) * 100,
+                  timeframe: alert.changePercentTimeframe || '1MIN',
+                  indicator: 'price',
+                  description: `Auto-triggered after candle reset - Price changed by ${(((crypto.price - alert.basePrice) / alert.basePrice) * 100).toFixed(4)}%`
+                };
+                
+                const marketData = {
+                  price: crypto.price,
+                  volume: crypto.volume24h,
+                  priceChange24h: crypto.priceChangePercent24h,
+                  priceChangePercent24h: crypto.priceChangePercent24h,
+                  rsi: rsiData?.rsi || null,
+                  ema: emaData?.ema || null
+                };
+                
+                const notificationDetails = [
+                  {
+                    type: 'EMAIL',
+                    recipient: alert.email,
+                    sentAt: new Date(),
+                    status: 'SENT',
+                    messageId: null,
+                    errorMessage: null
+                  }
+                ];
+                
+                await createTriggeredAlert(alert._id, conditionMet, marketData, notificationDetails);
+                console.log(`✅ Triggered alert record created for ${alert.symbol} (auto-trigger)`);
+                
+              } catch (notificationError) {
+                console.error(`❌ Error sending auto-trigger notifications for ${alert.symbol}:`, notificationError);
+              }
+              
+              resetStats.newAlertsTriggered++;
+            } else {
+              console.log(`✅ === CANDLE RESET - NO AUTO-TRIGGER ===`);
+              console.log(`   Symbol: ${alert.symbol}`);
+              console.log(`   Timeframe: ${alert.alertCountTimeframe}`);
+              console.log(`   Reason: Conditions not met after candle reset`);
+              console.log(`   Status: Monitoring continues for next opportunity`);
+            }
+          }
+        }
+      } catch (alertError) {
+        console.error(`❌ Error checking candle boundary for alert ${alert._id}:`, alertError);
+        resetStats.errors++;
+      }
+    }
+    
+    if (resetStats.countersReset > 0 || resetStats.newAlertsTriggered > 0) {
+      console.log(`📊 Candle boundary check completed:`, resetStats);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in candle boundary check:', error);
+    resetStats.errors++;
+  }
   
-  // Check if any alerts are configured for the current time
-  const matchingAlerts = await Alert.find({
-    alertTime: currentTime,
-    isActive: true
-  });
-  
-  return matchingAlerts.length > 0;
+  return resetStats;
 };
 
 /**
- * Schedule alert processing to run at specific intervals
+ * Check if there are any active alerts that need continuous monitoring
+ * @returns {Promise<boolean>} True if there are active alerts to monitor
+ */
+const shouldProcessAlerts = async () => {
+  // Check if there are any active alerts that need continuous monitoring
+  const activeAlerts = await Alert.find({
+    isActive: true,
+    userExplicitlyCreated: true
+  });
+  
+  console.log(`🔍 Found ${activeAlerts.length} active alerts for continuous monitoring`);
+  return activeAlerts.length > 0;
+};
+
+/**
+ * Schedule continuous alert processing for real-time monitoring
  * @param {Object} io - Socket.io instance for real-time updates
  */
 const setupAlertScheduler = (io) => {
-  // Run every minute
-  const checkInterval = 60 * 1000; 
+  // Run every 30 seconds for continuous monitoring
+  const checkInterval = 30 * 1000; 
+  
+  console.log('🚀 Starting continuous alert monitoring system...');
   
   setInterval(async () => {
     try {
-      // Check if we should process alerts based on configured times
+      // Check if there are active alerts to monitor
       const shouldProcess = await shouldProcessAlerts();
       
       if (shouldProcess) {
-        console.log('Processing scheduled alerts');
+        // First, check for candle boundary changes and auto-reset counters
+        console.log('🕐 Checking candle boundaries for auto-reset...');
+        const resetStats = await checkAndResetCandleBoundaries();
+        
+        // Then process regular alerts
+        console.log('🔄 Processing continuous alerts...');
         const stats = await processAlerts();
         
         // Emit processing results via socket.io
-        if (io && stats.triggered > 0) {
+        if (io && (stats.triggered > 0 || resetStats.newAlertsTriggered > 0)) {
           io.emit('alerts-processed', {
             timestamp: new Date(),
-            ...stats
+            ...stats,
+            candleResets: resetStats
           });
         }
         
-        console.log('Alert processing completed:', stats);
+        if (stats.triggered > 0 || stats.processed > 0 || resetStats.countersReset > 0) {
+          console.log('📊 Continuous monitoring completed:', {
+            alerts: stats,
+            candleResets: resetStats
+          });
+        }
       }
     } catch (error) {
-      console.error('Error in alert scheduler:', error);
+      console.error('❌ Error in continuous alert scheduler:', error);
     }
   }, checkInterval);
   
-  console.log('Alert scheduler initialized');
+  console.log('✅ Continuous alert scheduler initialized (30-second intervals)');
 };
 
 module.exports = {
   processAlerts,
   shouldProcessAlerts,
-  setupAlertScheduler
+  setupAlertScheduler,
+  checkAndResetCandleBoundaries
 };

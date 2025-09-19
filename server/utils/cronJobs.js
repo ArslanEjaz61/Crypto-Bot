@@ -12,6 +12,54 @@ const {
   convertTimeframeToInterval,
 } = require("../services/candleMonitoringService");
 
+const BINANCE_API_BASE = 'https://api.binance.com';
+
+/**
+ * Get current 1-minute candle data from Binance for accurate percentage calculations
+ * @param {string} symbol - Trading pair symbol
+ * @returns {Promise<Object>} Current 1-minute candle data
+ */
+async function getCurrentMinuteCandle(symbol) {
+  try {
+    console.log(`🔍 Fetching 1-minute candle data for ${symbol}...`);
+    
+    const response = await axios.get(`${BINANCE_API_BASE}/api/v3/klines`, {
+      params: {
+        symbol: symbol,
+        interval: '1m',
+        limit: 1 // Get current candle only
+      },
+      timeout: 10000
+    });
+
+    if (!response.data || response.data.length < 1) {
+      throw new Error('No candle data received');
+    }
+
+    const currentKline = response.data[0];
+    
+    const currentCandle = {
+      openTime: parseInt(currentKline[0]),
+      open: parseFloat(currentKline[1]),
+      high: parseFloat(currentKline[2]),
+      low: parseFloat(currentKline[3]),
+      close: parseFloat(currentKline[4]),
+      volume: parseFloat(currentKline[5]),
+      closeTime: parseInt(currentKline[6]),
+      timestamp: new Date(parseInt(currentKline[0]))
+    };
+
+    console.log(`✅ Retrieved 1-minute candle for ${symbol}:`);
+    console.log(`   Open Time: ${currentCandle.timestamp.toISOString()}`);
+    console.log(`   OHLC: O:${currentCandle.open} H:${currentCandle.high} L:${currentCandle.low} C:${currentCandle.close}`);
+
+    return currentCandle;
+  } catch (error) {
+    console.error(`❌ Error fetching 1-minute candle for ${symbol}:`, error.message);
+    return null;
+  }
+}
+
 /**
  * Make API request with retry logic
  */
@@ -78,11 +126,26 @@ const getFreshSymbolData = async (symbol) => {
     const priceData = priceResponse.data;
     const statsData = statsResponse.data;
 
+    // Calculate 24h volume - Binance provides both volume (base asset) and quoteVolume (USDT)
+    const baseVolume = parseFloat(statsData.volume);
+    const quoteVolume = parseFloat(statsData.quoteVolume);
+    const weightedAvgPrice = parseFloat(statsData.weightedAvgPrice);
+    
+    // Use quoteVolume (USDT volume) as it's more accurate for USDT pairs
+    const volume24h = quoteVolume || (baseVolume * weightedAvgPrice);
+
+    console.log(`📊 Volume calculation for ${symbol}:`, {
+      baseVolume,
+      quoteVolume,
+      weightedAvgPrice,
+      calculatedVolume: volume24h,
+      symbol
+    });
+
     return {
       symbol: priceData.symbol,
       price: parseFloat(priceData.price),
-      volume24h:
-        parseFloat(statsData.volume) * parseFloat(statsData.weightedAvgPrice),
+      volume24h: volume24h,
       priceChangePercent: parseFloat(statsData.priceChangePercent),
       highPrice: parseFloat(statsData.highPrice),
       lowPrice: parseFloat(statsData.lowPrice),
@@ -290,8 +353,16 @@ const updateCryptoData = async () => {
     // Create a map of volume data
     const volumeData = {};
     volumeResponse.data.forEach((item) => {
+      // Use quoteVolume (USDT volume) as it's more accurate for USDT pairs
+      const baseVolume = parseFloat(item.volume);
+      const quoteVolume = parseFloat(item.quoteVolume);
+      const weightedAvgPrice = parseFloat(item.weightedAvgPrice);
+      
+      // Use quoteVolume if available, otherwise calculate from base volume
+      const volume = quoteVolume || (baseVolume * weightedAvgPrice);
+      
       volumeData[item.symbol] = {
-        volume: parseFloat(item.volume) * parseFloat(item.weightedAvgPrice),
+        volume: volume,
         priceChangePercent: parseFloat(item.priceChangePercent),
         highPrice: parseFloat(item.highPrice),
         lowPrice: parseFloat(item.lowPrice),
@@ -399,22 +470,32 @@ const checkAlerts = async (io) => {
     // Define current date for calculations
     const currentDate = new Date();
 
+    console.log("🔍 === ALERT CHECKING STARTED ===");
+    console.log("🔍 Timestamp:", currentDate.toISOString());
+
     // Find all active alerts regardless of time
     const allAlerts = await Alert.find({
       isActive: true,
     });
 
     if (allAlerts.length === 0) {
+      console.log("❌ No active alerts found in database");
       return; // No active alerts to check
     }
 
-    console.log(`Found ${allAlerts.length} active alerts`);
+    console.log(`✅ Found ${allAlerts.length} active alerts in database`);
 
     // Get all favorite pairs from the database
     const favoriteCryptos = await Crypto.find({ isFavorite: true });
     const favoriteSymbols = favoriteCryptos.map(crypto => crypto.symbol);
     
     console.log(`🔍 CRON FAVORITES FILTER: Found ${favoriteSymbols.length} favorite pairs:`, favoriteSymbols);
+    
+    if (favoriteSymbols.length === 0) {
+      console.log("❌ CRITICAL: No favorite pairs found! This will prevent ALL alerts from being processed.");
+      console.log("❌ To fix this, add some pairs to favorites in the frontend.");
+      return;
+    }
     
     // Filter alerts to only process those for favorite pairs
     const alerts = allAlerts.filter(alert => {
@@ -428,11 +509,14 @@ const checkAlerts = async (io) => {
     });
 
     if (alerts.length === 0) {
-      console.log('No alerts for favorite pairs to check');
+      console.log('❌ No alerts for favorite pairs to check');
+      console.log('❌ This means either:');
+      console.log('   1. No alerts exist for favorite pairs, or');
+      console.log('   2. All alerts are for non-favorite pairs');
       return;
     }
 
-    console.log(`Checking ${alerts.length} alerts for favorite pairs (skipped ${allAlerts.length - alerts.length} non-favorite alerts)`);
+    console.log(`✅ Checking ${alerts.length} alerts for favorite pairs (skipped ${allAlerts.length - alerts.length} non-favorite alerts)`);
 
     // Process each alert
     for (const alert of alerts) {
@@ -528,6 +612,14 @@ const checkAlerts = async (io) => {
           emaData: technicalData.ema,
         };
 
+        // Add debug logging for Min Daily Volume filter
+        console.log(`🔍 === MIN DAILY VOLUME FILTER CHECK ===`);
+        console.log(`🔍 Symbol: ${alert.symbol}`);
+        console.log(`🔍 Alert minDailyVolume: ${alert.minDailyVolume}`);
+        console.log(`🔍 Current 24h volume: ${freshPriceData.volume24h}`);
+        console.log(`🔍 Volume meets threshold: ${freshPriceData.volume24h >= alert.minDailyVolume}`);
+        console.log(`🔍 Filter will ${freshPriceData.volume24h >= alert.minDailyVolume ? 'PASS' : 'FAIL'}`);
+
         // Reset candle alert states for new candles before checking conditions
         if (
           alert.candleCondition !== "NONE" &&
@@ -543,11 +635,46 @@ const checkAlerts = async (io) => {
         }
 
         // Check if alert conditions are met with FRESH real-time data
-        console.log(
-          `Checking conditions for ${alert.symbol} with fresh price: ${freshPriceData.price}`
-        );
+        console.log(`🔍 === CHECKING ALERT CONDITIONS ===`);
+        console.log(`🔍 Symbol: ${alert.symbol}`);
+        console.log(`🔍 Fresh price: ${freshPriceData.price}`);
+        console.log(`🔍 Fresh volume: ${freshPriceData.volume24h}`);
+        console.log(`🔍 Alert minDailyVolume: ${alert.minDailyVolume}`);
+        console.log(`🔍 Alert target type: ${alert.targetType}`);
+        console.log(`🔍 Alert target value: ${alert.targetValue}`);
+        console.log(`🔍 Alert base price: ${alert.basePrice}`);
+        console.log(`🔍 Alert direction: ${alert.direction}`);
+        console.log(`🔍 Alert userExplicitlyCreated: ${alert.userExplicitlyCreated}`);
+        console.log(`🔍 Alert isActive: ${alert.isActive}`);
+        
+        // ==========================================
+        // CRITICAL FIX: Use 1-minute candle open price for percentage calculations
+        // ==========================================
+        
+        // Get current 1-minute candle data for accurate percentage calculation
+        const minuteCandle = await getCurrentMinuteCandle(alert.symbol);
+        if (minuteCandle) {
+          // Override the base price with the actual 1-minute candle open price
+          // This ensures percentage changes are calculated from the start of the current minute
+          conditionData.currentPrice = freshPriceData.price; // Use fresh price from API
+          alert.basePrice = minuteCandle.open; // Use candle open as base for percentage calc
+          
+          console.log(`🔧 FIXED CALCULATION for ${alert.symbol}:`);
+          console.log(`   Using 1-minute candle open: ${minuteCandle.open} (instead of alert base: ${alert.currentPrice})`);
+          console.log(`   Current price: ${conditionData.currentPrice}`);
+          console.log(`   1-minute change: ${(((conditionData.currentPrice - minuteCandle.open) / minuteCandle.open) * 100).toFixed(6)}%`);
+        }
+        
+        // Calculate percentage change for debugging
+        const percentageChange = ((conditionData.currentPrice - alert.basePrice) / alert.basePrice) * 100;
+        console.log(`🔍 Percentage change: ${percentageChange.toFixed(4)}%`);
+        console.log(`🔍 Required change: ${alert.targetValue}%`);
+        console.log(`🔍 Condition data:`, JSON.stringify(conditionData, null, 2));
 
-        if (alert.checkConditions(conditionData)) {
+        const conditionsMet = alert.checkConditions(conditionData);
+        console.log(`🔍 Conditions met: ${conditionsMet}`);
+        
+        if (conditionsMet) {
           console.log(
             `🚨 ALERT TRIGGERED for ${alert.symbol} - Alert ID: ${alert._id}`
           );

@@ -260,10 +260,12 @@ const FilterSidebar = memo(
           if (isCurrentlyChecked) {
             // If currently checked, uncheck it (clear the entire category)
             newFilters[category] = {};
+            console.log(`🔧 Single selection checkbox unchecked: ${category}.${value} (cleared entire category)`);
           } else {
             // If not checked, clear all others and select only this one
             newFilters[category] = {};
             newFilters[category][value] = true;
+            console.log(`🔧 Single selection checkbox checked: ${category}.${value} (cleared others, selected this)`);
           }
         } else {
           // Multiple selection: toggle the current value
@@ -271,6 +273,7 @@ const FilterSidebar = memo(
             ...ctxFilters[category],
             [value]: !ctxFilters[category]?.[value],
           };
+          console.log(`🔧 Multiple selection checkbox toggled: ${category}.${value} = ${newFilters[category][value]}`);
         }
 
         setCtxFilters(newFilters);
@@ -677,6 +680,8 @@ const FilterSidebar = memo(
 
           // Get filter values with proper null/0 handling
           const filterValues = getFilterValues();
+          console.log(`🔍 Filter values retrieved:`, filterValues);
+          console.log(`🔍 Current filters state:`, filters);
 
           // Helpers to read first selected key from a section with null fallback
           const firstSelected = (sectionObj) => {
@@ -691,6 +696,7 @@ const FilterSidebar = memo(
 
           // Use filterValues for OHLCV-integrated data
           const minDailyVolume = filterValues.minDailyVolume || 0;
+          console.log(`🔍 Min Daily Volume selected: ${minDailyVolume}`);
           const changePercentTimeframe = filterValues.changePercent.timeframe;
           const alertCountTimeframe = filterValues.alertCount.timeframe;
           const alertCountEnabled = filterValues.alertCount.enabled;

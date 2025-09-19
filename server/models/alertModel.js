@@ -223,6 +223,15 @@ const alertSchema = mongoose.Schema(
 
 // Method to check if alert conditions are met
 alertSchema.methods.checkConditions = function (data) {
+  console.log(`🔍 === ALERT MODEL CHECK CONDITIONS ===`);
+  console.log(`🔍 Alert ID: ${this._id}`);
+  console.log(`🔍 Symbol: ${this.symbol}`);
+  console.log(`🔍 Target Type: ${this.targetType}`);
+  console.log(`🔍 Target Value: ${this.targetValue}`);
+  console.log(`🔍 Direction: ${this.direction}`);
+  console.log(`🔍 User Explicitly Created: ${this.userExplicitlyCreated}`);
+  console.log(`🔍 Is Active: ${this.isActive}`);
+  
   // Destructure market data parameters
   const {
     currentPrice,
@@ -237,15 +246,39 @@ alertSchema.methods.checkConditions = function (data) {
     historicalPrices, // Array of price objects with timestamp and price
   } = data;
 
-  // If already triggered and has not been at least 6 hours, don't trigger again
-  // This prevents multiple triggers for the same price movement
-  if (this.lastTriggered) {
-    const now = new Date();
-    const lastTriggered = new Date(this.lastTriggered);
-    const hoursSinceLastTrigger = (now - lastTriggered) / (1000 * 60 * 60);
+  console.log(`🔍 Current Price: ${currentPrice}`);
+  console.log(`🔍 Base Price: ${this.basePrice}`);
 
-    if (hoursSinceLastTrigger < 6) {
-      return false;
+  // ==========================================
+  // CONTINUOUS MONITORING: Check if alert should be allowed to trigger
+  // ==========================================
+  // Instead of a fixed 6-hour cooldown, use timeframe-based reset logic
+  // This allows continuous monitoring with proper duplicate prevention
+  
+  console.log(`🔍 === CONTINUOUS MONITORING CHECK ===`);
+  console.log(`🔍 Last triggered: ${this.lastTriggered}`);
+  console.log(`🔍 Alert count enabled: ${this.alertCountEnabled}`);
+  console.log(`🔍 Alert count timeframe: ${this.alertCountTimeframe}`);
+  
+  // If alert count is enabled, use the timeframe-based system for duplicate prevention
+  if (this.alertCountEnabled && this.alertCountTimeframe) {
+    console.log(`✅ Using timeframe-based continuous monitoring for ${this.alertCountTimeframe}`);
+    // The alert count system will handle duplicate prevention within the same candle
+    // No need for a fixed cooldown period
+  } else {
+    // Fallback: If no alert count system, use a shorter cooldown (30 minutes instead of 6 hours)
+    if (this.lastTriggered) {
+      const now = new Date();
+      const lastTriggered = new Date(this.lastTriggered);
+      const minutesSinceLastTrigger = (now - lastTriggered) / (1000 * 60);
+
+      console.log(`🔍 Minutes since last trigger: ${minutesSinceLastTrigger.toFixed(2)}`);
+
+      if (minutesSinceLastTrigger < 30) {
+        console.log(`❌ Alert not triggered: Too soon since last trigger (${minutesSinceLastTrigger.toFixed(2)} minutes < 30 minutes)`);
+        console.log(`💡 TIP: Enable alert count system for continuous monitoring`);
+        return false;
+      }
     }
   }
 
@@ -254,33 +287,42 @@ alertSchema.methods.checkConditions = function (data) {
   // ==========================================
   let priceConditionMet = false;
 
+  console.log(`🔍 === PRICE CONDITION CHECK ===`);
+  console.log(`🔍 Target Type: ${this.targetType}`);
+  console.log(`🔍 Direction: ${this.direction}`);
+  console.log(`🔍 Target Value: ${this.targetValue}`);
+  console.log(`🔍 Current Price: ${currentPrice}`);
+
   if (this.targetType === "price") {
+    console.log(`🔍 Checking direct price comparison`);
     // Direct price comparison
     if (this.direction === ">" && currentPrice >= this.targetValue) {
+      console.log(`✅ Price condition met: ${currentPrice} >= ${this.targetValue}`);
       priceConditionMet = true;
     } else if (this.direction === "<" && currentPrice <= this.targetValue) {
+      console.log(`✅ Price condition met: ${currentPrice} <= ${this.targetValue}`);
       priceConditionMet = true;
     } else if (
       this.direction === "<>" &&
       (currentPrice >= this.targetValue || currentPrice <= this.targetValue)
     ) {
+      console.log(`✅ Price condition met: ${currentPrice} <> ${this.targetValue}`);
       priceConditionMet = true;
+    } else {
+      console.log(`❌ Price condition not met: ${currentPrice} ${this.direction} ${this.targetValue}`);
     }
   } else if (this.targetType === "percentage") {
+    console.log(`🔍 Checking percentage change condition`);
     // Check percentage change from when alert was created (basePrice)
     if (this.changePercentValue !== undefined) {
       const basePrice = this.basePrice; // Price when alert was created
       const percentageChange = ((currentPrice - basePrice) / basePrice) * 100;
 
-      console.log(`Future Price Alert Check: ${this.symbol}`);
-      console.log(
-        `Current Price: ${currentPrice}, Base Price (when alert created): ${basePrice}`
-      );
-      console.log(
-        `Calculated Change: ${percentageChange.toFixed(4)}%, Required: ${
-          this.changePercentValue
-        }%`
-      );
+      console.log(`🔍 Percentage Alert Check: ${this.symbol}`);
+      console.log(`🔍 Current Price: ${currentPrice}, Base Price (when alert created): ${basePrice}`);
+      console.log(`🔍 Calculated Change: ${percentageChange.toFixed(4)}%, Required: ${this.changePercentValue}%`);
+      console.log(`🔍 Change Percent Value: ${this.changePercentValue}`);
+      console.log(`🔍 Target Value: ${this.targetValue}`);
 
       // Check if the percentage change meets the alert criteria
       // Handle both positive and negative target percentages
@@ -385,7 +427,16 @@ alertSchema.methods.checkConditions = function (data) {
       this.minDailyVolume > 0 &&
       marketData.dailyVolume < this.minDailyVolume
     ) {
+      console.log(`❌ MIN DAILY VOLUME FILTER FAILED for ${this.symbol}:`);
+      console.log(`   Required: ${this.minDailyVolume}`);
+      console.log(`   Actual: ${marketData.dailyVolume}`);
+      console.log(`   Difference: ${marketData.dailyVolume - this.minDailyVolume}`);
       marketFiltersPass = false;
+    } else if (this.minDailyVolume > 0) {
+      console.log(`✅ MIN DAILY VOLUME FILTER PASSED for ${this.symbol}:`);
+      console.log(`   Required: ${this.minDailyVolume}`);
+      console.log(`   Actual: ${marketData.dailyVolume}`);
+      console.log(`   Difference: ${marketData.dailyVolume - this.minDailyVolume}`);
     }
   }
 
@@ -579,6 +630,12 @@ alertSchema.methods.checkConditions = function (data) {
   const enabledConditions = [];
   const metConditions = [];
 
+  console.log(`🔍 === FINAL CONDITION EVALUATION ===`);
+  console.log(`🔍 Price condition met: ${priceConditionMet}`);
+  console.log(`🔍 Candle condition met: ${candleConditionMet}`);
+  console.log(`🔍 RSI condition met: ${rsiConditionMet}`);
+  console.log(`🔍 EMA condition met: ${emaConditionMet}`);
+
   // Price condition is always checked
   enabledConditions.push("price");
   if (priceConditionMet) metConditions.push("price");
@@ -601,15 +658,21 @@ alertSchema.methods.checkConditions = function (data) {
     if (emaConditionMet) metConditions.push("ema");
   }
 
+  console.log(`🔍 Enabled conditions: ${enabledConditions.join(", ")}`);
+  console.log(`🔍 Met conditions: ${metConditions.join(", ")}`);
+
   // Log which conditions were met
   if (metConditions.length > 0) {
-    console.log(
-      `Alert conditions met for ${this.symbol}: ${metConditions.join(", ")}`
-    );
+    console.log(`✅ Alert conditions met for ${this.symbol}: ${metConditions.join(", ")}`);
+  } else {
+    console.log(`❌ No alert conditions met for ${this.symbol}`);
   }
 
   // Alert triggers if ANY enabled condition is met
-  return metConditions.length > 0;
+  const shouldTrigger = metConditions.length > 0;
+  console.log(`🔍 Final result: ${shouldTrigger ? "TRIGGER" : "NO TRIGGER"}`);
+  
+  return shouldTrigger;
 };
 
 // Helper method to convert timeframe to minutes
@@ -734,12 +797,16 @@ alertSchema.methods.isAlertCountLimitReached = function (timeframe, candleOpenTi
   // Check if this is a new candle (different open time)
   const isNewCandle = counter.lastCandleOpenTime !== candleOpenTime;
   
-  console.log(`🔍 Checking alert count limit for ${this.symbol} ${timeframe}:`);
+  console.log(`🔍 === ALERT COUNT LIMIT CHECK ===`);
+  console.log(`   Symbol: ${this.symbol}`);
+  console.log(`   Timeframe: ${timeframe}`);
   console.log(`   Current candle open time: ${candleOpenTime}`);
   console.log(`   Last candle open time: ${counter.lastCandleOpenTime}`);
   console.log(`   Current count: ${counter.count}`);
   console.log(`   Max allowed: ${this.maxAlertsPerTimeframe}`);
   console.log(`   Is new candle: ${isNewCandle}`);
+  console.log(`   Alert count enabled: ${this.alertCountEnabled}`);
+  console.log(`   Alert count timeframe: ${this.alertCountTimeframe}`);
 
   // If it's a new candle, reset the counter
   if (isNewCandle) {
@@ -755,6 +822,14 @@ alertSchema.methods.isAlertCountLimitReached = function (timeframe, candleOpenTi
   // Check if limit is reached
   const limitReached = counter.count >= this.maxAlertsPerTimeframe;
   console.log(`   Limit reached: ${limitReached}`);
+  
+  if (limitReached) {
+    console.log(`   🚫 ALERT BLOCKED: ${this.symbol} has already sent ${counter.count} alerts in current ${timeframe} candle`);
+    console.log(`   🚫 Reason: Alert count limit reached (${counter.count}/${this.maxAlertsPerTimeframe})`);
+    console.log(`   🚫 Next alert allowed when new ${timeframe} candle opens`);
+  } else {
+    console.log(`   ✅ ALERT ALLOWED: ${this.symbol} can send alert (${counter.count}/${this.maxAlertsPerTimeframe})`);
+  }
   
   return limitReached;
 };
@@ -786,7 +861,13 @@ alertSchema.methods.incrementAlertCount = function (timeframe, candleOpenTime) {
       lastCandleOpenTime: candleOpenTime,
       lastResetTime: new Date()
     });
-    console.log(`🔄 New candle detected! Reset and incremented counter for ${this.symbol} ${timeframe}: 1`);
+    console.log(`🔄 === COUNTER RESET & INCREMENT ===`);
+    console.log(`   Symbol: ${this.symbol}`);
+    console.log(`   Timeframe: ${timeframe}`);
+    console.log(`   Action: New candle detected - reset and increment`);
+    console.log(`   New count: 1`);
+    console.log(`   Candle open time: ${candleOpenTime}`);
+    console.log(`   Reset time: ${new Date().toISOString()}`);
   } else {
     // Same candle, just increment
     const newCount = (counter.count || 0) + 1;
@@ -795,7 +876,13 @@ alertSchema.methods.incrementAlertCount = function (timeframe, candleOpenTime) {
       lastCandleOpenTime: candleOpenTime,
       lastResetTime: counter.lastResetTime
     });
-    console.log(`📈 Incremented alert count for ${this.symbol} ${timeframe}: ${newCount}`);
+    console.log(`📈 === COUNTER INCREMENT ===`);
+    console.log(`   Symbol: ${this.symbol}`);
+    console.log(`   Timeframe: ${timeframe}`);
+    console.log(`   Action: Same candle - increment only`);
+    console.log(`   Previous count: ${counter.count || 0}`);
+    console.log(`   New count: ${newCount}`);
+    console.log(`   Candle open time: ${candleOpenTime}`);
   }
 };
 
@@ -807,6 +894,44 @@ alertSchema.methods.getAlertCount = function (timeframe) {
 
   const counter = this.timeframeAlertCounters.get(timeframe);
   return counter ? counter.count : 0;
+};
+
+// Method to enable continuous monitoring by setting up alert count system
+alertSchema.methods.enableContinuousMonitoring = function (timeframe = '5MIN', maxAlertsPerCandle = 1) {
+  console.log(`🔄 === ENABLING CONTINUOUS MONITORING ===`);
+  console.log(`   Symbol: ${this.symbol}`);
+  console.log(`   Timeframe: ${timeframe}`);
+  console.log(`   Max alerts per candle: ${maxAlertsPerCandle}`);
+  
+  this.alertCountEnabled = true;
+  this.alertCountTimeframe = timeframe;
+  this.maxAlertsPerTimeframe = maxAlertsPerCandle;
+  
+  // Initialize the counter if it doesn't exist
+  if (!this.timeframeAlertCounters) {
+    this.timeframeAlertCounters = new Map();
+  }
+  
+  // Initialize counter for the timeframe if it doesn't exist
+  if (!this.timeframeAlertCounters.has(timeframe)) {
+    this.timeframeAlertCounters.set(timeframe, {
+      count: 0,
+      lastCandleOpenTime: null,
+      lastResetTime: new Date()
+    });
+  }
+  
+  console.log(`✅ Continuous monitoring enabled for ${this.symbol} on ${timeframe} timeframe`);
+  console.log(`   Alert count enabled: ${this.alertCountEnabled}`);
+  console.log(`   Alert count timeframe: ${this.alertCountTimeframe}`);
+  console.log(`   Max alerts per candle: ${this.maxAlertsPerTimeframe}`);
+};
+
+// Method to check if continuous monitoring is properly configured
+alertSchema.methods.isContinuousMonitoringEnabled = function () {
+  return this.alertCountEnabled && 
+         this.alertCountTimeframe && 
+         this.maxAlertsPerTimeframe > 0;
 };
 
 const Alert = mongoose.model("Alert", alertSchema);
