@@ -514,7 +514,37 @@ const LineChart = ({
 
       {/* Timeframe Buttons */}
       {symbol && (
-        <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
+        <Box
+          sx={{
+            mb: 2,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          {/* Left side - Symbol and Volume */}
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: 0.5,
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: "#E2E8F0", fontWeight: "bold" }}
+            >
+              {symbol}
+            </Typography>
+            {latestAlert && (
+              <Typography variant="caption" sx={{ color: "#94A3B8" }}>
+                Volume (24h): $
+                {formatNumber(latestAlert.marketData?.volume || 0)}
+              </Typography>
+            )}
+          </Box>
+          {/* Right side - Timeframe Buttons */}
           <ButtonGroup
             size="small"
             aria-label="timeframe selection"
