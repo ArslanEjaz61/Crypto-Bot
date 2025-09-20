@@ -547,6 +547,13 @@ const MarketPanel = ({
             sx={{ fontSize: "0.7rem", height: "20px" }}
           />
         )}
+        <Chip
+          label={totalFilteredCount}
+          size="small"
+          color="warning"
+          variant="outlined"
+          sx={{ fontSize: "0.7rem", height: "20px" }}
+        />
         {checkedPairs.size > 0 && (
           <Chip
             label={`${checkedPairs.size} Selected`}
@@ -559,7 +566,7 @@ const MarketPanel = ({
       </Box>
 
       {/* Counts Display */}
-      <Box
+      {/* <Box
         sx={{
           mb: 2,
           p: { xs: 1, sm: 1.5 },
@@ -636,7 +643,7 @@ const MarketPanel = ({
             </Typography>
           </Box>
         </Box>
-      </Box>
+      </Box> */}
 
       {/* Toggle buttons for Market/Favorites/Alert Generated */}
       <ToggleButtonGroup
