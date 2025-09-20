@@ -518,7 +518,7 @@ const MarketPanel = ({
         <Chip
           label={totalFilteredCount}
           size="small"
-          color="warning"
+          color="primary"
           variant="outlined"
           sx={{ fontSize: "0.7rem", height: "20px" }}
         />

@@ -144,7 +144,6 @@ const DarkTextField = styled(TextField)({
   },
 });
 
-
 const DarkButton = styled(Button)({
   borderColor: "#30363d",
   color: "white",
@@ -172,7 +171,6 @@ const DarkButton = styled(Button)({
     },
   },
 });
-
 
 const StyledFormControlLabel = styled(FormControlLabel)({
   "& .MuiFormControlLabel-label": {
@@ -224,11 +222,14 @@ const FilterSidebar = memo(
     const [isCreatingAlert, setIsCreatingAlert] = useState(false);
 
     // Simple event bus for notifications - memoized to prevent re-renders
-    const eventBus = useMemo(() => ({
-      emit: (event, data) => {
-        console.log(`Event: ${event}`, data);
-      },
-    }), []);
+    const eventBus = useMemo(
+      () => ({
+        emit: (event, data) => {
+          console.log(`Event: ${event}`, data);
+        },
+      }),
+      []
+    );
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down("md"));
@@ -245,7 +246,7 @@ const FilterSidebar = memo(
           "market",
           "exchange",
           "pair",
-          "minDaily",
+          "volume",
           "changePercent",
           "alertCount",
           "candle",
@@ -260,12 +261,16 @@ const FilterSidebar = memo(
           if (isCurrentlyChecked) {
             // If currently checked, uncheck it (clear the entire category)
             newFilters[category] = {};
-            console.log(`🔧 Single selection checkbox unchecked: ${category}.${value} (cleared entire category)`);
+            console.log(
+              `🔧 Single selection checkbox unchecked: ${category}.${value} (cleared entire category)`
+            );
           } else {
             // If not checked, clear all others and select only this one
             newFilters[category] = {};
             newFilters[category][value] = true;
-            console.log(`🔧 Single selection checkbox checked: ${category}.${value} (cleared others, selected this)`);
+            console.log(
+              `🔧 Single selection checkbox checked: ${category}.${value} (cleared others, selected this)`
+            );
           }
         } else {
           // Multiple selection: toggle the current value
@@ -273,7 +278,9 @@ const FilterSidebar = memo(
             ...ctxFilters[category],
             [value]: !ctxFilters[category]?.[value],
           };
-          console.log(`🔧 Multiple selection checkbox toggled: ${category}.${value} = ${newFilters[category][value]}`);
+          console.log(
+            `🔧 Multiple selection checkbox toggled: ${category}.${value} = ${newFilters[category][value]}`
+          );
         }
 
         setCtxFilters(newFilters);
@@ -350,10 +357,13 @@ const FilterSidebar = memo(
       const hasCandle = Object.keys(filters.candle || {}).some(
         (key) => filters.candle[key]
       );
+      const hasVolume = Object.keys(filters.volume || {}).some(
+        (key) => filters.volume[key]
+      );
 
-      if (!hasChangePercent && !hasRSI && !hasEMA && !hasCandle) {
+      if (!hasChangePercent && !hasRSI && !hasEMA && !hasCandle && !hasVolume) {
         errors.push(
-          "At least one condition must be selected (Change %, RSI, EMA, or Candle)"
+          "At least one condition must be selected (Change %, RSI, EMA, Candle, or Volume)"
         );
       }
 
@@ -428,11 +438,30 @@ const FilterSidebar = memo(
           None: "NONE",
         };
         const mappedCondition = conditionMap[condition] || "NONE";
-        
+
         if (!condition || condition === "None" || mappedCondition === "NONE") {
           errors.push(
             "Candle condition is required when Candle timeframe is selected"
           );
+        }
+      }
+
+      // Validate Volume specific requirements
+      if (hasVolume) {
+        if (!filters.volumeCondition) {
+          errors.push(
+            "Volume condition is required when Volume timeframe is selected"
+          );
+        }
+        if (!filters.volumePercentage) {
+          errors.push(
+            "Volume percentage is required when Volume timeframe is selected"
+          );
+        } else {
+          const volumePercent = Number(filters.volumePercentage);
+          if (isNaN(volumePercent) || volumePercent <= 0) {
+            errors.push("Volume percentage must be a positive number");
+          }
         }
       }
 
@@ -450,20 +479,26 @@ const FilterSidebar = memo(
         console.log("🚨 selectedSymbol type:", typeof selectedSymbol);
         console.log("🚨 selectedSymbol value:", selectedSymbol);
         console.log("🚨 symbolOverride:", symbolOverride);
-        console.log("🚨 selectedSymbol JSON:", JSON.stringify(selectedSymbol, null, 2));
-        
+        console.log(
+          "🚨 selectedSymbol JSON:",
+          JSON.stringify(selectedSymbol, null, 2)
+        );
+
         // Log current filter conditions
         console.log("🚨 === CURRENT FILTER CONDITIONS ===");
         console.log("🚨 Filters object:", JSON.stringify(filters, null, 2));
         console.log("🚨 Percentage value:", percentageValue);
-        
+
         // Get favorite pairs for validation
         const favoritePairs = getFavoritePairsForAlerts(cryptos);
         console.log("🚨 === FAVORITE PAIRS VALIDATION ===");
         console.log("🚨 Favorite pairs count:", favoritePairs.length);
         console.log("🚨 Favorite pairs list:", favoritePairs);
         console.log("🚨 All cryptos count:", cryptos.length);
-        console.log("🚨 Cryptos with isFavorite=true:", cryptos.filter(c => c.isFavorite).map(c => c.symbol));
+        console.log(
+          "🚨 Cryptos with isFavorite=true:",
+          cryptos.filter((c) => c.isFavorite).map((c) => c.symbol)
+        );
 
         // Deep debugging of selectedSymbol object structure
         if (selectedSymbol && typeof selectedSymbol === "object") {
@@ -596,35 +631,63 @@ const FilterSidebar = memo(
           "🔍 FAVORITES DEBUG - favoritePairs from getFavoritePairsForAlerts:",
           favoritePairs
         );
-        console.log("🔍 FAVORITES DEBUG - favoritePairs.length:", favoritePairs.length);
+        console.log(
+          "🔍 FAVORITES DEBUG - favoritePairs.length:",
+          favoritePairs.length
+        );
         console.log("🔍 FAVORITES DEBUG - All cryptos count:", cryptos.length);
-        console.log("🔍 FAVORITES DEBUG - Cryptos with isFavorite=true:", cryptos.filter(c => c.isFavorite).map(c => c.symbol));
+        console.log(
+          "🔍 FAVORITES DEBUG - Cryptos with isFavorite=true:",
+          cryptos.filter((c) => c.isFavorite).map((c) => c.symbol)
+        );
 
         // Priority order: Intersection of Selected pairs and Favorites > All Favorite pairs > Single symbol > Fallback
         if (selectedCount > 0) {
           // Use selected pairs from MarketPanel checkboxes, but only if they are also in favorites
-          const validSelectedPairs = selectedPairs.filter(pair => favoritePairs.includes(pair));
+          const validSelectedPairs = selectedPairs.filter((pair) =>
+            favoritePairs.includes(pair)
+          );
           if (validSelectedPairs.length > 0) {
             symbolsToProcess = validSelectedPairs;
-            console.log("🎯 Creating alerts for SELECTED pairs that are in favorites:", symbolsToProcess);
+            console.log(
+              "🎯 Creating alerts for SELECTED pairs that are in favorites:",
+              symbolsToProcess
+            );
           } else {
             // If no selected pairs are in favorites, use all favorite pairs instead
             symbolsToProcess = favoritePairs;
-            console.log("⭐ No selected pairs in favorites, using all FAVORITE pairs:", symbolsToProcess);
+            console.log(
+              "⭐ No selected pairs in favorites, using all FAVORITE pairs:",
+              symbolsToProcess
+            );
           }
         } else if (favoritePairs.length > 0) {
           // Use favorite pairs if no specific selection
           symbolsToProcess = favoritePairs;
-          console.log("⭐ Creating alerts for FAVORITE pairs:", symbolsToProcess);
-          console.log("⭐ FAVORITES DEBUG - symbolsToProcess.length:", symbolsToProcess.length);
+          console.log(
+            "⭐ Creating alerts for FAVORITE pairs:",
+            symbolsToProcess
+          );
+          console.log(
+            "⭐ FAVORITES DEBUG - symbolsToProcess.length:",
+            symbolsToProcess.length
+          );
         } else if (symbolOverride) {
           // Single symbol override (only if it's in favorites)
           if (favoritePairs.includes(symbol)) {
             symbolsToProcess = [symbol];
-            console.log("🎯 Creating alert for single override symbol:", symbol);
+            console.log(
+              "🎯 Creating alert for single override symbol:",
+              symbol
+            );
           } else {
-            console.log("⚠️ Override symbol not in favorites, skipping:", symbol);
-            setErrorMessage(`❌ Symbol ${symbol} is not in your favorites. Please add it to favorites first.`);
+            console.log(
+              "⚠️ Override symbol not in favorites, skipping:",
+              symbol
+            );
+            setErrorMessage(
+              `❌ Symbol ${symbol} is not in your favorites. Please add it to favorites first.`
+            );
             return;
           }
         } else if (selectedSymbol && favoritePairs.includes(symbol)) {
@@ -634,7 +697,9 @@ const FilterSidebar = memo(
         } else {
           // No valid symbols found
           console.log("⚠️ No valid symbols found for alert creation");
-          setErrorMessage("❌ No favorite pairs available for alert creation. Please add some pairs to favorites first.");
+          setErrorMessage(
+            "❌ No favorite pairs available for alert creation. Please add some pairs to favorites first."
+          );
           return;
         }
 
@@ -644,25 +709,31 @@ const FilterSidebar = memo(
         // CRITICAL VALIDATION: CHECK FAVORITE PAIRS AND CONDITIONS
         // ==========================================
         console.log("🚨 === VALIDATION CHECKS ===");
-        
+
         // Check if we have favorite pairs
         if (favoritePairs.length === 0) {
           console.log("🚫 VALIDATION FAILED: No favorite pairs found");
-          setErrorMessage("❌ No favorite pairs found. Please add some pairs to favorites before creating alerts.");
+          setErrorMessage(
+            "❌ No favorite pairs found. Please add some pairs to favorites before creating alerts."
+          );
           return;
         }
-        
+
         // Check if we have active conditions
         const hasActiveConditions = validateAlertForm().length === 0;
         if (!hasActiveConditions) {
           console.log("🚫 VALIDATION FAILED: No active conditions found");
-          setErrorMessage("❌ Please select at least one condition (Change %, RSI, EMA, or Candle) before creating alerts.");
+          setErrorMessage(
+            "❌ Please select at least one condition (Change %, RSI, EMA, Candle, or Volume) before creating alerts."
+          );
           return;
         }
-        
+
         // Validation: All symbols should now be in favorites due to our filtering above
-        console.log("✅ All symbols are guaranteed to be in favorites due to filtering logic");
-        
+        console.log(
+          "✅ All symbols are guaranteed to be in favorites due to filtering logic"
+        );
+
         console.log("✅ VALIDATION PASSED: All checks successful");
         console.log("✅ Favorite pairs available:", favoritePairs.length);
         console.log("✅ Active conditions found:", hasActiveConditions);
@@ -678,9 +749,11 @@ const FilterSidebar = memo(
         setIsCreatingAlert(true);
         setErrorMessage("");
         setSuccessMessage("");
-        
+
         // Show progress message
-        setSuccessMessage(`Creating alerts for ${symbolsToProcess.length} pairs...`);
+        setSuccessMessage(
+          `Creating alerts for ${symbolsToProcess.length} pairs...`
+        );
 
         try {
           const now = new Date();
@@ -704,8 +777,7 @@ const FilterSidebar = memo(
           const tradingPair = firstSelected(filters.pair) || "USDT";
 
           // Use filterValues for OHLCV-integrated data
-          const minDailyVolume = filterValues.minDailyVolume || 0;
-          console.log(`🔍 Min Daily Volume selected: ${minDailyVolume}`);
+          console.log(`🔍 Volume filter configuration:`, filters.volume);
           const changePercentTimeframe = filterValues.changePercent.timeframe;
           const alertCountTimeframe = filterValues.alertCount.timeframe;
           const alertCountEnabled = filterValues.alertCount.enabled;
@@ -777,47 +849,62 @@ const FilterSidebar = memo(
             "Bulk deleting existing alerts for symbols:",
             symbolsToProcess
           );
-          
+
           // Update progress message
-          setSuccessMessage(`Deleting existing alerts for ${symbolsToProcess.length} pairs...`);
-          
+          setSuccessMessage(
+            `Deleting existing alerts for ${symbolsToProcess.length} pairs...`
+          );
+
           let deletionResults = [];
           try {
             // Use bulk delete endpoint for better performance
-            const response = await axios.delete('/api/alerts/bulk-delete', {
-              data: { symbols: symbolsToProcess.map(s => s.trim()) }
+            const response = await axios.delete("/api/alerts/bulk-delete", {
+              data: { symbols: symbolsToProcess.map((s) => s.trim()) },
             });
-            
-            console.log(`Bulk deleted ${response.data.deletedCount} alerts for ${symbolsToProcess.length} symbols`);
-            
-            deletionResults = symbolsToProcess.map(symbol => ({
+
+            console.log(
+              `Bulk deleted ${response.data.deletedCount} alerts for ${symbolsToProcess.length} symbols`
+            );
+
+            deletionResults = symbolsToProcess.map((symbol) => ({
               symbol: symbol.trim(),
-              deletedCount: response.data.deletedCount / symbolsToProcess.length, // Approximate
+              deletedCount:
+                response.data.deletedCount / symbolsToProcess.length, // Approximate
               success: true,
             }));
           } catch (error) {
-            console.error("Error in bulk delete, falling back to individual deletes:", error);
-            
+            console.error(
+              "Error in bulk delete, falling back to individual deletes:",
+              error
+            );
+
             // Fallback to individual deletes if bulk delete fails
-            const deletionPromises = symbolsToProcess.map(async (currentSymbol) => {
-              try {
-                const cleanSymbol = currentSymbol.trim();
-                const deletionResult = await deleteAlertsBySymbol(cleanSymbol);
-                return {
-                  symbol: cleanSymbol,
-                  deletedCount: deletionResult.deletedCount,
-                  success: true,
-                };
-              } catch (error) {
-                console.error(`Error deleting existing alerts for ${currentSymbol}:`, error);
-                return {
-                  symbol: currentSymbol,
-                  deletedCount: 0,
-                  success: false,
-                  error: error.message,
-                };
+            const deletionPromises = symbolsToProcess.map(
+              async (currentSymbol) => {
+                try {
+                  const cleanSymbol = currentSymbol.trim();
+                  const deletionResult = await deleteAlertsBySymbol(
+                    cleanSymbol
+                  );
+                  return {
+                    symbol: cleanSymbol,
+                    deletedCount: deletionResult.deletedCount,
+                    success: true,
+                  };
+                } catch (error) {
+                  console.error(
+                    `Error deleting existing alerts for ${currentSymbol}:`,
+                    error
+                  );
+                  return {
+                    symbol: currentSymbol,
+                    deletedCount: 0,
+                    success: false,
+                    error: error.message,
+                  };
+                }
               }
-            });
+            );
 
             deletionResults = await Promise.all(deletionPromises);
           }
@@ -825,169 +912,198 @@ const FilterSidebar = memo(
           console.log("Deletion results:", deletionResults);
 
           // Update progress message
-          setSuccessMessage(`Creating new alerts for ${symbolsToProcess.length} pairs...`);
+          setSuccessMessage(
+            `Creating new alerts for ${symbolsToProcess.length} pairs...`
+          );
 
           // Now create new alerts for all selected symbols in parallel for better performance
           const alertResults = [];
           const failedAlerts = [];
 
-          const alertCreationPromises = symbolsToProcess.map(async (currentSymbol) => {
-            try {
-              // Validate each symbol
-              if (
-                !currentSymbol ||
-                typeof currentSymbol !== "string" ||
-                currentSymbol.trim() === ""
-              ) {
-                console.error("Invalid symbol in batch:", currentSymbol);
+          const alertCreationPromises = symbolsToProcess.map(
+            async (currentSymbol) => {
+              try {
+                // Validate each symbol
+                if (
+                  !currentSymbol ||
+                  typeof currentSymbol !== "string" ||
+                  currentSymbol.trim() === ""
+                ) {
+                  console.error("Invalid symbol in batch:", currentSymbol);
+                  return {
+                    symbol: currentSymbol,
+                    success: false,
+                    error: "Invalid symbol format",
+                  };
+                }
+
+                const cleanSymbol = currentSymbol.trim();
+                console.log("Creating alert for symbol:", cleanSymbol);
+
+                // Define hasVolume for this scope
+                const hasVolume = Object.keys(filters.volume || {}).some(
+                  (key) => filters.volume[key]
+                );
+
+                // Create clean alertData object with only serializable values
+                const alertData = {
+                  symbol: cleanSymbol,
+                  direction: ">",
+                  targetType: "percentage",
+                  targetValue: Number(finalPercentageValue),
+                  trackingMode: "current",
+                  intervalMinutes: 60,
+                  volumeChangeRequired: 0,
+                  alertTime: String(alertTime),
+                  comment: `Alert created from filter for ${cleanSymbol}`,
+                  email: " kainat.tasadaq3@gmail.com",
+
+                  // OHLCV-integrated Change % with timeframe
+                  changePercentTimeframe: changePercentTimeframe
+                    ? String(changePercentTimeframe)
+                    : null,
+                  changePercentValue: Number(finalPercentageValue),
+                  // Alert Count configuration
+                  alertCountTimeframe: alertCountTimeframe
+                    ? String(alertCountTimeframe)
+                    : null,
+                  alertCountEnabled: Boolean(alertCountEnabled),
+                  maxAlertsPerTimeframe: 1, // Default to 1 alert per timeframe candle
+
+                  // Candle configuration - single timeframe like other conditions
+                  candleTimeframes: candleTimeframe
+                    ? [String(candleTimeframe)]
+                    : [],
+                  candleCondition: candleTimeframe
+                    ? (() => {
+                        const condition = filters.candleCondition || "NONE";
+                        const conditionMap = {
+                          "Candle Above Open": "ABOVE_OPEN",
+                          "Candle Below Open": "BELOW_OPEN",
+                          "Green Candle": "GREEN_CANDLE",
+                          "Red Candle": "RED_CANDLE",
+                          "Bullish Hammer": "BULLISH_HAMMER",
+                          "Bearish Hammer": "BEARISH_HAMMER",
+                          Doji: "DOJI",
+                          "Long Upper Wick": "LONG_UPPER_WICK",
+                          "Long Lower Wick": "LONG_LOWER_WICK",
+                          None: "NONE",
+                        };
+                        return String(conditionMap[condition] || "NONE");
+                      })()
+                    : "NONE",
+
+                  // RSI configuration - null if not selected
+                  rsiEnabled: Boolean(rsiConfig),
+                  rsiTimeframe: rsiConfig?.timeframe
+                    ? String(rsiConfig.timeframe)
+                    : null,
+                  rsiPeriod: rsiConfig?.period ? Number(rsiConfig.period) : 0,
+                  rsiCondition: rsiConfig?.condition
+                    ? String(rsiConfig.condition).replace(" ", "_")
+                    : "NONE",
+                  rsiLevel: rsiConfig?.level ? Number(rsiConfig.level) : 0,
+
+                  // EMA configuration - null if not selected
+                  emaEnabled: Boolean(emaConfig),
+                  emaTimeframe: emaConfig?.timeframe
+                    ? String(emaConfig.timeframe)
+                    : null,
+                  emaFastPeriod: emaConfig?.fastPeriod
+                    ? Number(emaConfig.fastPeriod)
+                    : 0,
+                  emaSlowPeriod: emaConfig?.slowPeriod
+                    ? Number(emaConfig.slowPeriod)
+                    : 0,
+                  emaCondition: emaConfig?.condition
+                    ? String(emaConfig.condition).replace(" ", "_")
+                    : "NONE",
+
+                  // Volume configuration - null if not selected
+                  volumeEnabled: Boolean(hasVolume),
+                  volumeTimeframes: hasVolume
+                    ? Object.keys(filters.volume || {}).filter(
+                        (key) => filters.volume[key]
+                      )
+                    : [],
+                  volumeCondition: hasVolume
+                    ? String(filters.volumeCondition || "NONE")
+                    : "NONE",
+                  volumePercentage: hasVolume
+                    ? Number(filters.volumePercentage || 0)
+                    : 0,
+
+                  // Market filters (always active)
+                  market: String(market),
+                  exchange: String(exchange),
+                  tradingPair: String(tradingPair),
+                };
+
+                // Allow creating alerts with null/0 values - no validation required
+
+                console.log("Creating alert with OHLCV data:", {
+                  symbol: alertData.symbol,
+                  volume: alertData.volumeEnabled
+                    ? {
+                        timeframes: alertData.volumeTimeframes,
+                        condition: alertData.volumeCondition,
+                        percentage: alertData.volumePercentage,
+                      }
+                    : null,
+                  changePercent: {
+                    timeframe: alertData.changePercentTimeframe,
+                    value: alertData.changePercentValue,
+                  },
+                  alertCount: {
+                    timeframe: alertData.alertCountTimeframe,
+                    enabled: alertData.alertCountEnabled,
+                  },
+                  rsi: rsiConfig,
+                  ema: emaConfig,
+                });
+
+                const created = await createAlert(alertData);
+                console.log("✅ ALERT CREATED SUCCESSFULLY:", cleanSymbol);
+                console.log(
+                  "✅ Alert data:",
+                  JSON.stringify(alertData, null, 2)
+                );
+                console.log("✅ Created alert:", created);
+
+                eventBus.emit("ALERT_CREATED", created);
+
+                return {
+                  symbol: cleanSymbol,
+                  success: true,
+                  alert: created,
+                };
+              } catch (error) {
+                console.error(
+                  "Error creating alert for",
+                  currentSymbol,
+                  ":",
+                  error
+                );
+                const errorMsg =
+                  error.response?.data?.message ||
+                  error.response?.data ||
+                  error.message ||
+                  "Unknown error";
+
                 return {
                   symbol: currentSymbol,
                   success: false,
-                  error: "Invalid symbol format",
+                  error: errorMsg,
                 };
               }
-
-              const cleanSymbol = currentSymbol.trim();
-              console.log("Creating alert for symbol:", cleanSymbol);
-
-              // Create clean alertData object with only serializable values
-              const alertData = {
-                symbol: cleanSymbol,
-                direction: ">",
-                targetType: "percentage",
-                targetValue: Number(finalPercentageValue),
-                trackingMode: "current",
-                intervalMinutes: 60,
-                volumeChangeRequired: 0,
-                alertTime: String(alertTime),
-                comment: `Alert created from filter for ${cleanSymbol}`,
-                email: " kainat.tasadaq3@gmail.com",
-
-                // OHLCV-integrated Min Daily Volume
-                minDailyVolume: Number(minDailyVolume) || 0,
-
-                // OHLCV-integrated Change % with timeframe
-                changePercentTimeframe: changePercentTimeframe
-                  ? String(changePercentTimeframe)
-                  : null,
-                changePercentValue: Number(finalPercentageValue),
-                // Alert Count configuration
-                alertCountTimeframe: alertCountTimeframe
-                  ? String(alertCountTimeframe)
-                  : null,
-                alertCountEnabled: Boolean(alertCountEnabled),
-                maxAlertsPerTimeframe: 1, // Default to 1 alert per timeframe candle
-
-                // Candle configuration - single timeframe like other conditions
-                candleTimeframes: candleTimeframe
-                  ? [String(candleTimeframe)]
-                  : [],
-                candleCondition: candleTimeframe
-                  ? (() => {
-                      const condition = filters.candleCondition || "NONE";
-                      const conditionMap = {
-                        "Candle Above Open": "ABOVE_OPEN",
-                        "Candle Below Open": "BELOW_OPEN",
-                        "Green Candle": "GREEN_CANDLE",
-                        "Red Candle": "RED_CANDLE",
-                        "Bullish Hammer": "BULLISH_HAMMER",
-                        "Bearish Hammer": "BEARISH_HAMMER",
-                        Doji: "DOJI",
-                        "Long Upper Wick": "LONG_UPPER_WICK",
-                        "Long Lower Wick": "LONG_LOWER_WICK",
-                        None: "NONE",
-                      };
-                      return String(conditionMap[condition] || "NONE");
-                    })()
-                  : "NONE",
-
-                // RSI configuration - null if not selected
-                rsiEnabled: Boolean(rsiConfig),
-                rsiTimeframe: rsiConfig?.timeframe
-                  ? String(rsiConfig.timeframe)
-                  : null,
-                rsiPeriod: rsiConfig?.period ? Number(rsiConfig.period) : 0,
-                rsiCondition: rsiConfig?.condition
-                  ? String(rsiConfig.condition).replace(" ", "_")
-                  : "NONE",
-                rsiLevel: rsiConfig?.level ? Number(rsiConfig.level) : 0,
-
-                // EMA configuration - null if not selected
-                emaEnabled: Boolean(emaConfig),
-                emaTimeframe: emaConfig?.timeframe
-                  ? String(emaConfig.timeframe)
-                  : null,
-                emaFastPeriod: emaConfig?.fastPeriod
-                  ? Number(emaConfig.fastPeriod)
-                  : 0,
-                emaSlowPeriod: emaConfig?.slowPeriod
-                  ? Number(emaConfig.slowPeriod)
-                  : 0,
-                emaCondition: emaConfig?.condition
-                  ? String(emaConfig.condition).replace(" ", "_")
-                  : "NONE",
-
-                // Market filters (always active)
-                market: String(market),
-                exchange: String(exchange),
-                tradingPair: String(tradingPair),
-              };
-
-              // Allow creating alerts with null/0 values - no validation required
-
-              console.log("Creating alert with OHLCV data:", {
-                symbol: alertData.symbol,
-                minDailyVolume: alertData.minDailyVolume,
-                changePercent: {
-                  timeframe: alertData.changePercentTimeframe,
-                  value: alertData.changePercentValue,
-                },
-                alertCount: {
-                  timeframe: alertData.alertCountTimeframe,
-                  enabled: alertData.alertCountEnabled,
-                },
-                rsi: rsiConfig,
-                ema: emaConfig,
-              });
-
-              const created = await createAlert(alertData);
-              console.log("✅ ALERT CREATED SUCCESSFULLY:", cleanSymbol);
-              console.log("✅ Alert data:", JSON.stringify(alertData, null, 2));
-              console.log("✅ Created alert:", created);
-
-              eventBus.emit("ALERT_CREATED", created);
-              
-              return {
-                symbol: cleanSymbol,
-                success: true,
-                alert: created,
-              };
-            } catch (error) {
-              console.error(
-                "Error creating alert for",
-                currentSymbol,
-                ":",
-                error
-              );
-              const errorMsg =
-                error.response?.data?.message ||
-                error.response?.data ||
-                error.message ||
-                "Unknown error";
-              
-              return {
-                symbol: currentSymbol,
-                success: false,
-                error: errorMsg,
-              };
             }
-          });
+          );
 
           // Wait for all alert creation promises to complete
           const alertCreationResults = await Promise.all(alertCreationPromises);
-          
+
           // Separate successful and failed results
-          alertCreationResults.forEach(result => {
+          alertCreationResults.forEach((result) => {
             if (result.success) {
               alertResults.push(result);
             } else {
@@ -1183,7 +1299,7 @@ const FilterSidebar = memo(
               aria-controls="market-content"
               id="market-header"
             >
-              <DarkTypography>Market (Select One)</DarkTypography>
+              <DarkTypography>Market </DarkTypography>
             </CustomAccordionSummary>
             <AccordionDetails>
               <FormGroup>
@@ -1207,7 +1323,7 @@ const FilterSidebar = memo(
               aria-controls="exchange-content"
               id="exchange-header"
             >
-              <DarkTypography>Exchange (Select One)</DarkTypography>
+              <DarkTypography>Exchange </DarkTypography>
             </CustomAccordionSummary>
             <AccordionDetails>
               <FormGroup>
@@ -1233,7 +1349,7 @@ const FilterSidebar = memo(
               aria-controls="pair-content"
               id="pair-header"
             >
-              <DarkTypography>Pair (Select One)</DarkTypography>
+              <DarkTypography>Pair</DarkTypography>
             </CustomAccordionSummary>
             <AccordionDetails>
               <FormGroup>
@@ -1250,107 +1366,168 @@ const FilterSidebar = memo(
             </AccordionDetails>
           </DarkAccordion>
 
-          {/* Min. Daily Section */}
+          {/* Volume */}
           <DarkAccordion defaultExpanded>
             <CustomAccordionSummary
               expandIcon={<ExpandMoreIcon />}
-              aria-controls="min-daily-content"
-              id="min-daily-header"
+              aria-controls="volume-content"
+              id="volume-header"
             >
-              <DarkTypography>Min. Daily (Select One)</DarkTypography>
+              <DarkTypography>
+                Volume 
+              </DarkTypography>
             </CustomAccordionSummary>
             <AccordionDetails>
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 0.5,
-                  padding: "1px 0",
-                }}
-              >
-                <StyledFormControlLabel
-                  control={
-                    <CustomCheckbox
-                      checked={filters.minDaily?.["10K"] || false}
-                      onChange={() => handleCheckboxChange("minDaily", "10K")}
-                    />
+              {/* Timeframe Selection */}
+              <Box sx={{ mb: 2 }}>
+                <DarkTypography variant="body2" gutterBottom>
+                  Timeframe:
+                </DarkTypography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 0.5,
+                    padding: "1px 0",
+                  }}
+                >
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["1MIN"] || false}
+                        onChange={() => handleCheckboxChange("volume", "1MIN")}
+                      />
+                    }
+                    label="1MIN"
+                  />
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["5MIN"] || false}
+                        onChange={() => handleCheckboxChange("volume", "5MIN")}
+                      />
+                    }
+                    label="5MIN"
+                  />
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["15MIN"] || false}
+                        onChange={() => handleCheckboxChange("volume", "15MIN")}
+                      />
+                    }
+                    label="15MIN"
+                  />
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["1HR"] || false}
+                        onChange={() => handleCheckboxChange("volume", "1HR")}
+                      />
+                    }
+                    label="1HR"
+                  />
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["4HR"] || false}
+                        onChange={() => handleCheckboxChange("volume", "4HR")}
+                      />
+                    }
+                    label="4HR"
+                  />
+                </Box>
+              </Box>
+
+              {/* Condition Selection */}
+              <Box sx={{ mb: 2 }}>
+                <DarkTypography variant="body2" gutterBottom>
+                  Condition:
+                </DarkTypography>
+                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                  <DarkButton
+                    variant={
+                      filters.volumeCondition === "INCREASING"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    size="small"
+                    onClick={() =>
+                      handleToggleChange("volumeCondition", null, "INCREASING")
+                    }
+                    sx={{ py: 0.5, fontSize: "12px" }}
+                  >
+                    INCREASING
+                  </DarkButton>
+                  <DarkButton
+                    variant={
+                      filters.volumeCondition === "DECREASING"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    size="small"
+                    onClick={() =>
+                      handleToggleChange("volumeCondition", null, "DECREASING")
+                    }
+                    sx={{ py: 0.5, fontSize: "12px" }}
+                  >
+                    DECREASING
+                  </DarkButton>
+                  <DarkButton
+                    variant={
+                      filters.volumeCondition === "ABOVE"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    size="small"
+                    onClick={() =>
+                      handleToggleChange("volumeCondition", null, "ABOVE")
+                    }
+                    sx={{ py: 0.5, fontSize: "12px" }}
+                  >
+                    ABOVE
+                  </DarkButton>
+                  <DarkButton
+                    variant={
+                      filters.volumeCondition === "BELOW"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    size="small"
+                    onClick={() =>
+                      handleToggleChange("volumeCondition", null, "BELOW")
+                    }
+                    sx={{ py: 0.5, fontSize: "12px" }}
+                  >
+                    BELOW
+                  </DarkButton>
+                </Box>
+              </Box>
+
+              {/* Percentage Input */}
+              <Box>
+                <DarkTypography variant="body2" gutterBottom>
+                  Percentage %:
+                </DarkTypography>
+                <DarkTextField
+                  size="small"
+                  variant="outlined"
+                  type="number"
+                  value={filters.volumePercentage || ""}
+                  onChange={(e) =>
+                    handleTextChange("volumePercentage", e.target.value)
                   }
-                  label="10k"
-                />
-                <StyledFormControlLabel
-                  control={
-                    <CustomCheckbox
-                      checked={filters.minDaily?.["100K"] || false}
-                      onChange={() => handleCheckboxChange("minDaily", "100K")}
-                    />
-                  }
-                  label="100K"
-                />
-                <StyledFormControlLabel
-                  control={
-                    <CustomCheckbox
-                      checked={filters.minDaily?.["500K"] || false}
-                      onChange={() => handleCheckboxChange("minDaily", "500K")}
-                    />
-                  }
-                  label="500K"
-                />
-                <StyledFormControlLabel
-                  control={
-                    <CustomCheckbox
-                      checked={filters.minDaily?.["1MN"] || false}
-                      onChange={() => handleCheckboxChange("minDaily", "1MN")}
-                    />
-                  }
-                  label="1MN"
-                />
-                <StyledFormControlLabel
-                  control={
-                    <CustomCheckbox
-                      checked={filters.minDaily?.["2MN"] || false}
-                      onChange={() => handleCheckboxChange("minDaily", "2MN")}
-                    />
-                  }
-                  label="2MN"
-                />
-                <StyledFormControlLabel
-                  control={
-                    <CustomCheckbox
-                      checked={filters.minDaily?.["5MN"] || false}
-                      onChange={() => handleCheckboxChange("minDaily", "5MN")}
-                    />
-                  }
-                  label="5MN"
-                />
-                <StyledFormControlLabel
-                  control={
-                    <CustomCheckbox
-                      checked={filters.minDaily?.["10MN"] || false}
-                      onChange={() => handleCheckboxChange("minDaily", "10MN")}
-                    />
-                  }
-                  label="10MN"
-                />
-                <StyledFormControlLabel
-                  control={
-                    <CustomCheckbox
-                      checked={filters.minDaily?.["25MN"] || false}
-                      onChange={() => handleCheckboxChange("minDaily", "25MN")}
-                    />
-                  }
-                  label="25MN"
-                />
-                <StyledFormControlLabel
-                  control={
-                    <CustomCheckbox
-                      checked={filters.minDaily?.["50MN_PLUS"] || false}
-                      onChange={() =>
-                        handleCheckboxChange("minDaily", "50MN_PLUS")
-                      }
-                    />
-                  }
-                  label="50MN and Above"
-                  sx={{ gridColumn: "1 / span 2" }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Typography variant="body2" sx={{ color: "#94A3B8" }}>
+                          %
+                        </Typography>
+                      </InputAdornment>
+                    ),
+                  }}
+                  placeholder="Enter percentage"
+                  sx={{ width: "100%" }}
                 />
               </Box>
             </AccordionDetails>
@@ -1363,7 +1540,7 @@ const FilterSidebar = memo(
               aria-controls="change-percent-content"
               id="change-percent-header"
             >
-              <DarkTypography>Change % (Select One)</DarkTypography>
+              <DarkTypography>Change % </DarkTypography>
             </CustomAccordionSummary>
             <AccordionDetails>
               <Box
@@ -1475,7 +1652,7 @@ const FilterSidebar = memo(
               aria-controls="alert-count-content"
               id="alert-count-header"
             >
-              <DarkTypography>Alert Count (Select One)</DarkTypography>
+              <DarkTypography>Alert Count </DarkTypography>
             </CustomAccordionSummary>
             <AccordionDetails>
               <Box
@@ -1547,9 +1724,11 @@ const FilterSidebar = memo(
                   label="D"
                 />
               </Box>
-              
+
               {/* Alert Count Info */}
-              {Object.keys(filters.alertCount || {}).some(key => filters.alertCount[key]) && (
+              {Object.keys(filters.alertCount || {}).some(
+                (key) => filters.alertCount[key]
+              ) && (
                 <Box
                   sx={{
                     mt: 1,
@@ -1561,21 +1740,21 @@ const FilterSidebar = memo(
                 >
                   <DarkTypography
                     variant="body2"
-                    sx={{ 
-                      fontSize: "12px", 
+                    sx={{
+                      fontSize: "12px",
                       color: "#22C55E",
-                      textAlign: "center"
+                      textAlign: "center",
                     }}
                   >
                     🚨 Alert Count Enabled: Max 1 alert per candle
                   </DarkTypography>
                   <DarkTypography
                     variant="body2"
-                    sx={{ 
-                      fontSize: "11px", 
+                    sx={{
+                      fontSize: "11px",
                       color: "rgba(255, 255, 255, 0.7)",
                       textAlign: "center",
-                      mt: 0.5
+                      mt: 0.5,
                     }}
                   >
                     Prevents spam alerts within the same candle timeframe
