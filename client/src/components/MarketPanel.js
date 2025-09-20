@@ -26,9 +26,6 @@ import {
   Button,
   useTheme,
   useMediaQuery,
-  Card,
-  CardContent,
-  Grid,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
@@ -37,8 +34,6 @@ import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import CurrencyExchangeIcon from "@mui/icons-material/CurrencyExchange";
-import DeleteIcon from "@mui/icons-material/Delete";
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { useCrypto } from "../context/CryptoContext";
 import { useFilters } from "../context/FilterContext";
 import { useAlert } from "../context/AlertContext";
