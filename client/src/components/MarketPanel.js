@@ -161,20 +161,11 @@ const MarketPanel = ({
 
   /* Filter functionality is handled directly in the component through the context */
 
-  // Load crypto pairs based on FilterSidebar settings
+  // Load active USDT pairs only
   useEffect(() => {
-    const usdtFilter = filters.pair?.USDT || false;
-
-    // If USDT is checked, load only USDT pairs
-    // If USDT is unchecked, load all SPOT pairs (USDT, BTC, ETH, BNB, etc.)
-    if (usdtFilter) {
-      // Load only USDT pairs
-      loadCryptos(1, 5000, false, true, true, true);
-    } else {
-      // Load all SPOT pairs (including USDT, BTC, ETH, BNB, etc.)
-      loadCryptos(1, 5000, false, true, true, false);
-    }
-  }, [loadCryptos, filters.pair?.USDT, filters.market?.SPOT, cryptos]);
+    // Always load only active USDT pairs
+    loadCryptos(1, 5000, false, true, true, true);
+  }, [loadCryptos, cryptos]);
 
   // Memoized filtered cryptos for better performance
   const filteredCryptos = useMemo(() => {
@@ -184,21 +175,12 @@ const MarketPanel = ({
 
     let filtered = [...cryptos];
 
-    // Apply USDT filter based on FilterSidebar checkbox
-    const usdtFilter = filters.pair?.USDT || false;
-    if (usdtFilter) {
-      // Show only USDT pairs
-      filtered = filtered.filter((crypto) => crypto.symbol.endsWith("USDT"));
-    } else {
-      // Show all SPOT pairs (BTC, ETH, BNB, etc.)
-      filtered = filtered.filter(
-        (crypto) =>
-          crypto.symbol.endsWith("USDT") ||
-          crypto.symbol.endsWith("BTC") ||
-          crypto.symbol.endsWith("ETH") ||
-          crypto.symbol.endsWith("BNB")
-      );
-    }
+    // Show only active USDT pairs (always filter for USDT and TRADING status)
+    filtered = filtered.filter((crypto) => 
+      crypto.symbol.endsWith("USDT") && 
+      crypto.isSpotTradingAllowed === true &&
+      crypto.status === "TRADING"
+    );
 
     // Apply market/favorite filter
     if (view === "favorites") {
@@ -245,21 +227,12 @@ const MarketPanel = ({
 
     let filtered = [...cryptos];
 
-    // Apply USDT filter based on FilterSidebar checkbox
-    const usdtFilter = filters.pair?.USDT || false;
-    if (usdtFilter) {
-      // Show only USDT pairs
-      filtered = filtered.filter((crypto) => crypto.symbol.endsWith("USDT"));
-    } else {
-      // Show all SPOT pairs (BTC, ETH, BNB, etc.)
-      filtered = filtered.filter(
-        (crypto) =>
-          crypto.symbol.endsWith("USDT") ||
-          crypto.symbol.endsWith("BTC") ||
-          crypto.symbol.endsWith("ETH") ||
-          crypto.symbol.endsWith("BNB")
-      );
-    }
+    // Show only active USDT pairs (always filter for USDT and TRADING status)
+    filtered = filtered.filter((crypto) => 
+      crypto.symbol.endsWith("USDT") && 
+      crypto.isSpotTradingAllowed === true &&
+      crypto.status === "TRADING"
+    );
 
     // Remove duplicates based on symbol
     const uniqueFiltered = filtered.filter(

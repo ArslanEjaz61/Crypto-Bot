@@ -46,6 +46,25 @@ const cryptoSchema = mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isSpotTradingAllowed: {
+      type: Boolean,
+      default: false,
+    },
+    quoteAsset: {
+      type: String,
+      default: '',
+    },
+    baseAsset: {
+      type: String,
+      default: '',
+    },
+    permissions: [{
+      type: String,
+    }],
+    status: {
+      type: String,
+      default: 'TRADING',
+    },
   },
   {
     timestamps: true,

@@ -131,19 +131,20 @@ const filterCryptos = (cryptos, filter) => {
 
         // Check if USDT filter is enabled - PROPER BINANCE API FILTERING
         if (filter.pair.USDT === true) {
-          // Use Binance API logic: check quoteAsset is USDT
-          const isUsdtPair =
-            crypto.quoteAsset === "USDT" ||
-            (crypto.symbol && crypto.symbol.endsWith("USDT"));
+          // Use Binance API logic: check quoteAsset is USDT and status is TRADING
+          const isActiveUsdtPair =
+            (crypto.quoteAsset === "USDT" ||
+            (crypto.symbol && crypto.symbol.endsWith("USDT"))) &&
+            crypto.status === "TRADING";
 
-          if (isUsdtPair) {
+          if (isActiveUsdtPair) {
             pairMatches = true;
             console.log(
-              `${crypto.symbol} matches USDT filter (quoteAsset: ${crypto.quoteAsset})`
+              `${crypto.symbol} matches active USDT filter (quoteAsset: ${crypto.quoteAsset}, status: ${crypto.status})`
             );
           } else {
             console.log(
-              `${crypto.symbol} excluded - not USDT pair (quoteAsset: ${crypto.quoteAsset})`
+              `${crypto.symbol} excluded - not active USDT pair (quoteAsset: ${crypto.quoteAsset}, status: ${crypto.status})`
             );
           }
         }
@@ -1006,7 +1007,7 @@ export const AutoRefreshProvider = ({ children }) => {
     console.log("Auto-refresh: Fetching latest crypto data");
 
     try {
-      await loadCryptos(1, 50, true, true); // Use silent loading for background refreshes
+      await loadCryptos(1, 50, true, true, true, true); // Use silent loading for background refreshes, USDT spot-only
       console.log("Auto-refresh completed successfully");
     } catch (error) {
       console.error("Auto-refresh failed:", error);
