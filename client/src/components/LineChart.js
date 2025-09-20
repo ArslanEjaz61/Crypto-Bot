@@ -343,175 +343,6 @@ const LineChart = ({
         borderRadius: 2,
       }}
     >
-      {/* Top Section - Pair Name, Alert Details, Volume, Price, Time, Date */}
-      <Box
-        sx={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: { xs: 1, sm: 2 },
-          mb: 2,
-          p: 2,
-          bgcolor: "#0A0E17",
-          borderRadius: 1,
-          color: "white",
-        }}
-      >
-        {/* Pair Name */}
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: "bold",
-            color: "#E2E8F0",
-            fontSize: { xs: "1rem", sm: "1.25rem" },
-          }}
-        >
-          {symbol || "Select a coin"}
-        </Typography>
-
-        {/* Separator */}
-        <Typography sx={{ color: "#6B7280" }}>|</Typography>
-
-        {/* Alert Details */}
-        {latestAlert && (
-          <>
-            <Typography variant="body2" sx={{ color: "#94A3B8" }}>
-              {latestAlert.conditionDetails?.description ||
-                latestAlert.conditionMet ||
-                "Alert triggered"}
-              {latestAlert.changePercentTimeframe && (
-                <span style={{ marginLeft: "8px", color: "#60A5FA" }}>
-                  | Timeframe: {latestAlert.changePercentTimeframe}
-                </span>
-              )}
-            </Typography>
-
-            {/* Separator */}
-            <Typography sx={{ color: "#6B7280" }}>|</Typography>
-          </>
-        )}
-
-        {/* Alert Details - Target, Actual, Timeframe */}
-        {latestAlert && latestAlert.conditionDetails && (
-          <>
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{ color: "#94A3B8", display: "block" }}
-              >
-                Alert Details
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ color: "#E2E8F0", fontWeight: "bold" }}
-              >
-                Target: {latestAlert.conditionDetails.targetValue} | Actual:{" "}
-                {latestAlert.conditionDetails.actualValue}
-                {latestAlert.conditionDetails.timeframe &&
-                  ` | Timeframe: ${latestAlert.conditionDetails.timeframe}`}
-              </Typography>
-            </Box>
-
-            {/* Separator */}
-            <Typography sx={{ color: "#6B7280" }}>|</Typography>
-          </>
-        )}
-
-        {/* Volume */}
-        {latestAlert && (
-          <>
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{ color: "#94A3B8", display: "block" }}
-              >
-                Volume (24h)
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ color: "#E2E8F0", fontWeight: "bold" }}
-              >
-                ${formatNumber(latestAlert.marketData?.volume || 0)}
-              </Typography>
-            </Box>
-
-            {/* Separator */}
-            <Typography sx={{ color: "#6B7280" }}>|</Typography>
-          </>
-        )}
-
-        {/* Last Price */}
-        {latestAlert && (
-          <>
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{ color: "#94A3B8", display: "block" }}
-              >
-                Last Price
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ color: "#E2E8F0", fontWeight: "bold" }}
-              >
-                $
-                {latestAlert.marketData?.price
-                  ? latestAlert.marketData.price.toFixed(4)
-                  : latestAlert.conditionDetails?.actualValue
-                  ? parseFloat(
-                      latestAlert.conditionDetails.actualValue
-                    ).toFixed(4)
-                  : "0.0000"}
-              </Typography>
-            </Box>
-
-            {/* Separator */}
-            <Typography sx={{ color: "#6B7280" }}>|</Typography>
-          </>
-        )}
-
-        {/* Time */}
-        {latestAlert && (
-          <>
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{ color: "#94A3B8", display: "block" }}
-              >
-                Time
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ color: "#E2E8F0", fontWeight: "bold" }}
-              >
-                {format(new Date(latestAlert.triggeredAt), "HH:mm:ss")}
-              </Typography>
-            </Box>
-
-            {/* Separator */}
-            <Typography sx={{ color: "#6B7280" }}>|</Typography>
-          </>
-        )}
-
-        {/* Date */}
-        {latestAlert && (
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ color: "#94A3B8", display: "block" }}
-            >
-              Date
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ color: "#E2E8F0", fontWeight: "bold" }}
-            >
-              {format(new Date(latestAlert.triggeredAt), "MMM dd, yyyy")}
-            </Typography>
-          </Box>
-        )}
-      </Box>
-
       {/* Timeframe Buttons */}
       {symbol && (
         <Box
@@ -522,7 +353,7 @@ const LineChart = ({
             alignItems: "flex-start",
           }}
         >
-          {/* Left side - Symbol and Volume */}
+          {/* Left side - Price, Time, Date, Symbol and Volume */}
           <Box
             sx={{
               display: "flex",
@@ -531,6 +362,7 @@ const LineChart = ({
               gap: 0.5,
             }}
           >
+            {/* Symbol and Volume */}
             <Typography
               variant="body2"
               sx={{ color: "#E2E8F0", fontWeight: "bold" }}
@@ -606,14 +438,116 @@ const LineChart = ({
         )}
       </Box>
 
-      <Box sx={{ mt: 1, textAlign: "center" }}>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
-        >
-          Powered by TradingView Lightweight Charts
-        </Typography>
+      <Box
+        sx={{
+          mt: 1,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        {/* Left side - Alert Details */}
+        {latestAlert && latestAlert.conditionDetails && (
+          <Box>
+            <Typography
+              variant="caption"
+              sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
+            >
+              Alert Details
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "#E2E8F0", fontWeight: "bold", fontSize: "0.8rem" }}
+            >
+              Target: {latestAlert.conditionDetails.targetValue} | Actual:{" "}
+              {latestAlert.conditionDetails.actualValue} | Timeframe:{" "}
+              {latestAlert.conditionDetails.timeframe}
+            </Typography>
+          </Box>
+        )}
+
+        {/* Right side - Price, Time, Date */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {/* Last Price */}
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
+            >
+              Last Price
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "#E2E8F0", fontWeight: "bold", fontSize: "0.8rem" }}
+            >
+              ${latestAlert?.marketData?.price || "0.0000"}
+            </Typography>
+          </Box>
+
+          {/* Divider */}
+          <Typography variant="body2" sx={{ color: "#94A3B8" }}>
+            |
+          </Typography>
+
+          {/* Time */}
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
+            >
+              Time
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "#E2E8F0", fontWeight: "bold", fontSize: "0.8rem" }}
+            >
+              {latestAlert
+                ? format(new Date(latestAlert.triggeredAt), "HH:mm:ss")
+                : "00:00:00"}
+            </Typography>
+          </Box>
+
+          {/* Divider */}
+          <Typography variant="body2" sx={{ color: "#94A3B8" }}>
+            |
+          </Typography>
+
+          {/* Date */}
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
+            >
+              Date
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "#E2E8F0", fontWeight: "bold", fontSize: "0.8rem" }}
+            >
+              {latestAlert
+                ? format(new Date(latestAlert.triggeredAt), "MMM dd, yyyy")
+                : "Jan 01, 2025"}
+            </Typography>
+          </Box>
+        </Box>
       </Box>
     </Paper>
   );

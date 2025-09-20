@@ -19,7 +19,6 @@ import ListIcon from "@mui/icons-material/List";
 import LineChart from "./LineChart.js";
 import MarketPanel from "./MarketPanel";
 import FilterSidebar from "./FilterSidebar";
-import CoinPriceHeader from "./CoinPriceHeader";
 import TriggeredAlertsPanel from "./TriggeredAlertsPanel";
 import { useAlert } from "../context/AlertContext";
 import { useSelectedPair } from "../context/SelectedPairContext";
@@ -257,9 +256,6 @@ const Dashboard = ({ children }) => {
         gap: 0.2,
       }}
     >
-      {/* Coin Price Header - Shows detailed coin price info */}
-      {selectedCoin && <CoinPriceHeader symbol={selectedCoin} />}
-
       {/* Show button to switch to last triggered symbol if different from current */}
       {lastTriggeredSymbol && lastTriggeredSymbol !== selectedCoin && (
         <Box sx={{ mb: 0.2, textAlign: "center" }}>
@@ -312,20 +308,6 @@ const Dashboard = ({ children }) => {
           mt: 0.2,
         }}
       >
-        <Box
-          sx={{
-            mb: 0.4,
-            p: 0.4,
-            bgcolor: "rgba(34, 197, 94, 0.1)",
-            borderRadius: 1,
-            border: "1px solid rgba(34, 197, 94, 0.2)",
-          }}
-        >
-          <Typography variant="body2" sx={{ color: "#22C55E", fontSize: "0.65rem" }}>
-            📈 Triggered Alerts History
-          </Typography>
-        </Box>
-
         {/* Triggered Alerts Panel - Only shows alerts that have been triggered */}
         <Box
           sx={{
@@ -518,7 +500,10 @@ const Dashboard = ({ children }) => {
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6" sx={{ color: "white", flexGrow: 1, fontSize: "0.9rem" }}>
+            <Typography
+              variant="h6"
+              sx={{ color: "white", flexGrow: 1, fontSize: "0.9rem" }}
+            >
               {currentMobileView === "chart"
                 ? "Trading Dashboard"
                 : currentMobileView === "filters"
@@ -528,9 +513,9 @@ const Dashboard = ({ children }) => {
           </Box>
 
           {/* Mobile Content Area */}
-          <Box 
-            sx={{ 
-              flexGrow: 1, 
+          <Box
+            sx={{
+              flexGrow: 1,
               overflow: "auto",
               // Custom scrollbar styling for mobile
               "&::-webkit-scrollbar": {
