@@ -134,7 +134,7 @@ const filterCryptos = (cryptos, filter) => {
           // Use Binance API logic: check quoteAsset is USDT and status is TRADING
           const isActiveUsdtPair =
             (crypto.quoteAsset === "USDT" ||
-            (crypto.symbol && crypto.symbol.endsWith("USDT"))) &&
+              (crypto.symbol && crypto.symbol.endsWith("USDT"))) &&
             crypto.status === "TRADING";
 
           if (isActiveUsdtPair) {

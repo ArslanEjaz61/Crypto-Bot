@@ -506,22 +506,24 @@ const MarketPanel = ({
         <Typography variant="caption" sx={{ color: "text.secondary" }}>
           Showing: {filters.pair?.USDT ? "USDT pairs only" : "All SPOT pairs"}
         </Typography>
-        {filters.pair?.USDT && (
+        {filters.pair?.USDT ? (
           <Chip
-            label="USDT"
+            label={`USDT ${totalFilteredCount}`}
+            size="small"
+            color="primary"
+            variant="outlined"
+            sx={{ fontSize: "0.7rem", height: "20px" }}
+          />
+        ) : (
+          <Chip
+            label={`SPOT ${totalFilteredCount}`}
             size="small"
             color="primary"
             variant="outlined"
             sx={{ fontSize: "0.7rem", height: "20px" }}
           />
         )}
-        <Chip
-          label={totalFilteredCount}
-          size="small"
-          color="primary"
-          variant="outlined"
-          sx={{ fontSize: "0.7rem", height: "20px" }}
-        />
+       
         {checkedPairs.size > 0 && (
           <Chip
             label={`${checkedPairs.size} Selected`}

@@ -11,9 +11,11 @@ const {
   monitorMultipleTimeframes,
   convertTimeframeToInterval,
 } = require("../services/candleMonitoringService");
-const { processAlertsComprehensive } = require("../services/alertServiceComprehensive");
+const {
+  processAlertsComprehensive,
+} = require("../services/alertServiceComprehensive");
 
-const BINANCE_API_BASE = 'https://api.binance.com';
+const BINANCE_API_BASE = "https://api.binance.com";
 
 /**
  * Get current 1-minute candle data from Binance for accurate percentage calculations
@@ -23,22 +25,22 @@ const BINANCE_API_BASE = 'https://api.binance.com';
 async function getCurrentMinuteCandle(symbol) {
   try {
     console.log(`🔍 Fetching 1-minute candle data for ${symbol}...`);
-    
+
     const response = await axios.get(`${BINANCE_API_BASE}/api/v3/klines`, {
       params: {
         symbol: symbol,
-        interval: '1m',
-        limit: 1 // Get current candle only
+        interval: "1m",
+        limit: 1, // Get current candle only
       },
-      timeout: 10000
+      timeout: 10000,
     });
 
     if (!response.data || response.data.length < 1) {
-      throw new Error('No candle data received');
+      throw new Error("No candle data received");
     }
 
     const currentKline = response.data[0];
-    
+
     const currentCandle = {
       openTime: parseInt(currentKline[0]),
       open: parseFloat(currentKline[1]),
@@ -47,16 +49,21 @@ async function getCurrentMinuteCandle(symbol) {
       close: parseFloat(currentKline[4]),
       volume: parseFloat(currentKline[5]),
       closeTime: parseInt(currentKline[6]),
-      timestamp: new Date(parseInt(currentKline[0]))
+      timestamp: new Date(parseInt(currentKline[0])),
     };
 
     console.log(`✅ Retrieved 1-minute candle for ${symbol}:`);
     console.log(`   Open Time: ${currentCandle.timestamp.toISOString()}`);
-    console.log(`   OHLC: O:${currentCandle.open} H:${currentCandle.high} L:${currentCandle.low} C:${currentCandle.close}`);
+    console.log(
+      `   OHLC: O:${currentCandle.open} H:${currentCandle.high} L:${currentCandle.low} C:${currentCandle.close}`
+    );
 
     return currentCandle;
   } catch (error) {
-    console.error(`❌ Error fetching 1-minute candle for ${symbol}:`, error.message);
+    console.error(
+      `❌ Error fetching 1-minute candle for ${symbol}:`,
+      error.message
+    );
     return null;
   }
 }
@@ -131,16 +138,16 @@ const getFreshSymbolData = async (symbol) => {
     const baseVolume = parseFloat(statsData.volume);
     const quoteVolume = parseFloat(statsData.quoteVolume);
     const weightedAvgPrice = parseFloat(statsData.weightedAvgPrice);
-    
+
     // Use quoteVolume (USDT volume) as it's more accurate for USDT pairs
-    const volume24h = quoteVolume || (baseVolume * weightedAvgPrice);
+    const volume24h = quoteVolume || baseVolume * weightedAvgPrice;
 
     console.log(`📊 Volume calculation for ${symbol}:`, {
       baseVolume,
       quoteVolume,
       weightedAvgPrice,
       calculatedVolume: volume24h,
-      symbol
+      symbol,
     });
 
     return {
@@ -358,10 +365,10 @@ const updateCryptoData = async () => {
       const baseVolume = parseFloat(item.volume);
       const quoteVolume = parseFloat(item.quoteVolume);
       const weightedAvgPrice = parseFloat(item.weightedAvgPrice);
-      
+
       // Use quoteVolume if available, otherwise calculate from base volume
-      const volume = quoteVolume || (baseVolume * weightedAvgPrice);
-      
+      const volume = quoteVolume || baseVolume * weightedAvgPrice;
+
       volumeData[item.symbol] = {
         volume: volume,
         priceChangePercent: parseFloat(item.priceChangePercent),
@@ -473,12 +480,12 @@ const checkAlerts = async (io) => {
 
     // Use the comprehensive alert service that fixes all the identified issues
     const stats = await processAlertsComprehensive();
-    
+
     // Emit socket event with processing results
     if (io && (stats.triggered > 0 || stats.processed > 0)) {
       io.emit("alerts-processed", {
         timestamp: new Date(),
-        ...stats
+        ...stats,
       });
     }
 

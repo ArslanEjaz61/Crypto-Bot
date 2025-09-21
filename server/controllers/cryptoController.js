@@ -217,12 +217,15 @@ const refreshCryptoData = async (req = {}) => {
     // Use caching system for exchange info to get spot trading permissions
     let exchangeInfoResponse = null;
     try {
-      exchangeInfoResponse = await getCachedOrFresh("exchange_info", async () => {
-        // Use retry mechanism within the cache refresh function
-        return await fetchWithRetry(() =>
-          binanceAPI.get("/api/v3/exchangeInfo")
-        );
-      });
+      exchangeInfoResponse = await getCachedOrFresh(
+        "exchange_info",
+        async () => {
+          // Use retry mechanism within the cache refresh function
+          return await fetchWithRetry(() =>
+            binanceAPI.get("/api/v3/exchangeInfo")
+          );
+        }
+      );
       console.log("Successfully retrieved exchange info data");
     } catch (exchangeError) {
       console.error("Failed to fetch exchange info:", exchangeError.message);
@@ -282,10 +285,10 @@ const refreshCryptoData = async (req = {}) => {
         try {
           exchangeInfoMap[symbolInfo.symbol] = {
             isSpotTradingAllowed: symbolInfo.isSpotTradingAllowed || false,
-            quoteAsset: symbolInfo.quoteAsset || '',
-            baseAsset: symbolInfo.baseAsset || '',
+            quoteAsset: symbolInfo.quoteAsset || "",
+            baseAsset: symbolInfo.baseAsset || "",
             permissions: symbolInfo.permissions || [],
-            status: symbolInfo.status || 'TRADING',
+            status: symbolInfo.status || "TRADING",
           };
         } catch (parseError) {
           console.error(
@@ -295,7 +298,11 @@ const refreshCryptoData = async (req = {}) => {
           // Skip this item but continue processing others
         }
       });
-      console.log(`Processed exchange info for ${Object.keys(exchangeInfoMap).length} symbols`);
+      console.log(
+        `Processed exchange info for ${
+          Object.keys(exchangeInfoMap).length
+        } symbols`
+      );
     } else {
       console.warn(
         "Exchange info unavailable or invalid format - proceeding without spot trading data"
@@ -319,12 +326,13 @@ const refreshCryptoData = async (req = {}) => {
         if (!ticker.symbol.endsWith("USDT")) return false;
 
         const exchangeInfo = exchangeInfoMap[ticker.symbol];
-        
+
         // Must have TRADING status (active pairs only)
         if (exchangeInfo && exchangeInfo.status !== "TRADING") return false;
-        
+
         // Must be spot trading allowed
-        if (exchangeInfo && exchangeInfo.isSpotTradingAllowed !== true) return false;
+        if (exchangeInfo && exchangeInfo.isSpotTradingAllowed !== true)
+          return false;
 
         // Exclude leveraged tokens and other non-standard pairs
         const excludePatterns = ["UP", "DOWN", "BULL", "BEAR"];
@@ -334,8 +342,10 @@ const refreshCryptoData = async (req = {}) => {
 
         return !isExcluded;
       });
-      
-      console.log(`Filtered to ${filteredPairs.length} active USDT pairs out of ${tickerResponse.data.length} total pairs`);
+
+      console.log(
+        `Filtered to ${filteredPairs.length} active USDT pairs out of ${tickerResponse.data.length} total pairs`
+      );
 
       // Sort alphabetically
       const sortedPairs = filteredPairs.sort((a, b) =>
@@ -351,12 +361,12 @@ const refreshCryptoData = async (req = {}) => {
             };
             const exchangeInfo = exchangeInfoMap[ticker.symbol] || {
               isSpotTradingAllowed: false,
-              quoteAsset: '',
-              baseAsset: '',
+              quoteAsset: "",
+              baseAsset: "",
               permissions: [],
-              status: 'TRADING',
+              status: "TRADING",
             };
-            
+
             return {
               updateOne: {
                 filter: { symbol: ticker.symbol },
@@ -437,9 +447,9 @@ const getCryptoList = async (req, res) => {
 
     // Build query filter for active USDT pairs only
     let query = {
-      quoteAsset: "USDT",           // Only USDT pairs
-      status: "TRADING",            // Only active/trading pairs
-      isSpotTradingAllowed: true    // Only spot trading pairs
+      quoteAsset: "USDT", // Only USDT pairs
+      status: "TRADING", // Only active/trading pairs
+      isSpotTradingAllowed: true, // Only spot trading pairs
     };
 
     console.log("Filtering for active USDT spot trading pairs only");

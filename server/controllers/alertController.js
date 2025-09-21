@@ -111,11 +111,14 @@ const createAlert = async (req, res) => {
     };
 
     // Only add candle conditions if explicitly enabled
-    if (candleCondition && candleCondition !== 'NONE') {
-      alertData.candleTimeframes = candleTimeframes && candleTimeframes.length > 0 ? candleTimeframes : ['1HR'];
+    if (candleCondition && candleCondition !== "NONE") {
+      alertData.candleTimeframes =
+        candleTimeframes && candleTimeframes.length > 0
+          ? candleTimeframes
+          : ["1HR"];
       alertData.candleCondition = candleCondition;
     } else {
-      alertData.candleCondition = 'NONE';
+      alertData.candleCondition = "NONE";
       alertData.candleTimeframes = [];
     }
 
@@ -441,18 +444,22 @@ const deleteAlertsBySymbols = async (req, res) => {
       return res.status(400).json({ message: "Symbols array is required" });
     }
 
-    console.log(`Bulk deleting alerts for symbols: ${symbols.join(', ')}`);
+    console.log(`Bulk deleting alerts for symbols: ${symbols.join(", ")}`);
 
     // Delete all alerts for these symbols in one operation
-    const result = await Alert.deleteMany({ symbol: { $in: symbols.map(s => s.toUpperCase()) } });
+    const result = await Alert.deleteMany({
+      symbol: { $in: symbols.map((s) => s.toUpperCase()) },
+    });
 
-    console.log(`Bulk deleted ${result.deletedCount} alerts for ${symbols.length} symbols`);
+    console.log(
+      `Bulk deleted ${result.deletedCount} alerts for ${symbols.length} symbols`
+    );
 
     // Emit event to socket.io for real-time updates
     const io = req.app.get("io");
     if (io) {
       io.emit("alerts-bulk-deleted", {
-        symbols: symbols.map(s => s.toUpperCase()),
+        symbols: symbols.map((s) => s.toUpperCase()),
         deletedCount: result.deletedCount,
       });
     }
@@ -460,7 +467,7 @@ const deleteAlertsBySymbols = async (req, res) => {
     res.json({
       message: `Bulk deleted ${result.deletedCount} alerts for ${symbols.length} symbols`,
       deletedCount: result.deletedCount,
-      symbols: symbols.map(s => s.toUpperCase()),
+      symbols: symbols.map((s) => s.toUpperCase()),
     });
   } catch (error) {
     console.error("Error bulk deleting alerts by symbols:", error);

@@ -246,7 +246,7 @@ const FilterSidebar = memo(
           "market",
           "exchange",
           "pair",
-          "volume",
+          "minDaily",
           "changePercent",
           "alertCount",
           "candle",
@@ -777,7 +777,8 @@ const FilterSidebar = memo(
           const tradingPair = firstSelected(filters.pair) || "USDT";
 
           // Use filterValues for OHLCV-integrated data
-          console.log(`🔍 Volume filter configuration:`, filters.volume);
+          const minDailyVolume = filterValues.minDailyVolume || 0;
+          console.log(`🔍 Min Daily Volume selected: ${minDailyVolume}`);
           const changePercentTimeframe = filterValues.changePercent.timeframe;
           const alertCountTimeframe = filterValues.alertCount.timeframe;
           const alertCountEnabled = filterValues.alertCount.enabled;
@@ -958,6 +959,9 @@ const FilterSidebar = memo(
                   comment: `Alert created from filter for ${cleanSymbol}`,
                   email: " kainat.tasadaq3@gmail.com",
 
+                  // OHLCV-integrated Min Daily Volume
+                  minDailyVolume: Number(minDailyVolume) || 0,
+
                   // OHLCV-integrated Change % with timeframe
                   changePercentTimeframe: changePercentTimeframe
                     ? String(changePercentTimeframe)
@@ -1043,13 +1047,7 @@ const FilterSidebar = memo(
 
                 console.log("Creating alert with OHLCV data:", {
                   symbol: alertData.symbol,
-                  volume: alertData.volumeEnabled
-                    ? {
-                        timeframes: alertData.volumeTimeframes,
-                        condition: alertData.volumeCondition,
-                        percentage: alertData.volumePercentage,
-                      }
-                    : null,
+                  minDailyVolume: alertData.minDailyVolume,
                   changePercent: {
                     timeframe: alertData.changePercentTimeframe,
                     value: alertData.changePercentValue,
@@ -1349,7 +1347,7 @@ const FilterSidebar = memo(
               aria-controls="pair-content"
               id="pair-header"
             >
-              <DarkTypography>Pair</DarkTypography>
+              <DarkTypography>Pair </DarkTypography>
             </CustomAccordionSummary>
             <AccordionDetails>
               <FormGroup>
@@ -1366,168 +1364,107 @@ const FilterSidebar = memo(
             </AccordionDetails>
           </DarkAccordion>
 
-          {/* Volume */}
+          {/* Min. Daily Section */}
           <DarkAccordion defaultExpanded>
             <CustomAccordionSummary
               expandIcon={<ExpandMoreIcon />}
-              aria-controls="volume-content"
-              id="volume-header"
+              aria-controls="min-daily-content"
+              id="min-daily-header"
             >
-              <DarkTypography>
-                Volume 
-              </DarkTypography>
+              <DarkTypography>Min. Daily </DarkTypography>
             </CustomAccordionSummary>
             <AccordionDetails>
-              {/* Timeframe Selection */}
-              <Box sx={{ mb: 2 }}>
-                <DarkTypography variant="body2" gutterBottom>
-                  Timeframe:
-                </DarkTypography>
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 0.5,
-                    padding: "1px 0",
-                  }}
-                >
-                  <StyledFormControlLabel
-                    control={
-                      <CustomCheckbox
-                        checked={filters.volume?.["1MIN"] || false}
-                        onChange={() => handleCheckboxChange("volume", "1MIN")}
-                      />
-                    }
-                    label="1MIN"
-                  />
-                  <StyledFormControlLabel
-                    control={
-                      <CustomCheckbox
-                        checked={filters.volume?.["5MIN"] || false}
-                        onChange={() => handleCheckboxChange("volume", "5MIN")}
-                      />
-                    }
-                    label="5MIN"
-                  />
-                  <StyledFormControlLabel
-                    control={
-                      <CustomCheckbox
-                        checked={filters.volume?.["15MIN"] || false}
-                        onChange={() => handleCheckboxChange("volume", "15MIN")}
-                      />
-                    }
-                    label="15MIN"
-                  />
-                  <StyledFormControlLabel
-                    control={
-                      <CustomCheckbox
-                        checked={filters.volume?.["1HR"] || false}
-                        onChange={() => handleCheckboxChange("volume", "1HR")}
-                      />
-                    }
-                    label="1HR"
-                  />
-                  <StyledFormControlLabel
-                    control={
-                      <CustomCheckbox
-                        checked={filters.volume?.["4HR"] || false}
-                        onChange={() => handleCheckboxChange("volume", "4HR")}
-                      />
-                    }
-                    label="4HR"
-                  />
-                </Box>
-              </Box>
-
-              {/* Condition Selection */}
-              <Box sx={{ mb: 2 }}>
-                <DarkTypography variant="body2" gutterBottom>
-                  Condition:
-                </DarkTypography>
-                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                  <DarkButton
-                    variant={
-                      filters.volumeCondition === "INCREASING"
-                        ? "contained"
-                        : "outlined"
-                    }
-                    size="small"
-                    onClick={() =>
-                      handleToggleChange("volumeCondition", null, "INCREASING")
-                    }
-                    sx={{ py: 0.5, fontSize: "12px" }}
-                  >
-                    INCREASING
-                  </DarkButton>
-                  <DarkButton
-                    variant={
-                      filters.volumeCondition === "DECREASING"
-                        ? "contained"
-                        : "outlined"
-                    }
-                    size="small"
-                    onClick={() =>
-                      handleToggleChange("volumeCondition", null, "DECREASING")
-                    }
-                    sx={{ py: 0.5, fontSize: "12px" }}
-                  >
-                    DECREASING
-                  </DarkButton>
-                  <DarkButton
-                    variant={
-                      filters.volumeCondition === "ABOVE"
-                        ? "contained"
-                        : "outlined"
-                    }
-                    size="small"
-                    onClick={() =>
-                      handleToggleChange("volumeCondition", null, "ABOVE")
-                    }
-                    sx={{ py: 0.5, fontSize: "12px" }}
-                  >
-                    ABOVE
-                  </DarkButton>
-                  <DarkButton
-                    variant={
-                      filters.volumeCondition === "BELOW"
-                        ? "contained"
-                        : "outlined"
-                    }
-                    size="small"
-                    onClick={() =>
-                      handleToggleChange("volumeCondition", null, "BELOW")
-                    }
-                    sx={{ py: 0.5, fontSize: "12px" }}
-                  >
-                    BELOW
-                  </DarkButton>
-                </Box>
-              </Box>
-
-              {/* Percentage Input */}
-              <Box>
-                <DarkTypography variant="body2" gutterBottom>
-                  Percentage %:
-                </DarkTypography>
-                <DarkTextField
-                  size="small"
-                  variant="outlined"
-                  type="number"
-                  value={filters.volumePercentage || ""}
-                  onChange={(e) =>
-                    handleTextChange("volumePercentage", e.target.value)
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 0.5,
+                  padding: "1px 0",
+                }}
+              >
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.minDaily?.["10K"] || false}
+                      onChange={() => handleCheckboxChange("minDaily", "10K")}
+                    />
                   }
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <Typography variant="body2" sx={{ color: "#94A3B8" }}>
-                          %
-                        </Typography>
-                      </InputAdornment>
-                    ),
-                  }}
-                  placeholder="Enter percentage"
-                  sx={{ width: "100%" }}
+                  label="10k"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.minDaily?.["100K"] || false}
+                      onChange={() => handleCheckboxChange("minDaily", "100K")}
+                    />
+                  }
+                  label="100K"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.minDaily?.["500K"] || false}
+                      onChange={() => handleCheckboxChange("minDaily", "500K")}
+                    />
+                  }
+                  label="500K"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.minDaily?.["1MN"] || false}
+                      onChange={() => handleCheckboxChange("minDaily", "1MN")}
+                    />
+                  }
+                  label="1MN"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.minDaily?.["2MN"] || false}
+                      onChange={() => handleCheckboxChange("minDaily", "2MN")}
+                    />
+                  }
+                  label="2MN"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.minDaily?.["5MN"] || false}
+                      onChange={() => handleCheckboxChange("minDaily", "5MN")}
+                    />
+                  }
+                  label="5MN"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.minDaily?.["10MN"] || false}
+                      onChange={() => handleCheckboxChange("minDaily", "10MN")}
+                    />
+                  }
+                  label="10MN"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.minDaily?.["25MN"] || false}
+                      onChange={() => handleCheckboxChange("minDaily", "25MN")}
+                    />
+                  }
+                  label="25MN"
+                />
+                <StyledFormControlLabel
+                  control={
+                    <CustomCheckbox
+                      checked={filters.minDaily?.["50MN_PLUS"] || false}
+                      onChange={() =>
+                        handleCheckboxChange("minDaily", "50MN_PLUS")
+                      }
+                    />
+                  }
+                  label="50MN and Above"
+                  sx={{ gridColumn: "1 / span 2" }}
                 />
               </Box>
             </AccordionDetails>
@@ -2055,6 +1992,173 @@ const FilterSidebar = memo(
                     CROSSING DOWN
                   </DarkButton>
                 </Box>
+              </Box>
+            </AccordionDetails>
+          </DarkAccordion>
+
+          {/* Volume */}
+          <DarkAccordion defaultExpanded>
+            <CustomAccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="volume-content"
+              id="volume-header"
+            >
+              <DarkTypography>
+                Volume
+              </DarkTypography>
+            </CustomAccordionSummary>
+            <AccordionDetails>
+              {/* Timeframe Selection */}
+              <Box sx={{ mb: 2 }}>
+                <DarkTypography variant="body2" gutterBottom>
+                  Timeframe:
+                </DarkTypography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 0.5,
+                    padding: "1px 0",
+                  }}
+                >
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["1MIN"] || false}
+                        onChange={() => handleCheckboxChange("volume", "1MIN")}
+                      />
+                    }
+                    label="1MIN"
+                  />
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["5MIN"] || false}
+                        onChange={() => handleCheckboxChange("volume", "5MIN")}
+                      />
+                    }
+                    label="5MIN"
+                  />
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["15MIN"] || false}
+                        onChange={() => handleCheckboxChange("volume", "15MIN")}
+                      />
+                    }
+                    label="15MIN"
+                  />
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["1HR"] || false}
+                        onChange={() => handleCheckboxChange("volume", "1HR")}
+                      />
+                    }
+                    label="1HR"
+                  />
+                  <StyledFormControlLabel
+                    control={
+                      <CustomCheckbox
+                        checked={filters.volume?.["4HR"] || false}
+                        onChange={() => handleCheckboxChange("volume", "4HR")}
+                      />
+                    }
+                    label="4HR"
+                  />
+                </Box>
+              </Box>
+
+              {/* Condition Selection */}
+              <Box sx={{ mb: 2 }}>
+                <DarkTypography variant="body2" gutterBottom>
+                  Condition:
+                </DarkTypography>
+                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                  <DarkButton
+                    variant={
+                      filters.volumeCondition === "INCREASING"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    size="small"
+                    onClick={() =>
+                      handleToggleChange("volumeCondition", null, "INCREASING")
+                    }
+                    sx={{ py: 0.5, fontSize: "12px" }}
+                  >
+                    INCREASING
+                  </DarkButton>
+                  <DarkButton
+                    variant={
+                      filters.volumeCondition === "DECREASING"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    size="small"
+                    onClick={() =>
+                      handleToggleChange("volumeCondition", null, "DECREASING")
+                    }
+                    sx={{ py: 0.5, fontSize: "12px" }}
+                  >
+                    DECREASING
+                  </DarkButton>
+                  <DarkButton
+                    variant={
+                      filters.volumeCondition === "ABOVE"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    size="small"
+                    onClick={() =>
+                      handleToggleChange("volumeCondition", null, "ABOVE")
+                    }
+                    sx={{ py: 0.5, fontSize: "12px" }}
+                  >
+                    ABOVE
+                  </DarkButton>
+                  <DarkButton
+                    variant={
+                      filters.volumeCondition === "BELOW"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    size="small"
+                    onClick={() =>
+                      handleToggleChange("volumeCondition", null, "BELOW")
+                    }
+                    sx={{ py: 0.5, fontSize: "12px" }}
+                  >
+                    BELOW
+                  </DarkButton>
+                </Box>
+              </Box>
+
+              {/* Percentage Input */}
+              <Box>
+                <DarkTypography variant="body2" gutterBottom>
+                  Percentage %:
+                </DarkTypography>
+                <DarkTextField
+                  size="small"
+                  variant="outlined"
+                  type="number"
+                  value={filters.volumePercentage || ""}
+                  onChange={(e) =>
+                    handleTextChange("volumePercentage", e.target.value)
+                  }
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Typography variant="body2" sx={{ color: "#94A3B8" }}>
+                          %
+                        </Typography>
+                      </InputAdornment>
+                    ),
+                  }}
+                  placeholder="Enter percentage"
+                  sx={{ width: "100%" }}
+                />
               </Box>
             </AccordionDetails>
           </DarkAccordion>
