@@ -284,16 +284,21 @@ async function checkAlertCountLimit(alert, timeframe) {
   
   const currentCandle = await getCurrentCandleData(alert.symbol, binanceTimeframe);
   if (!currentCandle) {
-    console.log(`   Result: ⚠️ WARNING (could not fetch candle data)`);
-    return { canSendAlert: true, reason: 'Could not fetch candle data' };
+    console.log(`   Result: ⚠️ WARNING (could not fetch candle data - allowing alert)`);
+    return { canSendAlert: true, reason: 'Could not fetch candle data - allowing alert' };
   }
   
   const currentCandleOpenTime = currentCandle.openTime.toString();
   console.log(`   Current Candle Open Time: ${currentCandleOpenTime}`);
   console.log(`   Current Candle Timestamp: ${currentCandle.timestamp.toISOString()}`);
   
+  // Initialize timeframeAlertCounters if it doesn't exist
+  if (!alert.timeframeAlertCounters) {
+    alert.timeframeAlertCounters = new Map();
+  }
+  
   // Check if this is a new candle
-  const counter = alert.timeframeAlertCounters?.get(timeframe);
+  const counter = alert.timeframeAlertCounters.get(timeframe);
   const isNewCandle = !counter || counter.lastCandleOpenTime !== currentCandleOpenTime;
   
   console.log(`   Previous Candle Open Time: ${counter?.lastCandleOpenTime || 'none'}`);
@@ -301,37 +306,46 @@ async function checkAlertCountLimit(alert, timeframe) {
   console.log(`   Current Count: ${counter?.count || 0}`);
   
   if (isNewCandle) {
-    // New candle detected - reset counter
-    console.log(`   ✅ NEW CANDLE DETECTED - Resetting counter`);
+    // New candle detected - reset counter to 0 (will be incremented after alert is sent)
+    console.log(`   ✅ NEW CANDLE DETECTED - Resetting counter to 0`);
     alert.timeframeAlertCounters.set(timeframe, {
       count: 0,
       lastCandleOpenTime: currentCandleOpenTime,
       lastResetTime: new Date()
     });
     await alert.save();
-    console.log(`   Result: ✅ CAN SEND ALERT (new candle, counter reset)`);
-    return { canSendAlert: true, reason: 'New candle, counter reset' };
+    console.log(`   Result: ✅ CAN SEND ALERT (new candle, counter reset to 0)`);
+    return { 
+      canSendAlert: true, 
+      reason: 'New candle detected, counter reset',
+      currentCount: 0,
+      maxCount: alert.maxAlertsPerTimeframe,
+      isNewCandle: true
+    };
   }
   
-  // Check if limit is reached
+  // Check if limit is reached for current candle
   const currentCount = counter.count || 0;
   const limitReached = currentCount >= alert.maxAlertsPerTimeframe;
   
   if (limitReached) {
     console.log(`   Result: 🚫 BLOCKED (limit reached: ${currentCount}/${alert.maxAlertsPerTimeframe})`);
+    console.log(`   This candle (${currentCandleOpenTime}) has already triggered ${currentCount} alerts`);
     return { 
       canSendAlert: false, 
-      reason: `Alert count limit reached (${currentCount}/${alert.maxAlertsPerTimeframe})`,
+      reason: `Alert count limit reached for this candle (${currentCount}/${alert.maxAlertsPerTimeframe})`,
       currentCount,
-      maxCount: alert.maxAlertsPerTimeframe
+      maxCount: alert.maxAlertsPerTimeframe,
+      isNewCandle: false
     };
   } else {
     console.log(`   Result: ✅ CAN SEND ALERT (count: ${currentCount}/${alert.maxAlertsPerTimeframe})`);
     return { 
       canSendAlert: true, 
-      reason: `Within limit (${currentCount}/${alert.maxAlertsPerTimeframe})`,
+      reason: `Within limit for this candle (${currentCount}/${alert.maxAlertsPerTimeframe})`,
       currentCount,
-      maxCount: alert.maxAlertsPerTimeframe
+      maxCount: alert.maxAlertsPerTimeframe,
+      isNewCandle: false
     };
   }
 }
@@ -344,8 +358,13 @@ async function checkAlertCountLimit(alert, timeframe) {
  */
 async function incrementAlertCount(alert, timeframe) {
   if (!alert.alertCountEnabled || !timeframe) {
+    console.log(`📈 Skipping alert count increment - alert count disabled or no timeframe`);
     return;
   }
+  
+  console.log(`📈 === INCREMENTING ALERT COUNT ===`);
+  console.log(`   Symbol: ${alert.symbol}`);
+  console.log(`   Timeframe: ${timeframe}`);
   
   // Get current candle data
   const binanceTimeframe = {
@@ -364,29 +383,41 @@ async function incrementAlertCount(alert, timeframe) {
   }
   
   const currentCandleOpenTime = currentCandle.openTime.toString();
-  const counter = alert.timeframeAlertCounters?.get(timeframe);
+  
+  // Initialize timeframeAlertCounters if it doesn't exist
+  if (!alert.timeframeAlertCounters) {
+    alert.timeframeAlertCounters = new Map();
+  }
+  
+  const counter = alert.timeframeAlertCounters.get(timeframe);
   const isNewCandle = !counter || counter.lastCandleOpenTime !== currentCandleOpenTime;
   
+  console.log(`   Current Candle Open Time: ${currentCandleOpenTime}`);
+  console.log(`   Previous Candle Open Time: ${counter?.lastCandleOpenTime || 'none'}`);
+  console.log(`   Is New Candle: ${isNewCandle}`);
+  console.log(`   Previous Count: ${counter?.count || 0}`);
+  
   if (isNewCandle) {
-    // New candle - reset and increment
+    // New candle - set count to 1 (this is the first alert for this candle)
     alert.timeframeAlertCounters.set(timeframe, {
       count: 1,
       lastCandleOpenTime: currentCandleOpenTime,
       lastResetTime: new Date()
     });
-    console.log(`📈 Alert count incremented for ${alert.symbol} ${timeframe}: 1 (new candle)`);
+    console.log(`📈 Alert count set for ${alert.symbol} ${timeframe}: 1 (new candle)`);
   } else {
-    // Same candle - just increment
+    // Same candle - increment existing count
     const newCount = (counter.count || 0) + 1;
     alert.timeframeAlertCounters.set(timeframe, {
       count: newCount,
       lastCandleOpenTime: currentCandleOpenTime,
-      lastResetTime: counter.lastResetTime
+      lastResetTime: counter.lastResetTime || new Date()
     });
-    console.log(`📈 Alert count incremented for ${alert.symbol} ${timeframe}: ${newCount}`);
+    console.log(`📈 Alert count incremented for ${alert.symbol} ${timeframe}: ${newCount} (same candle)`);
   }
   
   await alert.save();
+  console.log(`✅ Alert count saved successfully`);
 }
 
 /**
@@ -401,6 +432,7 @@ const processAlertsComprehensive = async () => {
     errors: 0,
     skipped: 0,
     volumeFiltered: 0,
+    changePercentFiltered: 0,
     countLimited: 0
   };
 
@@ -468,13 +500,14 @@ const processAlertsComprehensive = async () => {
         console.log(`\n🔍 === PROCESSING ALERT: ${alert.symbol} ===`);
         console.log(`   Alert ID: ${alert._id}`);
         console.log(`   Target: ${alert.direction} ${alert.targetValue}%`);
+        console.log(`   Change % Value: ${alert.changePercentValue}%`);
         console.log(`   Timeframe: ${alert.changePercentTimeframe || '1MIN'}`);
         console.log(`   Min Daily Volume: ${alert.minDailyVolume}`);
         console.log(`   Alert Count Enabled: ${alert.alertCountEnabled}`);
         console.log(`   Alert Count Timeframe: ${alert.alertCountTimeframe}`);
         
         // ==========================================
-        // STEP 1: MIN DAILY VOLUME FILTER
+        // STEP 1: MIN DAILY VOLUME FILTER (MUST PASS FIRST)
         // ==========================================
         console.log(`\n📊 === STEP 1: MIN DAILY VOLUME FILTER ===`);
         
@@ -486,19 +519,24 @@ const processAlertsComprehensive = async () => {
         }
         
         console.log(`   Symbol: ${alert.symbol}`);
-        console.log(`   Current 24h Volume: ${volumeData.volume24h.toLocaleString()}`);
+        console.log(`   Current 24h Quote Volume (USDT): ${volumeData.volume24h.toLocaleString()}`);
         console.log(`   Required Min Volume: ${alert.minDailyVolume.toLocaleString()}`);
         console.log(`   Volume Check: ${volumeData.volume24h} >= ${alert.minDailyVolume}`);
         
+        // CRITICAL: Min Daily Volume Filter - Skip if volume requirement not met
         if (alert.minDailyVolume > 0 && volumeData.volume24h < alert.minDailyVolume) {
-          console.log(`   Result: ❌ FAILED - Volume too low`);
-          console.log(`   Difference: ${(volumeData.volume24h - alert.minDailyVolume).toLocaleString()} (${((volumeData.volume24h - alert.minDailyVolume) / alert.minDailyVolume * 100).toFixed(2)}%)`);
+          console.log(`   Result: ❌ VOLUME FILTER FAILED - Skipping alert`);
+          console.log(`   Volume too low by: ${(alert.minDailyVolume - volumeData.volume24h).toLocaleString()} USDT`);
+          console.log(`   Percentage below requirement: ${(((alert.minDailyVolume - volumeData.volume24h) / alert.minDailyVolume) * 100).toFixed(2)}%`);
           stats.volumeFiltered++;
-          continue;
+          continue; // Skip this alert - volume requirement not met
         } else {
-          console.log(`   Result: ✅ PASSED - Volume meets requirement`);
+          console.log(`   Result: ✅ VOLUME FILTER PASSED`);
           if (alert.minDailyVolume > 0) {
-            console.log(`   Difference: +${(volumeData.volume24h - alert.minDailyVolume).toLocaleString()} (+${((volumeData.volume24h - alert.minDailyVolume) / alert.minDailyVolume * 100).toFixed(2)}%)`);
+            console.log(`   Volume exceeds requirement by: +${(volumeData.volume24h - alert.minDailyVolume).toLocaleString()} USDT`);
+            console.log(`   Percentage above requirement: +${(((volumeData.volume24h - alert.minDailyVolume) / alert.minDailyVolume) * 100).toFixed(2)}%`);
+          } else {
+            console.log(`   No volume requirement set (minDailyVolume = 0)`);
           }
         }
         
@@ -525,23 +563,58 @@ const processAlertsComprehensive = async () => {
         const changeData = await calculatePercentageChange(currentPrice, alert.symbol, timeframe, alert);
         
         // ==========================================
-        // STEP 4: CHECK PERCENTAGE CONDITION
+        // STEP 4: CHECK PERCENTAGE CONDITION (MUST PASS SECOND)
         // ==========================================
         console.log(`\n🎯 === STEP 4: CHECK PERCENTAGE CONDITION ===`);
         
-        const conditionResult = checkPercentageCondition(changeData.percentageChange, alert);
+        // CRITICAL: Use changePercentValue (not targetValue) for change percentage threshold
+        const changePercentThreshold = alert.changePercentValue || 0;
+        console.log(`   Change Percent Threshold (from changePercentValue): ${changePercentThreshold}%`);
+        console.log(`   Target Value (basic alert): ${alert.targetValue}%`);
+        console.log(`   Actual Change Percent: ${changeData.percentageChange.toFixed(6)}%`);
+        console.log(`   Absolute Actual Change: ${Math.abs(changeData.percentageChange).toFixed(6)}%`);
+        console.log(`   Direction: ${alert.direction}`);
         
-        if (!conditionResult.conditionMet) {
-          console.log(`   Result: ❌ CONDITION NOT MET`);
-          console.log(`   Reason: ${conditionResult.reason}`);
-          continue;
+        let changeConditionMet = false;
+        let changeReason = '';
+        
+        // CRITICAL: Change % condition logic
+        if (changePercentThreshold === 0) {
+          // If threshold is 0%, always pass this condition
+          changeConditionMet = true;
+          changeReason = 'Change % threshold is 0% - condition always passes';
+        } else {
+          // Check based on direction and absolute change
+          const absoluteChange = Math.abs(changeData.percentageChange);
+          const absoluteThreshold = Math.abs(changePercentThreshold);
+          
+          if (alert.direction === '>') {
+            // For upward direction: actual change must be >= threshold AND positive
+            changeConditionMet = changeData.percentageChange >= changePercentThreshold;
+            changeReason = `${changeData.percentageChange.toFixed(6)}% >= ${changePercentThreshold}% (upward)`;
+          } else if (alert.direction === '<') {
+            // For downward direction: actual change must be <= -threshold AND negative
+            changeConditionMet = changeData.percentageChange <= -changePercentThreshold;
+            changeReason = `${changeData.percentageChange.toFixed(6)}% <= -${changePercentThreshold}% (downward)`;
+          } else if (alert.direction === '<>') {
+            // For either direction: absolute change must be >= absolute threshold
+            changeConditionMet = absoluteChange >= absoluteThreshold;
+            changeReason = `|${changeData.percentageChange.toFixed(6)}%| >= |${changePercentThreshold}%| (either direction)`;
+          }
         }
         
-        console.log(`   Result: ✅ CONDITION MET`);
-        console.log(`   Reason: ${conditionResult.reason}`);
+        console.log(`   Condition: ${changeReason}`);
+        console.log(`   Result: ${changeConditionMet ? '✅ CHANGE % CONDITION MET' : '❌ CHANGE % CONDITION NOT MET'}`);
+        
+        // CRITICAL: Change % Filter - Skip if change requirement not met
+        if (!changeConditionMet) {
+          console.log(`   Result: ❌ CHANGE % FILTER FAILED - Skipping alert`);
+          stats.changePercentFiltered++;
+          continue; // Skip this alert - change % requirement not met
+        }
         
         // ==========================================
-        // STEP 5: CHECK ALERT COUNT LIMIT
+        // STEP 5: CHECK ALERT COUNT LIMIT (DUPLICATION CONTROL)
         // ==========================================
         console.log(`\n🔢 === STEP 5: CHECK ALERT COUNT LIMIT ===`);
         
@@ -552,25 +625,75 @@ const processAlertsComprehensive = async () => {
           console.log(`   Result: 🚫 BLOCKED - Alert count limit reached`);
           console.log(`   Reason: ${countCheck.reason}`);
           stats.countLimited++;
-          continue;
+          continue; // Skip this alert - count limit reached
         }
         
         console.log(`   Result: ✅ CAN SEND ALERT`);
         console.log(`   Reason: ${countCheck.reason}`);
         
         // ==========================================
-        // STEP 6: TRIGGER ALERT
+        // STEP 6: TRIGGER ALERT (ALL CONDITIONS PASSED)
         // ==========================================
         console.log(`\n🚨 === STEP 6: TRIGGER ALERT ===`);
         console.log(`   Symbol: ${alert.symbol}`);
-        console.log(`   Condition: ${conditionResult.reason}`);
+        console.log(`   Volume Condition: ✅ PASSED (${volumeData.volume24h.toLocaleString()} >= ${alert.minDailyVolume.toLocaleString()})`);
+        console.log(`   Change % Condition: ✅ PASSED (${changeReason})`);
+        console.log(`   Count Limit: ✅ PASSED (${countCheck.reason})`);
         console.log(`   Base Price Source: ${changeData.basePriceSource}`);
         console.log(`   Timestamp: ${new Date().toISOString()}`);
         
         stats.triggered++;
         
-        // Increment alert count
+        // Increment alert count for duplication control
         await incrementAlertCount(alert, alertCountTimeframe);
+        
+        // Create triggered alert record
+        try {
+          const { createTriggeredAlert } = require('../controllers/triggeredAlertController');
+          
+          const conditionMet = {
+            type: 'COMBINED_CONDITIONS',
+            targetValue: changePercentThreshold,
+            actualValue: changeData.percentageChange,
+            timeframe: timeframe,
+            indicator: 'combined_volume_and_change',
+            description: `Combined conditions met: Volume ${volumeData.volume24h.toLocaleString()} >= ${alert.minDailyVolume.toLocaleString()} AND ${changeReason}`,
+            volumeCondition: {
+              actual: volumeData.volume24h,
+              required: alert.minDailyVolume,
+              passed: true
+            },
+            changeCondition: {
+              actual: changeData.percentageChange,
+              required: changePercentThreshold,
+              direction: alert.direction,
+              timeframe: timeframe,
+              passed: true,
+              reason: changeReason
+            }
+          };
+          
+          const marketData = {
+            price: currentPrice,
+            volume: volumeData.volume24h,
+            priceChange24h: volumeData.priceChangePercent24h,
+            priceChangePercent24h: volumeData.priceChangePercent24h,
+            basePrice: changeData.basePrice,
+            basePriceSource: changeData.basePriceSource
+          };
+          
+          const notificationDetails = [{
+            type: 'EMAIL',
+            recipient: alert.email,
+            sentAt: new Date(),
+            status: 'PENDING'
+          }];
+          
+          await createTriggeredAlert(alert._id, conditionMet, marketData, notificationDetails);
+          console.log(`📝 Triggered alert record created for ${alert.symbol}`);
+        } catch (recordError) {
+          console.error(`❌ Error creating triggered alert record for ${alert._id}:`, recordError);
+        }
         
         // Send notifications
         try {
@@ -632,6 +755,7 @@ const processAlertsComprehensive = async () => {
     console.log(`   Triggered: ${stats.triggered}`);
     console.log(`   Notifications Sent: ${stats.notificationsSent}`);
     console.log(`   Volume Filtered: ${stats.volumeFiltered}`);
+    console.log(`   Change % Filtered: ${stats.changePercentFiltered}`);
     console.log(`   Count Limited: ${stats.countLimited}`);
     console.log(`   Skipped: ${stats.skipped}`);
     console.log(`   Errors: ${stats.errors}`);
