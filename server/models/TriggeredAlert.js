@@ -35,7 +35,8 @@ const triggeredAlertSchema = new mongoose.Schema({
       'EMA_CROSS_ABOVE',
       'EMA_CROSS_BELOW',
       'VOLUME_SPIKE',
-      'CANDLE_PATTERN'
+      'CANDLE_PATTERN',
+      'COMBINED_CONDITIONS'
     ]
   },
   
