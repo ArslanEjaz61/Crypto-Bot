@@ -158,11 +158,22 @@ const Dashboard = ({ children }) => {
       console.log("📡 Dashboard received new triggered alert:", data);
 
       if (data.triggeredAlert && data.triggeredAlert.symbol) {
-        setLastTriggeredSymbol(data.triggeredAlert.symbol);
+        const triggeredSymbol = data.triggeredAlert.symbol;
+        console.log(
+          "🔥 Auto-switching chart to triggered alert symbol:",
+          triggeredSymbol
+        );
+
+        setLastTriggeredSymbol(triggeredSymbol);
 
         // Automatically switch chart to show the newly triggered symbol
-        setSelectedCoin(data.triggeredAlert.symbol);
-        selectSymbol(data.triggeredAlert.symbol);
+        setSelectedCoin(triggeredSymbol);
+        selectSymbol(triggeredSymbol);
+
+        // Show a brief notification that chart has switched
+        console.log(
+          `📊 Chart automatically switched to ${triggeredSymbol} due to alert trigger`
+        );
       }
     });
 
@@ -263,6 +274,9 @@ const Dashboard = ({ children }) => {
             variant="contained"
             size="small"
             onClick={() => {
+              console.log(
+                `📊 Manually switching to triggered alert symbol: ${lastTriggeredSymbol}`
+              );
               setSelectedCoin(lastTriggeredSymbol);
               selectSymbol(lastTriggeredSymbol);
             }}
@@ -275,9 +289,15 @@ const Dashboard = ({ children }) => {
               px: 0.8,
               minHeight: "20px",
               borderRadius: 1,
+              animation: "pulse 2s infinite",
+              "@keyframes pulse": {
+                "0%": { opacity: 1 },
+                "50%": { opacity: 0.7 },
+                "100%": { opacity: 1 },
+              },
             }}
           >
-            🔥 {lastTriggeredSymbol}
+            🔥 New Alert: {lastTriggeredSymbol}
           </Button>
         </Box>
       )}
