@@ -408,39 +408,18 @@ const LineChart = ({
               >
                 {symbol}
               </Typography>
-              {latestAlert && latestAlert.symbol === symbol && (
-                <Box
-                  sx={{
-                    bgcolor: "#22C55E",
-                    color: "white",
-                    px: 1,
-                    py: 0.2,
-                    borderRadius: 1,
-                    fontSize: "0.6rem",
-                    fontWeight: "bold",
-                    animation: "pulse 2s infinite",
-                    "@keyframes pulse": {
-                      "0%": { opacity: 1 },
-                      "50%": { opacity: 0.7 },
-                      "100%": { opacity: 1 },
-                    },
-                  }}
-                >
-                  🔥 LIVE
-                </Box>
-              )}
             </Box>
             {latestAlert && (
               <Typography
                 variant="caption"
                 sx={{
-                  color: latestAlert.symbol === symbol ? "#22C55E" : "#94A3B8",
-                  fontWeight: latestAlert.symbol === symbol ? "bold" : "normal",
+                  color: "#94A3B8",
+                  fontWeight: "normal",
                 }}
               >
                 Volume (24h): $
                 {formatNumber(latestAlert.marketData?.volume || 0)}
-                {latestAlert.symbol === symbol && " 🔥"}
+                {latestAlert.symbol === symbol}
               </Typography>
             )}
           </Box>
@@ -528,27 +507,7 @@ const LineChart = ({
               }}
             >
               Alert Details
-              {latestAlert.symbol === symbol && (
-                <Box
-                  sx={{
-                    bgcolor: "#22C55E",
-                    color: "white",
-                    px: 0.5,
-                    py: 0.1,
-                    borderRadius: 0.5,
-                    fontSize: "0.6rem",
-                    fontWeight: "bold",
-                    animation: "pulse 2s infinite",
-                    "@keyframes pulse": {
-                      "0%": { opacity: 1 },
-                      "50%": { opacity: 0.7 },
-                      "100%": { opacity: 1 },
-                    },
-                  }}
-                >
-                  LIVE
-                </Box>
-              )}
+              
             </Typography>
             <Typography
               variant="body2"
@@ -558,15 +517,6 @@ const LineChart = ({
               {latestAlert.conditionDetails.actualValue} | Timeframe:{" "}
               {latestAlert.conditionDetails.timeframe}
             </Typography>
-            {latestAlert.symbol && (
-              <Typography
-                variant="caption"
-                sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
-              >
-                Symbol: {latestAlert.symbol} | Condition:{" "}
-                {latestAlert.conditionDetails.condition || "N/A"}
-              </Typography>
-            )}
           </Box>
         )}
 
@@ -589,7 +539,7 @@ const LineChart = ({
             <Typography
               variant="body2"
               sx={{
-                color: latestAlert?.symbol === symbol ? "#22C55E" : "#E2E8F0",
+                color: "#E2E8F0",
                 fontWeight: "bold",
                 fontSize: "0.8rem",
               }}
@@ -603,7 +553,7 @@ const LineChart = ({
           </Box>
 
           {/* Divider */}
-          <Typography variant="body2" sx={{ color: "#94A3B8" }}>
+          <Typography variant="body2" sx={{ color: "#E2E8F0" }}>
             |
           </Typography>
 
@@ -624,7 +574,7 @@ const LineChart = ({
             <Typography
               variant="body2"
               sx={{
-                color: latestAlert?.symbol === symbol ? "#22C55E" : "#E2E8F0",
+                color:"#E2E8F0",
                 fontWeight: "bold",
                 fontSize: "0.8rem",
               }}
@@ -636,7 +586,7 @@ const LineChart = ({
           </Box>
 
           {/* Divider */}
-          <Typography variant="body2" sx={{ color: "#94A3B8" }}>
+          <Typography variant="body2" sx={{ color: "#E2E8F0" }}>
             |
           </Typography>
 
@@ -657,7 +607,7 @@ const LineChart = ({
             <Typography
               variant="body2"
               sx={{
-                color: latestAlert?.symbol === symbol ? "#22C55E" : "#E2E8F0",
+                color: "#E2E8F0",
                 fontWeight: "bold",
                 fontSize: "0.8rem",
               }}
@@ -665,37 +615,6 @@ const LineChart = ({
               {latestAlert
                 ? format(new Date(latestAlert.triggeredAt), "MMM dd, yyyy")
                 : "Jan 01, 2025"}
-            </Typography>
-          </Box>
-
-          {/* Divider */}
-          <Typography variant="body2" sx={{ color: "#94A3B8" }}>
-            |
-          </Typography>
-
-          {/* Volume */}
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-start",
-            }}
-          >
-            <Typography
-              variant="caption"
-              sx={{ color: "#94A3B8", fontSize: "0.7rem" }}
-            >
-              Volume (24h)
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: latestAlert?.symbol === symbol ? "#22C55E" : "#E2E8F0",
-                fontWeight: "bold",
-                fontSize: "0.8rem",
-              }}
-            >
-              ${formatNumber(latestAlert?.marketData?.volume || 0)}
             </Typography>
           </Box>
         </Box>
