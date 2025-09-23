@@ -315,6 +315,14 @@ const Dashboard = ({ children }) => {
         symbol={selectedCoin}
         timeframe={localTimeframe}
         onTimeframeChange={handleTimeframeChange}
+        onSymbolChange={(newSymbol) => {
+          console.log(
+            "🔄 Dashboard: Chart requested symbol change to:",
+            newSymbol
+          );
+          setSelectedCoin(newSymbol);
+          selectSymbol(newSymbol);
+        }}
       />
 
       {/* Bottom area - Alerts List */}

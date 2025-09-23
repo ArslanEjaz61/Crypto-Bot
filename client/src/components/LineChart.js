@@ -28,6 +28,7 @@ const LineChart = ({
   symbol,
   timeframe: propTimeframe = "1h",
   onTimeframeChange,
+  onSymbolChange,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -40,6 +41,7 @@ const LineChart = ({
   const [selectedTimeframe, setSelectedTimeframe] = useState(propTimeframe);
   const [latestAlert, setLatestAlert] = useState(null);
   const [livePrice, setLivePrice] = useState(null);
+  const [isShowingTriggeredAlert, setIsShowingTriggeredAlert] = useState(false);
 
   // Get the current timeframe config
   const currentTimeframeConfig =
@@ -88,6 +90,16 @@ const LineChart = ({
           data.triggeredAlert
         );
 
+        // Automatically switch to the triggered symbol if onSymbolChange is provided
+        if (onSymbolChange && data.triggeredAlert.symbol !== symbol) {
+          console.log(
+            "🔄 Auto-switching chart to triggered symbol:",
+            data.triggeredAlert.symbol
+          );
+          onSymbolChange(data.triggeredAlert.symbol);
+          setIsShowingTriggeredAlert(true);
+        }
+
         // Update live price if this is the current symbol
         if (data.triggeredAlert.symbol === symbol) {
           console.log(
@@ -98,6 +110,7 @@ const LineChart = ({
             data.triggeredAlert.marketData?.price ||
               data.triggeredAlert.conditionDetails?.actualValue
           );
+          setIsShowingTriggeredAlert(true);
         }
       }
     });
@@ -107,6 +120,21 @@ const LineChart = ({
       if (data.symbol === symbol && data.price) {
         setLivePrice(data.price);
         console.log("💰 Live price update for", symbol, ":", data.price);
+
+        // Update chart with new price data in real-time
+        if (seriesRef.current && data.timestamp) {
+          const newDataPoint = {
+            time: Math.floor(Date.now() / 1000), // Current timestamp in seconds
+            value: data.price,
+          };
+
+          try {
+            seriesRef.current.update(newDataPoint);
+            console.log("📈 Chart updated with real-time price:", data.price);
+          } catch (error) {
+            console.error("Error updating chart with real-time data:", error);
+          }
+        }
       }
     });
 
@@ -158,6 +186,7 @@ const LineChart = ({
     }
     setLoading(true);
     setError(null);
+    setIsShowingTriggeredAlert(false); // Reset triggered alert state
   }, [chartKey]);
 
   // Handle timeframe change
@@ -462,6 +491,13 @@ const LineChart = ({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          border: isShowingTriggeredAlert
+            ? "2px solid #10B981"
+            : "2px solid transparent",
+          boxShadow: isShowingTriggeredAlert
+            ? "0 0 20px rgba(16, 185, 129, 0.3)"
+            : "none",
+          transition: "all 0.3s ease-in-out",
         }}
       >
         {loading && (
@@ -506,8 +542,7 @@ const LineChart = ({
                 gap: 0.5,
               }}
             >
-              Alert Details
-              
+              🚨 Alert Triggered - {latestAlert.symbol}
             </Typography>
             <Typography
               variant="body2"
@@ -517,6 +552,19 @@ const LineChart = ({
               {latestAlert.conditionDetails.actualValue} | Timeframe:{" "}
               {latestAlert.conditionDetails.timeframe}
             </Typography>
+            {/* {latestAlert.conditionDetails.description && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#10B981",
+                  fontSize: "0.65rem",
+                  display: "block",
+                  mt: 0.5,
+                }}
+              >
+                {latestAlert.conditionDetails.description}
+              </Typography>
+            )} */}
           </Box>
         )}
 
@@ -550,6 +598,22 @@ const LineChart = ({
                 latestAlert?.conditionDetails?.actualValue ||
                 "0.0000"}
             </Typography>
+            {/* {latestAlert?.marketData?.priceChangePercent24h && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color:
+                    latestAlert.marketData.priceChangePercent24h >= 0
+                      ? "#10B981"
+                      : "#EF4444",
+                  fontSize: "0.65rem",
+                  fontWeight: "bold",
+                }}
+              >
+                {latestAlert.marketData.priceChangePercent24h >= 0 ? "+" : ""}
+                {latestAlert.marketData.priceChangePercent24h.toFixed(2)}%
+              </Typography>
+            )} */}
           </Box>
 
           {/* Divider */}
@@ -574,7 +638,7 @@ const LineChart = ({
             <Typography
               variant="body2"
               sx={{
-                color:"#E2E8F0",
+                color: "#E2E8F0",
                 fontWeight: "bold",
                 fontSize: "0.8rem",
               }}

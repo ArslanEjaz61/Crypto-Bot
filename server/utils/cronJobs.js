@@ -390,24 +390,23 @@ const updateCryptoData = async () => {
     }
 
     // Use centralized filtering function with debug logging
-    const enableDebug = process.env.NODE_ENV !== 'production';
+    const enableDebug = process.env.NODE_ENV !== "production";
     const exchangeSymbols = exchangeInfoResponse?.data?.symbols || [];
-    
+
     const filterResult = filterUSDTPairs(
-      tickerResponse.data, 
-      exchangeSymbols, 
+      tickerResponse.data,
+      exchangeSymbols,
       enableDebug
     );
-    
+
     const filteredTickers = filterResult.filteredPairs;
-    
+
     console.log(
       `🎯 Filtered to ${filteredTickers.length} USDT pairs out of ${tickerResponse.data.length} total pairs`
     );
 
     // Process and update crypto data
     const operations = filteredTickers.map(async (ticker) => {
-
       const price = parseFloat(ticker.price);
       const volume = volumeData[ticker.symbol]?.volume || 0;
       const priceChangePercent =
@@ -503,7 +502,7 @@ const checkAlerts = async (io) => {
     console.log("🔍 Timestamp:", new Date().toISOString());
 
     // Use the comprehensive alert service that fixes all the identified issues
-    const stats = await processAlertsComprehensive();
+    const stats = await processAlertsComprehensive(io);
 
     // Emit socket event with processing results
     if (io && (stats.triggered > 0 || stats.processed > 0)) {
@@ -547,15 +546,17 @@ const setupCronJobs = (io) => {
       console.log("🔄 Running auto-sync with Binance...");
       const results = await BinancePairSyncService.runOnceSync();
       if (results && (results.added > 0 || results.removed > 0)) {
-        console.log(`📊 Sync completed: +${results.added} new, -${results.removed} delisted, ~${results.updated} updated`);
-        
+        console.log(
+          `📊 Sync completed: +${results.added} new, -${results.removed} delisted, ~${results.updated} updated`
+        );
+
         // Emit update to connected clients if there were changes
         if (io) {
-          io.emit('pairs-updated', {
+          io.emit("pairs-updated", {
             added: results.added,
             removed: results.removed,
             updated: results.updated,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           });
         }
       } else if (results) {
