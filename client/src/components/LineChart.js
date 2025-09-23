@@ -42,6 +42,7 @@ const LineChart = ({
   const [latestAlert, setLatestAlert] = useState(null);
   const [livePrice, setLivePrice] = useState(null);
   const [isShowingTriggeredAlert, setIsShowingTriggeredAlert] = useState(false);
+  const [isUsingFallbackData, setIsUsingFallbackData] = useState(false);
 
   // Get the current timeframe config
   const currentTimeframeConfig =
@@ -187,6 +188,7 @@ const LineChart = ({
     setLoading(true);
     setError(null);
     setIsShowingTriggeredAlert(false); // Reset triggered alert state
+    setIsUsingFallbackData(false); // Reset fallback data state
   }, [chartKey]);
 
   // Handle timeframe change
@@ -262,6 +264,16 @@ const LineChart = ({
           setError("No data available");
           setLoading(false);
           return;
+        }
+
+        // Check if we're using fallback data
+        if (data._fallback) {
+          console.warn(
+            "⚠️ Using fallback chart data due to API connectivity issues"
+          );
+          setIsUsingFallbackData(true);
+        } else {
+          setIsUsingFallbackData(false);
         }
 
         console.log(`Received ${data.length} data points for ${symbol}`);
@@ -437,6 +449,22 @@ const LineChart = ({
               >
                 {symbol}
               </Typography>
+              {isUsingFallbackData && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "#F59E0B",
+                    fontSize: "0.6rem",
+                    bgcolor: "rgba(245, 158, 11, 0.1)",
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 1,
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                  }}
+                >
+                  ⚠️ DEMO DATA
+                </Typography>
+              )}
             </Box>
             {latestAlert && (
               <Typography

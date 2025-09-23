@@ -30,6 +30,9 @@ async function getCurrentPrice(symbol) {
       {
         params: { symbol: symbol },
         timeout: 5000,
+        // Force IPv4 to avoid connectivity issues
+        family: 4,
+        lookup: require("dns").lookup,
       }
     );
     return parseFloat(response.data.price);
@@ -41,7 +44,7 @@ async function getCurrentPrice(symbol) {
     return null;
   }
 }
-
+ 
 /**
  * Get 24h volume data from Binance API
  * @param {string} symbol - Trading pair symbol
@@ -52,6 +55,9 @@ async function getVolumeData(symbol) {
     const response = await axios.get(`${BINANCE_API_BASE}/api/v3/ticker/24hr`, {
       params: { symbol: symbol },
       timeout: 5000,
+      // Force IPv4 to avoid connectivity issues
+      family: 4,
+      lookup: require("dns").lookup,
     });
 
     const data = response.data;

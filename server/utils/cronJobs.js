@@ -85,6 +85,9 @@ const makeApiRequestWithRetry = async (url, maxRetries = 3, delay = 1000) => {
           Accept: "application/json",
           Connection: "keep-alive",
         },
+        // Force IPv4 to avoid connectivity issues
+        family: 4,
+        lookup: require("dns").lookup,
       });
 
       console.log(`✅ API Request successful on attempt ${attempt}`);
