@@ -14,6 +14,8 @@ const {
 const {
   processAlertsComprehensive,
 } = require("../services/alertServiceComprehensive");
+const { filterUSDTPairs } = require("./pairFilter");
+const BinancePairSyncService = require("../../auto_sync_pairs");
 
 const BINANCE_API_BASE = "https://api.binance.com";
 
@@ -377,12 +379,34 @@ const updateCryptoData = async () => {
       };
     });
 
+    // Get exchange info for proper filtering
+    let exchangeInfoResponse = null;
+    try {
+      exchangeInfoResponse = await makeApiRequestWithRetry(
+        "https://api.binance.com/api/v3/exchangeInfo"
+      );
+    } catch (exchangeError) {
+      console.error("Failed to fetch exchange info:", exchangeError.message);
+    }
+
+    // Use centralized filtering function with debug logging
+    const enableDebug = process.env.NODE_ENV !== 'production';
+    const exchangeSymbols = exchangeInfoResponse?.data?.symbols || [];
+    
+    const filterResult = filterUSDTPairs(
+      tickerResponse.data, 
+      exchangeSymbols, 
+      enableDebug
+    );
+    
+    const filteredTickers = filterResult.filteredPairs;
+    
+    console.log(
+      `🎯 Filtered to ${filteredTickers.length} USDT pairs out of ${tickerResponse.data.length} total pairs`
+    );
+
     // Process and update crypto data
-    const operations = tickerResponse.data.map(async (ticker) => {
-      // Only process USDT pairs
-      if (!ticker.symbol.endsWith("USDT")) {
-        return null;
-      }
+    const operations = filteredTickers.map(async (ticker) => {
 
       const price = parseFloat(ticker.price);
       const volume = volumeData[ticker.symbol]?.volume || 0;
@@ -514,6 +538,31 @@ const setupCronJobs = (io) => {
     } catch (error) {
       console.error("❌ Error in scheduled tasks:", error.message);
       // Don't let the error crash the cron job - it will retry on the next minute
+    }
+  });
+
+  // Auto-sync trading pairs with Binance every 5 minutes
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      console.log("🔄 Running auto-sync with Binance...");
+      const results = await BinancePairSyncService.runOnceSync();
+      if (results && (results.added > 0 || results.removed > 0)) {
+        console.log(`📊 Sync completed: +${results.added} new, -${results.removed} delisted, ~${results.updated} updated`);
+        
+        // Emit update to connected clients if there were changes
+        if (io) {
+          io.emit('pairs-updated', {
+            added: results.added,
+            removed: results.removed,
+            updated: results.updated,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } else if (results) {
+        console.log("✅ Pairs already in sync with Binance");
+      }
+    } catch (error) {
+      console.error("❌ Auto-sync failed:", error.message);
     }
   });
 

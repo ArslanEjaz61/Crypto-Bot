@@ -5,10 +5,17 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start:autosync": "node start_with_autosync.js",
     "server": "nodemon index.js",
     "client": "npm start --prefix client",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server-alt": "nodemon server/index.js"
+    "dev:autosync": "concurrently \"nodemon start_with_autosync.js\" \"npm run client\"",
+    "server-alt": "nodemon server/index.js",
+    "sync:once": "node auto_sync_pairs.js --once",
+    "sync:monitor": "node monitor_autosync.js",
+    "sync:status": "node monitor_autosync.js status",
+    "sync:history": "node monitor_autosync.js history",
+    "sync:test": "node monitor_autosync.js test"
   },
   "keywords": [
     "binance",

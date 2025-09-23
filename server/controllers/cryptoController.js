@@ -1,5 +1,6 @@
 const Crypto = require("../models/cryptoModel");
 const axios = require("axios");
+const { filterUSDTPairs } = require("../utils/pairFilter");
 
 // Simple in-memory cache for API responses
 const apiCache = {
@@ -313,38 +314,20 @@ const refreshCryptoData = async (req = {}) => {
     let operations = [];
 
     try {
-      // Filter trading pairs based on spot filter parameter
-      const spotOnly = req.query.spotOnly === "true";
-
-      let filteredPairs = tickerResponse.data;
-
-      // Filter for active USDT pairs only
-      filteredPairs = tickerResponse.data.filter((ticker) => {
-        if (!ticker || !ticker.symbol) return false;
-
-        // Must be USDT pair
-        if (!ticker.symbol.endsWith("USDT")) return false;
-
-        const exchangeInfo = exchangeInfoMap[ticker.symbol];
-
-        // Must have TRADING status (active pairs only)
-        if (exchangeInfo && exchangeInfo.status !== "TRADING") return false;
-
-        // Must be spot trading allowed
-        if (exchangeInfo && exchangeInfo.isSpotTradingAllowed !== true)
-          return false;
-
-        // Exclude leveraged tokens and other non-standard pairs
-        const excludePatterns = ["UP", "DOWN", "BULL", "BEAR"];
-        const isExcluded = excludePatterns.some((pattern) =>
-          ticker.symbol.includes(pattern)
-        );
-
-        return !isExcluded;
-      });
-
+      // Use centralized filtering function with debug logging
+      const enableDebug = process.env.NODE_ENV !== 'production';
+      const exchangeSymbols = exchangeInfoResponse?.data?.symbols || [];
+      
+      const filterResult = filterUSDTPairs(
+        tickerResponse.data, 
+        exchangeSymbols, 
+        enableDebug
+      );
+      
+      const filteredPairs = filterResult.filteredPairs;
+      
       console.log(
-        `Filtered to ${filteredPairs.length} active USDT pairs out of ${tickerResponse.data.length} total pairs`
+        `🎯 Filtered to ${filteredPairs.length} USDT pairs out of ${tickerResponse.data.length} total pairs`
       );
 
       // Sort alphabetically
