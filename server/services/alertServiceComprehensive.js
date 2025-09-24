@@ -25,14 +25,20 @@ const BINANCE_API_BASE = "https://api.binance.com";
  */
 async function getCurrentPrice(symbol) {
   try {
+    const https = require("https");
+    const dns = require("dns");
+
+    const httpsAgent = new https.Agent({
+      family: 4, // Force IPv4
+      lookup: dns.lookup,
+    });
+
     const response = await axios.get(
       `${BINANCE_API_BASE}/api/v3/ticker/price`,
       {
         params: { symbol: symbol },
         timeout: 5000,
-        // Force IPv4 to avoid connectivity issues
-        family: 4,
-        lookup: require("dns").lookup,
+        httpsAgent: httpsAgent,
       }
     );
     return parseFloat(response.data.price);
@@ -44,7 +50,7 @@ async function getCurrentPrice(symbol) {
     return null;
   }
 }
- 
+
 /**
  * Get 24h volume data from Binance API
  * @param {string} symbol - Trading pair symbol
@@ -52,12 +58,18 @@ async function getCurrentPrice(symbol) {
  */
 async function getVolumeData(symbol) {
   try {
+    const https = require("https");
+    const dns = require("dns");
+
+    const httpsAgent = new https.Agent({
+      family: 4, // Force IPv4
+      lookup: dns.lookup,
+    });
+
     const response = await axios.get(`${BINANCE_API_BASE}/api/v3/ticker/24hr`, {
       params: { symbol: symbol },
       timeout: 5000,
-      // Force IPv4 to avoid connectivity issues
-      family: 4,
-      lookup: require("dns").lookup,
+      httpsAgent: httpsAgent,
     });
 
     const data = response.data;

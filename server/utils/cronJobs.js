@@ -78,6 +78,14 @@ const makeApiRequestWithRetry = async (url, maxRetries = 3, delay = 1000) => {
     try {
       console.log(`API Request attempt ${attempt}/${maxRetries} for ${url}`);
 
+      const https = require("https");
+      const dns = require("dns");
+
+      const httpsAgent = new https.Agent({
+        family: 4, // Force IPv4
+        lookup: dns.lookup,
+      });
+
       const response = await axios.get(url, {
         timeout: 10000, // 10 second timeout
         headers: {
@@ -85,9 +93,7 @@ const makeApiRequestWithRetry = async (url, maxRetries = 3, delay = 1000) => {
           Accept: "application/json",
           Connection: "keep-alive",
         },
-        // Force IPv4 to avoid connectivity issues
-        family: 4,
-        lookup: require("dns").lookup,
+        httpsAgent: httpsAgent,
       });
 
       console.log(`✅ API Request successful on attempt ${attempt}`);

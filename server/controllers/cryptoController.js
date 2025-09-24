@@ -16,6 +16,15 @@ const MIN_REFRESH_INTERVAL = parseInt(
 const API_TIMEOUT = parseInt(process.env.API_TIMEOUT || "5000"); // Timeout for API responses
 
 // Configure axios defaults for Binance API
+const https = require("https");
+const dns = require("dns");
+
+// Create custom agent that forces IPv4
+const httpsAgent = new https.Agent({
+  family: 4, // Force IPv4
+  lookup: dns.lookup,
+});
+
 const binanceAPI = axios.create({
   baseURL: "https://api.binance.com",
   timeout: 15000, // Increased timeout for reliability
@@ -24,10 +33,7 @@ const binanceAPI = axios.create({
     "User-Agent": "BinanceAlertsApp/1.0",
     "X-MBX-APIKEY": process.env.BINANCE_API_KEY || "",
   },
-  // Force IPv4 to avoid IPv6 connectivity issues
-  family: 4,
-  // Add DNS resolution options
-  lookup: require("dns").lookup,
+  httpsAgent: httpsAgent, // Use custom agent
 });
 
 // Helper function to get cached data or fetch fresh data
