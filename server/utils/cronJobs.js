@@ -17,6 +17,7 @@ const {
 } = require("../services/alertServiceComprehensive");
 const { filterUSDTPairs } = require("./pairFilter");
 const BinancePairSyncService = require("../../auto_sync_pairs");
+const { makeThrottledRequest, getRequestStats } = require("./requestThrottle");
 
 const BINANCE_API_BASE = "https://api.binance.com";
 
@@ -90,64 +91,10 @@ async function getCurrentMinuteCandle(symbol) {
 }
 
 /**
- * Make API request with retry logic and better timeout handling
+ * Make API request with throttling and caching (replaced old function)
  */
 const makeApiRequestWithRetry = async (url, maxRetries = 3, delay = 1000) => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`API Request attempt ${attempt}/${maxRetries} for ${url}`);
-
-      const https = require("https");
-      const dns = require("dns");
-
-      const httpsAgent = new https.Agent({
-        family: 4, // Force IPv4
-        lookup: dns.lookup,
-        keepAlive: true,
-        maxSockets: 5,
-        timeout: 8000, // Reduced timeout
-      });
-
-      const response = await axios.get(url, {
-        timeout: 8000, // Reduced timeout to 8 seconds
-        headers: {
-          "User-Agent": "Trading-Pairs-Trend-Alert/1.0",
-          Accept: "application/json",
-          Connection: "keep-alive",
-          "Cache-Control": "no-cache",
-        },
-        httpsAgent: httpsAgent,
-        maxRedirects: 3,
-        validateStatus: function (status) {
-          return status >= 200 && status < 300; // Only resolve for 2xx status codes
-        },
-      });
-
-      console.log(`✅ API Request successful on attempt ${attempt}`);
-      return response;
-    } catch (error) {
-      console.error(`❌ API Request attempt ${attempt} failed:`, error.message);
-
-      // Check if it's a connection error that we should retry
-      if (
-        error.code === "ECONNRESET" ||
-        error.code === "ETIMEDOUT" ||
-        error.code === "ENOTFOUND" ||
-        error.code === "ECONNREFUSED" ||
-        error.message.includes("timeout")
-      ) {
-        if (attempt < maxRetries) {
-          const waitTime = delay * Math.pow(2, attempt - 1); // Exponential backoff
-          console.log(`⏳ Retrying in ${waitTime}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
-          continue;
-        }
-      }
-
-      // If it's not a retryable error or we've exhausted retries, throw the error
-      throw error;
-    }
-  }
+  return await makeThrottledRequest(url, {}, maxRetries);
 };
 
 /**
@@ -401,6 +348,12 @@ const updateCryptoData = async () => {
       console.log("⚠️ MongoDB not connected, skipping crypto data update");
       return;
     }
+
+    // Log request statistics
+    const stats = getRequestStats();
+    console.log(
+      `📊 Request stats: ${stats.active} active, ${stats.cached} cached, max ${stats.maxActive}`
+    );
 
     // Fetch all tickers from Binance with retry logic
     tickerResponse = await makeApiRequestWithRetry(
