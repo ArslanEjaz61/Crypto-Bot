@@ -3,20 +3,7 @@ const mongoose = require("mongoose");
 // Enhanced MongoDB connection with better error handling and reconnection
 const connectDB = async () => {
   try {
-    // Connection options for better reliability
-    const options = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 10000, // Keep trying to send operations for 10 seconds
-      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-      bufferCommands: false, // Disable mongoose buffering
-      maxPoolSize: 10, // Maintain up to 10 socket connections
-      minPoolSize: 5, // Maintain a minimum of 5 socket connections
-      maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
-      connectTimeoutMS: 10000, // Give up initial connection after 10 seconds
-    };
-
-    const conn = await mongoose.connect(process.env.MONGO_URI, options);
+    const conn = await mongoose.connect(process.env.MONGO_URI);
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
 
