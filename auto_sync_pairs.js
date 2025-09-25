@@ -90,6 +90,12 @@ class BinancePairSyncService {
       const startTime = new Date();
       console.log(`\n📡 === SYNC STARTED: ${startTime.toISOString()} ===`);
 
+      // Check MongoDB connection
+      if (mongoose.connection.readyState !== 1) {
+        console.log("⚠️ MongoDB not connected, skipping sync");
+        return { error: "MongoDB not connected" };
+      }
+
       // Fetch current Binance data
       const binanceData = await this.fetchBinanceData();
       if (!binanceData) {

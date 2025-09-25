@@ -1,5 +1,6 @@
 const cron = require("node-cron");
 const axios = require("axios");
+const mongoose = require("mongoose");
 const Crypto = require("../models/cryptoModel");
 const Alert = require("../models/alertModel");
 const { sendAlertEmail } = require("./emailService");
@@ -18,6 +19,24 @@ const { filterUSDTPairs } = require("./pairFilter");
 const BinancePairSyncService = require("../../auto_sync_pairs");
 
 const BINANCE_API_BASE = "https://api.binance.com";
+
+/**
+ * Check if MongoDB is connected
+ */
+const isMongoConnected = () => {
+  return mongoose.connection.readyState === 1;
+};
+
+/**
+ * Wait for MongoDB connection or skip operation
+ */
+const waitForMongoConnection = async (maxWaitTime = 5000) => {
+  const startTime = Date.now();
+  while (!isMongoConnected() && Date.now() - startTime < maxWaitTime) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return isMongoConnected();
+};
 
 /**
  * Get current 1-minute candle data from Binance for accurate percentage calculations
@@ -71,7 +90,7 @@ async function getCurrentMinuteCandle(symbol) {
 }
 
 /**
- * Make API request with retry logic
+ * Make API request with retry logic and better timeout handling
  */
 const makeApiRequestWithRetry = async (url, maxRetries = 3, delay = 1000) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -84,16 +103,24 @@ const makeApiRequestWithRetry = async (url, maxRetries = 3, delay = 1000) => {
       const httpsAgent = new https.Agent({
         family: 4, // Force IPv4
         lookup: dns.lookup,
+        keepAlive: true,
+        maxSockets: 5,
+        timeout: 8000, // Reduced timeout
       });
 
       const response = await axios.get(url, {
-        timeout: 10000, // 10 second timeout
+        timeout: 8000, // Reduced timeout to 8 seconds
         headers: {
           "User-Agent": "Trading-Pairs-Trend-Alert/1.0",
           Accept: "application/json",
           Connection: "keep-alive",
+          "Cache-Control": "no-cache",
         },
         httpsAgent: httpsAgent,
+        maxRedirects: 3,
+        validateStatus: function (status) {
+          return status >= 200 && status < 300; // Only resolve for 2xx status codes
+        },
       });
 
       console.log(`✅ API Request successful on attempt ${attempt}`);
@@ -105,7 +132,9 @@ const makeApiRequestWithRetry = async (url, maxRetries = 3, delay = 1000) => {
       if (
         error.code === "ECONNRESET" ||
         error.code === "ETIMEDOUT" ||
-        error.code === "ENOTFOUND"
+        error.code === "ENOTFOUND" ||
+        error.code === "ECONNREFUSED" ||
+        error.message.includes("timeout")
       ) {
         if (attempt < maxRetries) {
           const waitTime = delay * Math.pow(2, attempt - 1); // Exponential backoff
@@ -367,6 +396,12 @@ const updateCryptoData = async () => {
   try {
     console.log("🔄 Starting crypto data update...");
 
+    // Check MongoDB connection first
+    if (!isMongoConnected()) {
+      console.log("⚠️ MongoDB not connected, skipping crypto data update");
+      return;
+    }
+
     // Fetch all tickers from Binance with retry logic
     tickerResponse = await makeApiRequestWithRetry(
       "https://api.binance.com/api/v3/ticker/price"
@@ -536,6 +571,12 @@ const checkAlerts = async (io) => {
   try {
     console.log("🔍 === COMPREHENSIVE ALERT CHECKING STARTED ===");
     console.log("🔍 Timestamp:", new Date().toISOString());
+
+    // Check MongoDB connection first
+    if (!isMongoConnected()) {
+      console.log("⚠️ MongoDB not connected, skipping alert checking");
+      return;
+    }
 
     // Use the comprehensive alert service that fixes all the identified issues
     const stats = await processAlertsComprehensive(io);

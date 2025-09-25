@@ -3,17 +3,42 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
-const connectDB = require("./server/config/db");
+const {
+  connectDB,
+  isConnected,
+  waitForConnection,
+} = require("./server/config/db");
 const http = require("http");
 const { Server } = require("socket.io");
 // Removed morgan dependency as it might not be installed
 const { setupCronJobs } = require("./server/utils/cronJobs");
+const { setupProduction } = require("./production-fixes");
 
 // Load environment variables
 dotenv.config();
 
-// Connect to database
-connectDB();
+// Setup production environment (includes database connection)
+const initializeServer = async () => {
+  try {
+    // Setup production environment
+    await setupProduction();
+
+    // Connect to database with enhanced settings
+    await connectDB();
+
+    console.log("✅ Server initialization complete");
+  } catch (error) {
+    console.error("❌ Server initialization failed:", error);
+    // Continue anyway in production
+    if (process.env.NODE_ENV === "production") {
+      console.log(
+        "⚠️ Continuing in production mode despite initialization errors"
+      );
+    } else {
+      process.exit(1);
+    }
+  }
+};
 
 // Initialize Express with HTTP server and Socket.io
 const app = express();
@@ -109,10 +134,24 @@ server.on("error", (error) => {
 });
 
 // Start server with socket.io support
-server.listen(PORT, () => {
-  console.log(`Server running with Socket.io on port ${PORT}`);
-  console.log(`Access API at http://localhost:${PORT}/api`);
-});
+const startServer = async () => {
+  try {
+    // Initialize server first
+    await initializeServer();
+
+    // Start the server
+    server.listen(PORT, () => {
+      console.log(`Server running with Socket.io on port ${PORT}`);
+      console.log(`Access API at http://localhost:${PORT}/api`);
+    });
+  } catch (error) {
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
 
 // Handle process termination gracefully
 process.on("SIGTERM", () => {
