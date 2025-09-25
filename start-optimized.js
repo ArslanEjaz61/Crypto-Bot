@@ -1,8 +1,7 @@
-// Enhanced startup script with fixes for common issues
+// Memory-optimized startup script with garbage collection enabled
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const net = require("net");
 
 // Colors for console output
 const colors = {
@@ -14,37 +13,23 @@ const colors = {
   magenta: "\x1b[35m",
   cyan: "\x1b[36m",
 };
+
 const SERVER_PREFIX = `${colors.blue}[SERVER]${colors.reset}`;
 const CLIENT_PREFIX = `${colors.green}[CLIENT]${colors.reset}`;
 const SCRIPT_PREFIX = `${colors.yellow}[SCRIPT]${colors.reset}`;
 
-// Check if MongoDB is running
-function checkMongoDB() {
-  return new Promise((resolve) => {
-    const client = new net.Socket();
-    client.setTimeout(1000);
+// Memory-optimized Node.js flags
+const NODE_FLAGS = [
+  "--max-old-space-size=1024", // Limit heap to 1GB
+  "--expose-gc", // Enable garbage collection
+  "--optimize-for-size", // Optimize for memory usage
+  "--gc-interval=100", // More frequent garbage collection
+];
 
-    client.on("connect", () => {
-      client.destroy();
-      resolve(true);
-    });
-
-    client.on("timeout", () => {
-      client.destroy();
-      resolve(false);
-    });
-
-    client.on("error", () => {
-      resolve(false);
-    });
-
-    client.connect(27017, "localhost");
-  });
-}
-
-// Check if port is in use
+// Function to check if a port is in use
 function checkPortInUse(port) {
   return new Promise((resolve) => {
+    const net = require("net");
     const server = net.createServer();
 
     server.once("error", (err) => {
@@ -92,9 +77,9 @@ API_TIMEOUT=5000
   }
 }
 
-// Start server
+// Start server with memory optimization
 async function startServer() {
-  console.log(`${SCRIPT_PREFIX} Starting server...`);
+  console.log(`${SCRIPT_PREFIX} Starting server with memory optimization...`);
 
   const portInUse = await checkPortInUse(5000);
   if (portInUse) {
@@ -103,11 +88,15 @@ async function startServer() {
     );
   }
 
-  const server = spawn("node", ["index.js"], {
+  const server = spawn("node", [...NODE_FLAGS, "index.js"], {
     cwd: __dirname,
     stdio: "pipe",
     shell: true,
-    env: { ...process.env, NODE_ENV: "development" },
+    env: {
+      ...process.env,
+      NODE_ENV: "development",
+      NODE_OPTIONS: "--max-old-space-size=1024 --expose-gc",
+    },
   });
 
   server.stdout.on("data", (data) => {
@@ -130,6 +119,12 @@ async function startServer() {
     }
   });
 
+  server.on("error", (err) => {
+    console.log(
+      `${SERVER_PREFIX} ${colors.red}Failed to start server: ${err}${colors.reset}`
+    );
+  });
+
   return server;
 }
 
@@ -148,7 +143,11 @@ async function startClient() {
     cwd: path.join(__dirname, "client"),
     stdio: "pipe",
     shell: true,
-    env: { ...process.env, BROWSER: "none" }, // Prevent auto-opening browser
+    env: {
+      ...process.env,
+      BROWSER: "none",
+      NODE_OPTIONS: "--max-old-space-size=512", // Smaller heap for client
+    },
   });
 
   client.stdout.on("data", (data) => {
@@ -171,38 +170,29 @@ async function startClient() {
     }
   });
 
+  client.on("error", (err) => {
+    console.log(
+      `${CLIENT_PREFIX} ${colors.red}Failed to start client: ${err}${colors.reset}`
+    );
+  });
+
   return client;
 }
 
 // Main function
 async function start() {
   console.log(
-    `${SCRIPT_PREFIX} ${colors.cyan}==== Binance Alerts App Startup (Enhanced) ====${colors.reset}`
+    `${SCRIPT_PREFIX} ${colors.cyan}==== Memory-Optimized Binance Alerts App Startup ====${colors.reset}`
   );
 
-  // Check MongoDB
-  const mongoRunning = await checkMongoDB();
-  if (!mongoRunning) {
-    console.log(
-      `${SCRIPT_PREFIX} ${colors.red}❌ MongoDB is not running!${colors.reset}`
-    );
-    console.log(
-      `${SCRIPT_PREFIX} ${colors.yellow}Please start MongoDB:${colors.reset}`
-    );
-    console.log(`${SCRIPT_PREFIX}   Windows: net start MongoDB`);
-    console.log(`${SCRIPT_PREFIX}   Linux/Mac: sudo systemctl start mongod`);
-    console.log(
-      `${SCRIPT_PREFIX}   Or use MongoDB Atlas (cloud) by updating MONGO_URI in .env`
-    );
-    console.log("");
-    console.log(
-      `${SCRIPT_PREFIX} ${colors.yellow}Continuing anyway - app will use fallback data...${colors.reset}`
-    );
-  } else {
-    console.log(
-      `${SCRIPT_PREFIX} ${colors.green}✅ MongoDB is running${colors.reset}`
-    );
-  }
+  // Display memory optimization info
+  console.log(
+    `${SCRIPT_PREFIX} ${colors.yellow}Memory Optimization Settings:${colors.reset}`
+  );
+  console.log(`${SCRIPT_PREFIX}   - Server Heap Size: 1GB`);
+  console.log(`${SCRIPT_PREFIX}   - Client Heap Size: 512MB`);
+  console.log(`${SCRIPT_PREFIX}   - Garbage Collection: Enabled`);
+  console.log(`${SCRIPT_PREFIX}   - Memory Monitoring: Active`);
 
   // Create .env file if needed
   createEnvFile();
@@ -213,13 +203,20 @@ async function start() {
   // Wait before starting client
   setTimeout(async () => {
     const clientProcess = await startClient();
-  }, 3000);
+  }, 5000);
 
   // Handle exit
   process.on("SIGINT", () => {
     console.log(`${SCRIPT_PREFIX} Shutting down...`);
     process.exit();
   });
+
+  // Memory monitoring for the startup script itself
+  setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const memUsageMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    console.log(`${SCRIPT_PREFIX} 💾 Startup script memory: ${memUsageMB}MB`);
+  }, 30000);
 }
 
 // Start the application

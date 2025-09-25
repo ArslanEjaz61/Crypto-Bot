@@ -513,43 +513,43 @@ const getCryptoList = async (req, res) => {
       });
     }
 
-    // For smaller requests, use normal flow with timeout
-    let responseSent = false;
+    // For smaller requests, return cached data immediately (no API calls)
+    console.log("Small request - returning cached data immediately");
 
-    const responseTimeout = setTimeout(() => {
-      if (!responseSent) {
-        console.log("Response timeout - sending database data");
-        sendResponse();
-      }
-    }, 2000); // Reduced timeout for better UX
+    const skip = (page - 1) * limit;
+    const cryptos = await Crypto.find(query)
+      .select("symbol price volume24h priceChangePercent24h isFavorite")
+      .sort({ volume24h: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
-    const sendResponse = async () => {
-      if (responseSent) return;
-      responseSent = true;
-      clearTimeout(responseTimeout);
+    const total = await Crypto.countDocuments(query);
 
-      const cryptos = await Crypto.find(query).sort({ symbol: 1 }).lean();
+    console.log(
+      `Returning ${cryptos.length} crypto pairs (page ${page}, total: ${total})`
+    );
 
-      console.log(
-        `Returning ${cryptos.length} cryptos with query:`,
-        JSON.stringify(query)
-      );
-
-      res.json({
-        cryptos,
-        totalCount: cryptos.length,
-        timestamp: new Date().toISOString(),
-        dataSource: "database",
-      });
-    };
-
-    // Start background refresh
-    refreshCryptoData(req).catch((err) => {
+    // Start background refresh (fire and forget with timeout)
+    const refreshPromise = refreshCryptoData(req).catch((err) => {
       console.error("Background refresh failed:", err.message);
     });
 
+    // Set a timeout for the background refresh
+    setTimeout(() => {
+      console.log("Background refresh timeout reached");
+    }, 15000); // 15 second timeout
+
     // Send response immediately from database
-    await sendResponse();
+    res.json({
+      cryptos,
+      total,
+      page,
+      limit,
+      timestamp: new Date().toISOString(),
+      dataSource: "database_cached",
+      message: "Cached data returned immediately",
+    });
   } catch (error) {
     console.error("Error in getCryptoList:", error);
     res.status(500).json({

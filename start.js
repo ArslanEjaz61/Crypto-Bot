@@ -1,8 +1,8 @@
-// Script to start both client and server simultaneously
+// Enhanced startup script with memory optimization and all fixes
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const readline = require("readline");
+const net = require("net");
 
 // Colors for console output
 const colors = {
@@ -14,214 +14,257 @@ const colors = {
   magenta: "\x1b[35m",
   cyan: "\x1b[36m",
 };
-
-// Prefix for logs to distinguish between processes
 const SERVER_PREFIX = `${colors.blue}[SERVER]${colors.reset}`;
 const CLIENT_PREFIX = `${colors.green}[CLIENT]${colors.reset}`;
 const SCRIPT_PREFIX = `${colors.yellow}[SCRIPT]${colors.reset}`;
 
-// Function to check if a port is in use
-function checkPortInUse(port, callback) {
-  const net = require("net");
-  const server = net.createServer();
+// Memory-optimized Node.js flags
+const NODE_FLAGS = [
+  "--max-old-space-size=1024", // Limit heap to 1GB
+  "--expose-gc", // Enable garbage collection
+  "--optimize-for-size", // Optimize for memory usage
+  "--gc-interval=100", // More frequent garbage collection
+];
 
-  server.once("error", (err) => {
-    if (err.code === "EADDRINUSE") {
-      callback(true);
-    }
+// Check if MongoDB is running
+function checkMongoDB() {
+  return new Promise((resolve) => {
+    const client = new net.Socket();
+    client.setTimeout(1000);
+
+    client.on("connect", () => {
+      client.destroy();
+      resolve(true);
+    });
+
+    client.on("timeout", () => {
+      client.destroy();
+      resolve(false);
+    });
+
+    client.on("error", () => {
+      resolve(false);
+    });
+
+    client.connect(27017, "localhost");
   });
-
-  server.once("listening", () => {
-    server.close();
-    callback(false);
-  });
-
-  server.listen(port);
 }
 
-// Function to start the server
-function startServer() {
-  console.log(`${SCRIPT_PREFIX} Starting server...`);
+// Check if port is in use
+function checkPortInUse(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
 
-  // Check if port 5000 is in use
-  checkPortInUse(5000, (inUse) => {
-    if (inUse) {
-      console.log(
-        `${SCRIPT_PREFIX} ${colors.red}Warning: Port 5000 is already in use. Server may fail to start.${colors.reset}`
-      );
-      console.log(
-        `${SCRIPT_PREFIX} If you encounter issues, please manually stop any processes using port 5000.`
-      );
-    }
-
-    // Start the server process
-    const server = spawn("node", ["index.js"], {
-      cwd: __dirname,
-      stdio: "pipe",
-      shell: true,
-    });
-
-    // Handle server output
-    server.stdout.on("data", (data) => {
-      const lines = data.toString().trim().split("\n");
-      lines.forEach((line) => console.log(`${SERVER_PREFIX} ${line}`));
-    });
-
-    server.stderr.on("data", (data) => {
-      const lines = data.toString().trim().split("\n");
-      lines.forEach((line) =>
-        console.log(`${SERVER_PREFIX} ${colors.red}${line}${colors.reset}`)
-      );
-    });
-
-    server.on("close", (code) => {
-      if (code !== 0) {
-        console.log(
-          `${SERVER_PREFIX} ${colors.red}Server process exited with code ${code}${colors.reset}`
-        );
+    server.once("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        resolve(true);
       } else {
-        console.log(`${SERVER_PREFIX} Server process exited successfully`);
+        resolve(false);
       }
     });
 
-    server.on("error", (err) => {
-      console.log(
-        `${SERVER_PREFIX} ${colors.red}Failed to start server: ${err}${colors.reset}`
-      );
+    server.once("listening", () => {
+      server.close();
+      resolve(false);
     });
 
-    return server;
+    server.listen(port);
   });
 }
 
-// Function to start the client
-function startClient() {
+// Create .env file if it doesn't exist
+function createEnvFile() {
+  const envPath = path.join(__dirname, ".env");
+  if (!fs.existsSync(envPath)) {
+    console.log(
+      `${SCRIPT_PREFIX} ${colors.yellow}Creating .env file...${colors.reset}`
+    );
+    const envContent = `# MongoDB Configuration
+MONGO_URI=mongodb://localhost:27017/binance-alerts
+
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+
+# JWT Secret
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+
+# API Configuration
+API_MIN_REFRESH_INTERVAL=30000
+API_TIMEOUT=5000
+`;
+    fs.writeFileSync(envPath, envContent);
+    console.log(
+      `${SCRIPT_PREFIX} ${colors.green}.env file created successfully${colors.reset}`
+    );
+  }
+}
+
+// Start server with memory optimization
+async function startServer() {
+  console.log(`${SCRIPT_PREFIX} Starting server with memory optimization...`);
+
+  const portInUse = await checkPortInUse(5000);
+  if (portInUse) {
+    console.log(
+      `${SCRIPT_PREFIX} ${colors.red}Warning: Port 5000 is already in use${colors.reset}`
+    );
+  }
+
+  const server = spawn("node", [...NODE_FLAGS, "index.js"], {
+    cwd: __dirname,
+    stdio: "pipe",
+    shell: true,
+    env: {
+      ...process.env,
+      NODE_ENV: "development",
+      NODE_OPTIONS: "--max-old-space-size=1024 --expose-gc",
+    },
+  });
+
+  server.stdout.on("data", (data) => {
+    const lines = data.toString().trim().split("\n");
+    lines.forEach((line) => console.log(`${SERVER_PREFIX} ${line}`));
+  });
+
+  server.stderr.on("data", (data) => {
+    const lines = data.toString().trim().split("\n");
+    lines.forEach((line) =>
+      console.log(`${SERVER_PREFIX} ${colors.red}${line}${colors.reset}`)
+    );
+  });
+
+  server.on("close", (code) => {
+    if (code !== 0) {
+      console.log(
+        `${SERVER_PREFIX} ${colors.red}Server process exited with code ${code}${colors.reset}`
+      );
+    }
+  });
+
+  server.on("error", (err) => {
+    console.log(
+      `${SERVER_PREFIX} ${colors.red}Failed to start server: ${err}${colors.reset}`
+    );
+  });
+
+  return server;
+}
+
+// Start client with memory optimization
+async function startClient() {
   console.log(`${SCRIPT_PREFIX} Starting client...`);
 
-  // Check if port 3000 is in use
-  checkPortInUse(3000, (inUse) => {
-    if (inUse) {
+  const portInUse = await checkPortInUse(3000);
+  if (portInUse) {
+    console.log(
+      `${SCRIPT_PREFIX} ${colors.red}Warning: Port 3000 is already in use${colors.reset}`
+    );
+  }
+
+  const client = spawn("npm", ["start"], {
+    cwd: path.join(__dirname, "client"),
+    stdio: "pipe",
+    shell: true,
+    env: {
+      ...process.env,
+      BROWSER: "none", // Prevent auto-opening browser
+      NODE_OPTIONS: "--max-old-space-size=512", // Smaller heap for client
+    },
+  });
+
+  client.stdout.on("data", (data) => {
+    const lines = data.toString().trim().split("\n");
+    lines.forEach((line) => console.log(`${CLIENT_PREFIX} ${line}`));
+  });
+
+  client.stderr.on("data", (data) => {
+    const lines = data.toString().trim().split("\n");
+    lines.forEach((line) =>
+      console.log(`${CLIENT_PREFIX} ${colors.red}${line}${colors.reset}`)
+    );
+  });
+
+  client.on("close", (code) => {
+    if (code !== 0) {
       console.log(
-        `${SCRIPT_PREFIX} ${colors.red}Warning: Port 3000 is already in use. Client may fail to start.${colors.reset}`
-      );
-      console.log(
-        `${SCRIPT_PREFIX} If you encounter issues, please manually stop any processes using port 3000.`
+        `${CLIENT_PREFIX} ${colors.red}Client process exited with code ${code}${colors.reset}`
       );
     }
-
-    // Start the client process
-    const client = spawn("npm", ["start"], {
-      cwd: path.join(__dirname, "client"),
-      stdio: "pipe",
-      shell: true,
-    });
-
-    // Handle client output
-    client.stdout.on("data", (data) => {
-      const lines = data.toString().trim().split("\n");
-      lines.forEach((line) => console.log(`${CLIENT_PREFIX} ${line}`));
-    });
-
-    client.stderr.on("data", (data) => {
-      const lines = data.toString().trim().split("\n");
-      lines.forEach((line) =>
-        console.log(`${CLIENT_PREFIX} ${colors.red}${line}${colors.reset}`)
-      );
-    });
-
-    client.on("close", (code) => {
-      if (code !== 0) {
-        console.log(
-          `${CLIENT_PREFIX} ${colors.red}Client process exited with code ${code}${colors.reset}`
-        );
-      } else {
-        console.log(`${CLIENT_PREFIX} Client process exited successfully`);
-      }
-    });
-
-    client.on("error", (err) => {
-      console.log(
-        `${CLIENT_PREFIX} ${colors.red}Failed to start client: ${err}${colors.reset}`
-      );
-    });
-
-    return client;
   });
+
+  client.on("error", (err) => {
+    console.log(
+      `${CLIENT_PREFIX} ${colors.red}Failed to start client: ${err}${colors.reset}`
+    );
+  });
+
+  return client;
 }
 
-// Main function to start both server and client
-function start() {
+// Main function
+async function start() {
   console.log(
-    `${SCRIPT_PREFIX} ${colors.cyan}==== Binance Alerts App Startup ====${colors.reset}`
+    `${SCRIPT_PREFIX} ${colors.cyan}==== Binance Alerts App Startup (Enhanced + Memory Optimized) ====${colors.reset}`
   );
-  console.log(`${SCRIPT_PREFIX} Starting both server and client processes...`);
 
-  // Check if .env file exists, if not create a warning
-  if (!fs.existsSync(path.join(__dirname, ".env"))) {
+  // Display memory optimization info
+  console.log(
+    `${SCRIPT_PREFIX} ${colors.yellow}Memory Optimization Settings:${colors.reset}`
+  );
+  console.log(`${SCRIPT_PREFIX}   - Server Heap Size: 1GB`);
+  console.log(`${SCRIPT_PREFIX}   - Client Heap Size: 512MB`);
+  console.log(`${SCRIPT_PREFIX}   - Garbage Collection: Enabled`);
+  console.log(`${SCRIPT_PREFIX}   - Memory Monitoring: Active`);
+
+  // Check MongoDB
+  const mongoRunning = await checkMongoDB();
+  if (!mongoRunning) {
     console.log(
-      `${SCRIPT_PREFIX} ${colors.red}Warning: .env file not found at project root!${colors.reset}`
+      `${SCRIPT_PREFIX} ${colors.red}❌ MongoDB is not running!${colors.reset}`
     );
     console.log(
-      `${SCRIPT_PREFIX} Make sure you have proper MongoDB connection string in your .env file.`
+      `${SCRIPT_PREFIX} ${colors.yellow}Please start MongoDB:${colors.reset}`
+    );
+    console.log(`${SCRIPT_PREFIX}   Windows: net start MongoDB`);
+    console.log(`${SCRIPT_PREFIX}   Linux/Mac: sudo systemctl start mongod`);
+    console.log(
+      `${SCRIPT_PREFIX}   Or use MongoDB Atlas (cloud) by updating MONGO_URI in .env`
+    );
+    console.log("");
+    console.log(
+      `${SCRIPT_PREFIX} ${colors.yellow}Continuing anyway - app will use fallback data...${colors.reset}`
+    );
+  } else {
+    console.log(
+      `${SCRIPT_PREFIX} ${colors.green}✅ MongoDB is running${colors.reset}`
     );
   }
 
-  // Check if client .env file exists
-  if (!fs.existsSync(path.join(__dirname, "client", ".env"))) {
-    console.log(
-      `${SCRIPT_PREFIX} ${colors.yellow}Creating client .env file with default settings...${colors.reset}`
-    );
-    fs.writeFileSync(
-      path.join(__dirname, "client", ".env"),
-      "REACT_APP_API_URL=http://localhost:5000"
-    );
-    console.log(
-      `${SCRIPT_PREFIX} ${colors.green}Client .env file created successfully.${colors.reset}`
-    );
-  }
+  // Create .env file if needed
+  createEnvFile();
 
-  // Start both processes
-  const serverProcess = startServer();
+  // Start server
+  const serverProcess = await startServer();
 
-  // Wait a bit before starting client to ensure server is up
-  setTimeout(() => {
-    const clientProcess = startClient();
-  }, 2000);
+  // Wait before starting client
+  setTimeout(async () => {
+    const clientProcess = await startClient();
+  }, 5000); // Increased delay to allow server to fully start
 
-  // Handle exit gracefully
+  // Handle exit
   process.on("SIGINT", () => {
-    console.log(`${SCRIPT_PREFIX} Received SIGINT, shutting down processes...`);
+    console.log(`${SCRIPT_PREFIX} Shutting down...`);
     process.exit();
   });
 
-  // Setup command interface
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  console.log(
-    `${SCRIPT_PREFIX} ${colors.cyan}Commands: (r)restart, (q)quit${colors.reset}`
-  );
-
-  rl.on("line", (input) => {
-    if (input === "r" || input === "restart") {
-      console.log(`${SCRIPT_PREFIX} Restarting processes...`);
-      // In a real implementation, we would kill the existing processes and start new ones
-      console.log(
-        `${SCRIPT_PREFIX} Please restart the script manually for now.`
-      );
-    } else if (input === "q" || input === "quit") {
-      console.log(`${SCRIPT_PREFIX} Shutting down...`);
-      rl.close();
-      process.exit(0);
-    } else {
-      console.log(
-        `${SCRIPT_PREFIX} ${colors.cyan}Commands: (r)restart, (q)quit${colors.reset}`
-      );
-    }
-  });
+  // Memory monitoring for the startup script itself
+  setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const memUsageMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    console.log(`${SCRIPT_PREFIX} 💾 Startup script memory: ${memUsageMB}MB`);
+  }, 30000);
 }
 
 // Start the application
-start();
+start().catch(console.error);

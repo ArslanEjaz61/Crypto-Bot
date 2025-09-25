@@ -355,22 +355,28 @@ const getSymbolTechnicalData = async (symbol) => {
 };
 
 /**
- * Update crypto data from Binance API
+ * Update crypto data from Binance API with memory optimization
  */
 const updateCryptoData = async () => {
+  let tickerResponse = null;
+  let volumeResponse = null;
+  let exchangeInfoResponse = null;
+  let volumeData = null;
+  let filteredTickers = null;
+
   try {
     console.log("🔄 Starting crypto data update...");
 
     // Fetch all tickers from Binance with retry logic
-    const tickerResponse = await makeApiRequestWithRetry(
+    tickerResponse = await makeApiRequestWithRetry(
       "https://api.binance.com/api/v3/ticker/price"
     );
-    const volumeResponse = await makeApiRequestWithRetry(
+    volumeResponse = await makeApiRequestWithRetry(
       "https://api.binance.com/api/v3/ticker/24hr"
     );
 
     // Create a map of volume data
-    const volumeData = {};
+    volumeData = {};
     volumeResponse.data.forEach((item) => {
       // Use quoteVolume (USDT volume) as it's more accurate for USDT pairs
       const baseVolume = parseFloat(item.volume);
@@ -388,8 +394,10 @@ const updateCryptoData = async () => {
       };
     });
 
+    // Clear volume response to free memory
+    volumeResponse = null;
+
     // Get exchange info for proper filtering
-    let exchangeInfoResponse = null;
     try {
       exchangeInfoResponse = await makeApiRequestWithRetry(
         "https://api.binance.com/api/v3/exchangeInfo"
@@ -408,76 +416,88 @@ const updateCryptoData = async () => {
       enableDebug
     );
 
-    const filteredTickers = filterResult.filteredPairs;
+    filteredTickers = filterResult.filteredPairs;
+
+    // Clear ticker response to free memory
+    tickerResponse = null;
+    exchangeInfoResponse = null;
+
+    console.log(`🎯 Filtered to ${filteredTickers.length} USDT pairs`);
+
+    // Process in batches to reduce memory usage
+    const BATCH_SIZE = 50;
+    const batches = [];
+    for (let i = 0; i < filteredTickers.length; i += BATCH_SIZE) {
+      batches.push(filteredTickers.slice(i, i + BATCH_SIZE));
+    }
 
     console.log(
-      `🎯 Filtered to ${filteredTickers.length} USDT pairs out of ${tickerResponse.data.length} total pairs`
+      `📦 Processing ${batches.length} batches of ${BATCH_SIZE} pairs each`
     );
 
-    // Process and update crypto data
-    const operations = filteredTickers.map(async (ticker) => {
-      const price = parseFloat(ticker.price);
-      const volume = volumeData[ticker.symbol]?.volume || 0;
-      const priceChangePercent =
-        volumeData[ticker.symbol]?.priceChangePercent || 0;
-      const highPrice = volumeData[ticker.symbol]?.highPrice || 0;
-      const lowPrice = volumeData[ticker.symbol]?.lowPrice || 0;
+    // Process each batch
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      console.log(
+        `🔄 Processing batch ${batchIndex + 1}/${batches.length} (${
+          batch.length
+        } pairs)`
+      );
 
-      try {
-        // Find and update or create new crypto record
-        const crypto = await Crypto.findOne({ symbol: ticker.symbol });
+      const operations = batch.map(async (ticker) => {
+        const price = parseFloat(ticker.price);
+        const volume = volumeData[ticker.symbol]?.volume || 0;
+        const priceChangePercent =
+          volumeData[ticker.symbol]?.priceChangePercent || 0;
+        const highPrice = volumeData[ticker.symbol]?.highPrice || 0;
+        const lowPrice = volumeData[ticker.symbol]?.lowPrice || 0;
 
-        if (crypto) {
-          // Store historical data (once per hour)
-          const lastUpdateHour = new Date(crypto.lastUpdated).getHours();
-          const currentHour = new Date().getHours();
-
-          if (lastUpdateHour !== currentHour) {
-            crypto.historical.push({
-              timestamp: new Date(),
-              price,
-              volume24h: volume,
-            });
-
-            // Keep only the last 24*7 data points (one week)
-            if (crypto.historical.length > 24 * 7) {
-              crypto.historical = crypto.historical.slice(-24 * 7);
-            }
-          }
-
-          // Update current data
-          crypto.price = price;
-          crypto.volume24h = volume;
-          crypto.priceChangePercent24h = priceChangePercent;
-          crypto.highPrice24h = highPrice;
-          crypto.lowPrice24h = lowPrice;
-          crypto.lastUpdated = new Date();
-
-          await crypto.save();
-        } else {
-          // Create new crypto record
-          await Crypto.create({
-            symbol: ticker.symbol,
-            price,
-            volume24h: volume,
-            priceChangePercent24h: priceChangePercent,
-            highPrice24h: highPrice,
-            lowPrice24h: lowPrice,
-            historical: [
-              {
-                timestamp: new Date(),
-                price,
+        try {
+          // Use upsert operation for better performance
+          await Crypto.findOneAndUpdate(
+            { symbol: ticker.symbol },
+            {
+              $set: {
+                price: price,
                 volume24h: volume,
+                priceChangePercent24h: priceChangePercent,
+                highPrice24h: highPrice,
+                lowPrice24h: lowPrice,
+                lastUpdated: new Date(),
               },
-            ],
-          });
+              $push: {
+                historical: {
+                  $each: [
+                    {
+                      timestamp: new Date(),
+                      price: price,
+                      volume24h: volume,
+                    },
+                  ],
+                  $slice: -168, // Keep only last 168 entries (24*7)
+                },
+              },
+            },
+            { upsert: true, new: true }
+          );
+        } catch (error) {
+          console.error(`Error updating ${ticker.symbol}:`, error.message);
         }
-      } catch (error) {
-        console.error(`Error updating ${ticker.symbol}:`, error);
-      }
-    });
+      });
 
-    await Promise.all(operations.filter((op) => op !== null));
+      await Promise.all(operations);
+
+      // Force garbage collection after each batch
+      if (global.gc) {
+        global.gc();
+      }
+    }
+
+    // Clear all data to free memory
+    volumeData = null;
+    filteredTickers = null;
+    batches.length = 0;
+
     console.log("✅ Crypto data updated successfully");
   } catch (error) {
     console.error("❌ Error updating crypto data:", error.message);
@@ -496,6 +516,13 @@ const updateCryptoData = async () => {
         error.response.statusText
       );
     }
+
+    // Clear all variables on error to free memory
+    tickerResponse = null;
+    volumeResponse = null;
+    exchangeInfoResponse = null;
+    volumeData = null;
+    filteredTickers = null;
 
     // Don't throw the error - let the cron job continue running
     // The next scheduled run will try again
@@ -528,12 +555,55 @@ const checkAlerts = async (io) => {
 };
 
 /**
- * Setup all cron jobs
+ * Setup all cron jobs with memory optimization
  * @param {Server} io - Socket.io server instance
  */
 const setupCronJobs = (io) => {
-  // Update crypto data every minute
+  // Track running processes to prevent overlapping
+  let isUpdatingCrypto = false;
+  let isSyncingPairs = false;
+  let lastCryptoUpdate = 0;
+  let lastPairSync = 0;
+
+  // Memory management
+  const MEMORY_CHECK_INTERVAL = 60000; // Check memory every minute
+  const MAX_MEMORY_MB = 512; // Maximum memory usage before cleanup
+
+  // Memory monitoring
+  setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const memUsageMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+
+    if (memUsageMB > MAX_MEMORY_MB) {
+      console.log(`⚠️ High memory usage detected: ${memUsageMB}MB`);
+
+      // Force garbage collection if available
+      if (global.gc) {
+        console.log("🧹 Running garbage collection...");
+        global.gc();
+        const newMemUsage = Math.round(
+          process.memoryUsage().heapUsed / 1024 / 1024
+        );
+        console.log(`✅ Memory after GC: ${newMemUsage}MB`);
+      }
+    } else {
+      console.log(`💾 Memory usage: ${memUsageMB}MB`);
+    }
+  }, MEMORY_CHECK_INTERVAL);
+
+  // Update crypto data every minute with overlap protection
   cron.schedule("* * * * *", async () => {
+    const now = Date.now();
+
+    // Prevent overlapping runs
+    if (isUpdatingCrypto || now - lastCryptoUpdate < 50000) {
+      console.log("⏭️ Skipping crypto update - already running or too recent");
+      return;
+    }
+
+    isUpdatingCrypto = true;
+    lastCryptoUpdate = now;
+
     try {
       console.log("🕐 Running scheduled crypto data update...");
       await updateCryptoData();
@@ -546,11 +616,29 @@ const setupCronJobs = (io) => {
     } catch (error) {
       console.error("❌ Error in scheduled tasks:", error.message);
       // Don't let the error crash the cron job - it will retry on the next minute
+    } finally {
+      isUpdatingCrypto = false;
+
+      // Force garbage collection after heavy operations
+      if (global.gc) {
+        global.gc();
+      }
     }
   });
 
-  // Auto-sync trading pairs with Binance every 5 minutes
+  // Auto-sync trading pairs with Binance every 5 minutes with overlap protection
   cron.schedule("*/5 * * * *", async () => {
+    const now = Date.now();
+
+    // Prevent overlapping runs
+    if (isSyncingPairs || now - lastPairSync < 4 * 60 * 1000) {
+      console.log("⏭️ Skipping pair sync - already running or too recent");
+      return;
+    }
+
+    isSyncingPairs = true;
+    lastPairSync = now;
+
     try {
       console.log("🔄 Running auto-sync with Binance...");
       const results = await BinancePairSyncService.runOnceSync();
@@ -573,10 +661,17 @@ const setupCronJobs = (io) => {
       }
     } catch (error) {
       console.error("❌ Auto-sync failed:", error.message);
+    } finally {
+      isSyncingPairs = false;
+
+      // Force garbage collection after heavy operations
+      if (global.gc) {
+        global.gc();
+      }
     }
   });
 
-  // Run immediately on startup with error handling
+  // Run immediately on startup with error handling and delay
   setTimeout(async () => {
     try {
       console.log("🚀 Running initial crypto data update...");
@@ -586,7 +681,7 @@ const setupCronJobs = (io) => {
       console.error("❌ Error in initial data update:", error.message);
       console.log("⏳ Will retry on next scheduled run...");
     }
-  }, 1000);
+  }, 5000); // Increased delay to allow server to fully start
 };
 
 module.exports = {
