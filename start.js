@@ -92,7 +92,7 @@ function startServer() {
     return server;
   });
 }
-
+ 
 // Function to start the client
 function startClient() {
   console.log(`${SCRIPT_PREFIX} Starting client...`);
