@@ -41,6 +41,15 @@ const TriggeredAlertsPanel = () => {
   useEffect(() => {
     fetchTriggeredAlerts();
 
+    // Listen for daily cleanup event
+    const handleDailyCleanup = (event) => {
+      console.log('🧹 Daily cleanup triggered - clearing triggered alerts history');
+      setTriggeredAlerts([]);
+      setSymbolHistory({});
+    };
+
+    window.addEventListener('dailyHistoryCleanup', handleDailyCleanup);
+
     // Set up Socket.IO connection for real-time updates
     const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
     const socket = io(API_URL);
@@ -70,6 +79,7 @@ const TriggeredAlertsPanel = () => {
     return () => {
       socket.disconnect();
       clearInterval(interval);
+      window.removeEventListener('dailyHistoryCleanup', handleDailyCleanup);
     };
   }, []);
 

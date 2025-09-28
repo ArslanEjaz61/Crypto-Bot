@@ -110,18 +110,18 @@ const CoinPriceHeader = ({ symbol }) => {
             sx={{
               display: "flex",
               alignItems: "center",
-              color: crypto.priceChange >= 0 ? "#10B981" : "#E11D48",
+              color: crypto.priceChangePercent24h >= 0 ? "#10B981" : "#E11D48",
               mr: 1,
               fontSize: "0.75rem",
               fontWeight: 500,
             }}
           >
-            {crypto.priceChange >= 0 ? (
+            {crypto.priceChangePercent24h >= 0 ? (
               <ArrowDropUpIcon fontSize="small" />
             ) : (
               <ArrowDropDownIcon fontSize="small" />
             )}
-            {Math.abs(crypto.priceChange || 0).toFixed(2)}%
+            {Math.abs(crypto.priceChangePercent24h || 0).toFixed(2)}%
           </Box>
           <Typography
             variant="caption"

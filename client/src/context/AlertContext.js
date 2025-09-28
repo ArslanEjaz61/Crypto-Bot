@@ -3,8 +3,11 @@ import React, {
   useContext,
   useReducer,
   useCallback,
+  useEffect,
 } from "react";
 import axios from "axios";
+import { useUltraFastAlerts } from "../hooks/useUltraFastAlerts";
+import dailyCleanup from "../utils/dailyCleanup";
 
 // Configure axios
 axios.defaults.baseURL =
@@ -106,6 +109,19 @@ const alertReducer = (state, action) => {
 // Create Provider
 export const AlertProvider = ({ children }) => {
   const [state, dispatch] = useReducer(alertReducer, initialState);
+  
+  // Initialize ultra-fast alert system
+  const ultraFastAlerts = useUltraFastAlerts();
+
+  // Initialize daily cleanup at 12:00 AM
+  useEffect(() => {
+    dailyCleanup.init();
+    
+    // Cleanup on unmount
+    return () => {
+      dailyCleanup.destroy();
+    };
+  }, []);
 
   // Load alerts with caching and optimization
   const loadAlerts = useCallback(
@@ -353,6 +369,12 @@ export const AlertProvider = ({ children }) => {
         deleteAlert,
         deleteAlertsBySymbol,
         resetAlertState,
+        // Ultra-fast alert system integration
+        ultraFastAlerts,
+        isUltraFastEnabled: ultraFastAlerts.isInitialized,
+        performanceMetrics: ultraFastAlerts.performanceMetrics,
+        getPrice: ultraFastAlerts.getPrice,
+        subscribeToPrice: ultraFastAlerts.subscribeToPrice,
       }}
     >
       {children}

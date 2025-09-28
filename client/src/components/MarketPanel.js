@@ -961,7 +961,7 @@ const MarketPanel = ({
                                   gap: 0.5,
                                 }}
                               >
-                                {crypto.priceChangePercent >= 0 ? (
+                                {crypto.priceChangePercent24h >= 0 ? (
                                   <TrendingUpIcon
                                     sx={{ fontSize: 14, color: "success.main" }}
                                   />
@@ -974,15 +974,15 @@ const MarketPanel = ({
                                   variant="caption"
                                   sx={{
                                     color:
-                                      crypto.priceChangePercent >= 0
+                                      crypto.priceChangePercent24h >= 0
                                         ? "success.main"
                                         : "error.main",
                                     fontWeight: 500,
                                   }}
                                 >
-                                  {crypto.priceChangePercent >= 0 ? "+" : ""}
+                                  {crypto.priceChangePercent24h >= 0 ? "+" : ""}
                                   {parseFloat(
-                                    crypto.priceChangePercent || 0
+                                    crypto.priceChangePercent24h || 0
                                   ).toFixed(2)}
                                   %
                                 </Typography>

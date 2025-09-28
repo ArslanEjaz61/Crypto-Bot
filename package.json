@@ -4,15 +4,20 @@
   "description": "Crypto price alerts system for Binance",
   "main": "index.js",
   "scripts": {
-    "start": "node start.js",
-    "start:server": "node index.js",
-    "start:optimized": "node start-optimized.js",
-    "start:memory-safe": "node --max-old-space-size=1024 --expose-gc index.js",
-    "server": "nodemon index.js",
-    "client": "npm start --prefix client",
+    
+    "start": "node index.js",                       
+
+    
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "dev:optimized": "concurrently \"npm run start:optimized\"",
-    "server-alt": "nodemon server/index.js",
+    "server": "nodemon index.js",                 
+    "client": "npm start --prefix client",          
+
+   
+    "start:optimized": "node start-optimized.js", 
+    "start:memory-safe": "node --max-old-space-size=1024 --expose-gc index.js",
+    "server-alt": "nodemon server/index.js",        
+
+    
     "sync:once": "node auto_sync_pairs.js --once",
     "sync:monitor": "node monitor_autosync.js",
     "sync:status": "node monitor_autosync.js status",

@@ -104,7 +104,7 @@ export const FilterProvider = ({ children }) => {
           // Check if price change meets the percentage requirement for any selected timeframe
           const hasValidChange = timeframes.some(timeframe => {
             const changeKey = `priceChangePercent_${timeframe.toLowerCase()}`;
-            const priceChange = parseFloat(item[changeKey] || item.priceChangePercent || 0);
+            const priceChange = parseFloat(item[changeKey] || item.priceChangePercent24h || 0);
             return Math.abs(priceChange) >= Math.abs(targetPercentage);
           });
           
