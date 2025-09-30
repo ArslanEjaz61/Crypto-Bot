@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Binance Alerts System
 
 A real-time cryptocurrency monitoring and alert system built with MERN stack (MongoDB, Express, React, Node.js). This application allows traders to track cryptocurrency prices, set custom alerts based on price conditions, and analyze market trends using TradingView charts.
@@ -145,3 +146,6 @@ The application runs the following scheduled tasks:
 ## License
 
 [MIT](LICENSE)
+=======
+# Crypto-Bot
+>>>>>>> d75f53d445ab078cfa6949128500df260aff229f
