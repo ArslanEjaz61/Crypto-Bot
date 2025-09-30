@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+const { connectDB } = require('./config/db');
 const path = require('path');
 const { setupCronJobs } = require('./utils/cronJobs');
 const http = require('http');
@@ -11,7 +11,21 @@ const { Server } = require('socket.io');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Connect to MongoDB
-connectDB();
+const initializeDatabase = async () => {
+  try {
+    await connectDB();
+    console.log('✅ Database connection established');
+  } catch (error) {
+    console.error('❌ Database connection failed:', error.message);
+    // Don't exit in production - let the app continue with limited functionality
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
+  }
+};
+
+// Initialize database connection
+initializeDatabase();
 
 // Initialize Express
 const app = express();
@@ -40,39 +54,82 @@ io.on('connection', (socket) => {
 app.set('io', io);
 
 // Routes - with error handling for each route registration
-try {
-  console.log('Registering routes...');
-  app.use('/api/crypto', require('./routes/cryptoRoutes'));
-  console.log('✓ Crypto routes registered');
-  
-  app.use('/api/alerts', require('./routes/alertRoutes'));
-  console.log('✓ Alert routes registered');
-  
-  app.use('/api/indicators', require('./routes/indicatorRoutes'));
-  console.log('✓ Indicator routes registered');
-  
-  app.use('/api/telegram', require('./routes/telegramRoutes'));
-  console.log('✓ Telegram routes registered');
-  
-  app.use('/api/notifications', require('./routes/notificationRoutes'));
-  console.log('✓ Notification routes registered');
-  
-  app.use('/api/triggered-alerts', require('./routes/triggeredAlerts'));
-  console.log('✓ Triggered alerts routes registered');
-  
-  console.log('All routes registered successfully');
-} catch (error) {
-  console.error('Error registering routes:', error);
-  process.exit(1);
-}
+const registerRoutes = () => {
+  try {
+    console.log('Registering routes...');
+    
+    // Register individual routes with error handling
+    try {
+      app.use('/api/crypto', require('./routes/cryptoRoutes'));
+      console.log('✓ Crypto routes registered');
+    } catch (error) {
+      console.error('❌ Failed to register crypto routes:', error.message);
+    }
+    
+    try {
+      app.use('/api/alerts', require('./routes/alertRoutes'));
+      console.log('✓ Alert routes registered');
+    } catch (error) {
+      console.error('❌ Failed to register alert routes:', error.message);
+    }
+    
+    try {
+      app.use('/api/indicators', require('./routes/indicatorRoutes'));
+      console.log('✓ Indicator routes registered');
+    } catch (error) {
+      console.error('❌ Failed to register indicator routes:', error.message);
+    }
+    
+    try {
+      app.use('/api/telegram', require('./routes/telegramRoutes'));
+      console.log('✓ Telegram routes registered');
+    } catch (error) {
+      console.error('❌ Failed to register telegram routes:', error.message);
+    }
+    
+    try {
+      app.use('/api/notifications', require('./routes/notificationRoutes'));
+      console.log('✓ Notification routes registered');
+    } catch (error) {
+      console.error('❌ Failed to register notification routes:', error.message);
+    }
+    
+    try {
+      app.use('/api/triggered-alerts', require('./routes/triggeredAlerts'));
+      console.log('✓ Triggered alerts routes registered');
+    } catch (error) {
+      console.error('❌ Failed to register triggered alerts routes:', error.message);
+    }
+    
+    console.log('Route registration completed');
+  } catch (error) {
+    console.error('Error registering routes:', error);
+    // Don't exit in production - continue with available routes
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
+  }
+};
+
+// Register routes
+registerRoutes();
 
 // Error handling middleware (must be after routes)
 const { notFound, errorHandler } = require('./utils/errorHandler');
 app.use(notFound);
 app.use(errorHandler);
 
-// Start cron jobs
-setupCronJobs(io);
+// Start cron jobs with error handling
+try {
+  setupCronJobs(io);
+  console.log('✓ Cron jobs started');
+} catch (error) {
+  console.error('❌ Failed to start cron jobs:', error.message);
+  // Don't exit in production - continue without cron jobs
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
+}
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {

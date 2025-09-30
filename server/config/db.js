@@ -22,6 +22,12 @@ const connectDB = async () => {
       heartbeatFrequencyMS: 10000,
       retryWrites: true,
       retryReads: true,
+      // Add connection retry settings
+      retryReads: true,
+      retryWrites: true,
+      // Keep connection alive
+      keepAlive: true,
+      keepAliveInitialDelay: 300000,
     });
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
@@ -36,7 +42,21 @@ const connectDB = async () => {
     });
 
     mongoose.connection.on("disconnected", () => {
-      console.warn("⚠️ MongoDB disconnected");
+      console.warn("⚠️ MongoDB disconnected - attempting to reconnect...");
+      // Attempt to reconnect after a short delay
+      setTimeout(async () => {
+        try {
+          await mongoose.connect(mongoURI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 5000,
+            connectTimeoutMS: 5000,
+          });
+          console.log("✅ MongoDB reconnected after disconnection");
+        } catch (error) {
+          console.error("❌ Failed to reconnect to MongoDB:", error.message);
+        }
+      }, 5000); // Wait 5 seconds before attempting reconnection
     });
 
     // Handle process termination
