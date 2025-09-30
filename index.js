@@ -55,7 +55,7 @@ const io = new Server(server, {
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   },
 });
-
+app.use('/api', require('./routes/api'));
 // Enhanced middleware for request logging and proper JSON handling
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));

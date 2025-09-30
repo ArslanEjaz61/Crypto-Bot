@@ -73,7 +73,7 @@ app.use(errorHandler);
 
 // Start cron jobs
 setupCronJobs(io);
-
+app.use('/api', require('./routes/api'));
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/build')));
