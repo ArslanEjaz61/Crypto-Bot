@@ -1,6 +1,30 @@
 const Crypto = require("../models/cryptoModel");
 const axios = require("axios");
 const { filterUSDTPairs } = require("../utils/pairFilter");
+const mongoose = require("mongoose");
+
+// Helper function to ensure MongoDB connection
+const ensureMongoConnection = async () => {
+  if (mongoose.connection.readyState !== 1) {
+    console.log("⚠️ MongoDB not connected, attempting to reconnect...");
+    
+    try {
+      const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/binance-alerts";
+      await mongoose.connect(mongoURI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+      });
+      console.log("✅ MongoDB reconnected successfully");
+      return true;
+    } catch (reconnectError) {
+      console.error("❌ Failed to reconnect to MongoDB:", reconnectError.message);
+      return false;
+    }
+  }
+  return true;
+};
 
 // Simple in-memory cache for API responses
 const apiCache = {
@@ -477,6 +501,16 @@ const getCryptoList = async (req, res) => {
   try {
     console.log("API Request: Getting crypto pairs (optimized)");
 
+    // Check MongoDB connection first
+    const isConnected = await ensureMongoConnection();
+    if (!isConnected) {
+      return res.status(503).json({
+        error: "Database temporarily unavailable",
+        message: "Please try again in a few moments",
+        retryAfter: 30
+      });
+    }
+
     // Parse parameters - DEFAULT TO ACTIVE USDT PAIRS ONLY
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
@@ -564,6 +598,16 @@ const getCryptoList = async (req, res) => {
 // @access  Public
 const getCryptoBySymbol = async (req, res) => {
   try {
+    // Check MongoDB connection first
+    const isConnected = await ensureMongoConnection();
+    if (!isConnected) {
+      return res.status(503).json({
+        error: "Database temporarily unavailable",
+        message: "Please try again in a few moments",
+        retryAfter: 30
+      });
+    }
+
     const crypto = await Crypto.findOne({ symbol: req.params.symbol });
 
     if (!crypto) {
@@ -582,6 +626,16 @@ const getCryptoBySymbol = async (req, res) => {
 // @access  Public
 const updateFavoriteStatus = async (req, res) => {
   try {
+    // Check MongoDB connection first
+    const isConnected = await ensureMongoConnection();
+    if (!isConnected) {
+      return res.status(503).json({
+        error: "Database temporarily unavailable",
+        message: "Please try again in a few moments",
+        retryAfter: 30
+      });
+    }
+
     const crypto = await Crypto.findOne({ symbol: req.params.symbol });
 
     if (!crypto) {

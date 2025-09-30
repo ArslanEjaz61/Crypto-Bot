@@ -91,23 +91,11 @@ app.get("/debug", (req, res) => {
 // Make io accessible to our routes
 app.set("io", io);
 
-// Import routes
-const alertRoutes = require("./server/routes/alertRoutes");
-const cryptoRoutes = require("./server/routes/cryptoRoutes");
-const authRoutes = require("./server/routes/authRoutes");
-const triggeredAlertsRoutes = require("./server/routes/triggeredAlerts");
-const indicatorRoutes = require("./server/routes/indicatorRoutes");
+// Import error handlers
 const { notFound, errorHandler } = require("./server/utils/errorHandler");
 
-// API routes
+// API routes - centralized routing
 app.use('/api', require('./server/routes/api'));
-
-// Use individual routes (keeping existing structure for compatibility)
-app.use("/api/alerts", alertRoutes);
-app.use("/api/crypto", cryptoRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/triggered-alerts", triggeredAlertsRoutes);
-app.use("/api/indicators", indicatorRoutes);
 
 // Start cron jobs
 setupCronJobs(io);
