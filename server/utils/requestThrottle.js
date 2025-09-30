@@ -139,7 +139,7 @@ const makeThrottledRequest = async (url, options = {}, maxRetries = 3) => {
 /**
  * Make request with retry logic and improved timeout handling
  */
-const makeRequestWithRetry = async (url, options = {}, maxRetries = 3) => {
+const makeRequestWithRetry = async (url, options = {}, maxRetries = 5) => {
   const axios = require("axios");
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -159,7 +159,7 @@ const makeRequestWithRetry = async (url, options = {}, maxRetries = 3) => {
       });
 
       const requestOptions = {
-        timeout: 8000, // 8 second timeout
+        timeout: 30000, // 30 second timeout for production
         headers: {
           "User-Agent": "Trading-Pairs-Trend-Alert/1.0",
           Accept: "application/json",
