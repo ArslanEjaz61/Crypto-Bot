@@ -150,6 +150,9 @@ const { notFound, errorHandler } = require('./utils/errorHandler');
 app.use(notFound);
 app.use(errorHandler);
 
+// Start cron jobs
+setupCronJobs(io);
+app.use('/api', require('./routes/api'));
 // Start cron jobs with error handling
 try {
   setupCronJobs(io);
