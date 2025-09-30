@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const connectDB = async () => {
   try {
     // Set default MongoDB URI if not provided
-    const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/binance-alerts";
+    const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/binance-alerts";
     
     console.log(`🔗 Attempting to connect to MongoDB...`);
     console.log(`📍 Connection string: ${mongoURI.replace(/\/\/.*@/, '//***:***@')}`); // Hide credentials in logs
