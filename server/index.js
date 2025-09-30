@@ -53,6 +53,37 @@ io.on('connection', (socket) => {
 // Make io accessible to our routes
 app.set('io', io);
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime()
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    const buildPath = path.join(__dirname, '../client/build');
+    const indexPath = path.join(buildPath, 'index.html');
+    const fs = require('fs');
+    
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.send(`
+        <h1>Crypto Bot Dashboard</h1>
+        <p>Server is running but frontend is not built.</p>
+        <p>Please build the React frontend first.</p>
+      `);
+    }
+  } else {
+    res.json({ message: 'Crypto Bot API Server', environment: 'development' });
+  }
+});
+
 // Routes - with error handling for each route registration
 const registerRoutes = () => {
   try {
@@ -133,11 +164,47 @@ try {
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
+  const buildPath = path.join(__dirname, '../client/build');
   
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../client', 'build', 'index.html'));
-  });
+  // Check if build directory exists
+  const fs = require('fs');
+  if (fs.existsSync(buildPath)) {
+    console.log('✓ React build directory found, serving static files');
+    
+    // Serve static files from React build
+    app.use(express.static(buildPath));
+    
+    // Handle React routing - return index.html for all non-API routes
+    app.get('*', (req, res) => {
+      // Skip API routes
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ message: 'API endpoint not found' });
+      }
+      
+      // For all other routes, serve the React app
+      const indexPath = path.join(buildPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send('React app not found. Please build the frontend first.');
+      }
+    });
+  } else {
+    console.log('⚠️ React build directory not found');
+    
+    // Fallback for when React app is not built
+    app.get('*', (req, res) => {
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ message: 'API endpoint not found' });
+      }
+      res.status(404).send(`
+        <h1>Frontend Not Built</h1>
+        <p>Please build the React frontend first:</p>
+        <pre>cd client && npm install && npm run build</pre>
+        <p>Then restart the server.</p>
+      `);
+    });
+  }
 }
 
 const PORT = process.env.PORT || 5000;
