@@ -9,22 +9,25 @@ const mongoose = require("mongoose");
 // 1. Enhanced MongoDB Connection
 const connectDBProduction = async () => {
   try {
+    // Set default MongoDB URI if not provided
+    const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/binance-alerts";
+    
     const options = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // 30 seconds
+      serverSelectionTimeoutMS: 10000, // 10 seconds
       socketTimeoutMS: 45000,
       bufferCommands: false,
       maxPoolSize: 20,
       minPoolSize: 5,
       maxIdleTimeMS: 30000,
-      connectTimeoutMS: 30000,
+      connectTimeoutMS: 10000,
       heartbeatFrequencyMS: 10000,
       retryWrites: true,
       retryReads: true,
     };
 
-    await mongoose.connect(process.env.MONGO_URI, options);
+    await mongoose.connect(mongoURI, options);
     console.log("✅ MongoDB connected with production settings");
 
     // Connection event handlers
@@ -43,8 +46,11 @@ const connectDBProduction = async () => {
     mongoose.connection.on("reconnected", () => {
       console.log("✅ MongoDB reconnected");
     });
+
+    return true;
   } catch (error) {
     console.error("❌ MongoDB connection failed:", error.message);
+    console.error("💡 Make sure MongoDB is running or set MONGO_URI environment variable");
     // In production, don't exit - continue with fallback
     return false;
   }
@@ -159,7 +165,13 @@ const setupProduction = async () => {
   }
 
   // Connect to MongoDB
-  await connectDBProduction();
+  const dbConnected = await connectDBProduction();
+  
+  if (dbConnected) {
+    console.log("✅ MongoDB connection established");
+  } else {
+    console.log("⚠️ MongoDB connection failed - continuing with limited functionality");
+  }
 
   // Setup error recovery
   setupErrorRecovery();

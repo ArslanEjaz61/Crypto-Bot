@@ -24,7 +24,13 @@ const initializeServer = async () => {
     await setupProduction();
 
     // Connect to database with enhanced settings
-    await connectDB();
+    const dbConnected = await connectDB();
+    
+    if (dbConnected) {
+      console.log("✅ Database connection successful");
+    } else {
+      console.log("⚠️ Database connection failed - continuing with limited functionality");
+    }
 
     console.log("✅ Server initialization complete");
   } catch (error) {
@@ -35,7 +41,7 @@ const initializeServer = async () => {
         "⚠️ Continuing in production mode despite initialization errors"
       );
     } else {
-      process.exit(1);
+      console.log("⚠️ Continuing in development mode despite initialization errors");
     }
   }
 };
