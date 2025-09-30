@@ -99,7 +99,10 @@ const triggeredAlertsRoutes = require("./server/routes/triggeredAlerts");
 const indicatorRoutes = require("./server/routes/indicatorRoutes");
 const { notFound, errorHandler } = require("./server/utils/errorHandler");
 
-// Use routes
+// API routes
+app.use('/api', require('./server/routes/api'));
+
+// Use individual routes (keeping existing structure for compatibility)
 app.use("/api/alerts", alertRoutes);
 app.use("/api/crypto", cryptoRoutes);
 app.use("/api/auth", authRoutes);
@@ -113,15 +116,12 @@ setupCronJobs(io);
 app.use(notFound);
 app.use(errorHandler);
 
-// Serve static assets in production
-if (process.env.NODE_ENV === "production") {
-  // Set static folder
-  app.use(express.static("client/build"));
+// Serve React build
+app.use(express.static(path.join(__dirname, 'client/build')));
 
-  app.get("*", (req, res) => {
-    res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
-  });
-}
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+});
 
 // Define port
 const PORT = process.env.PORT || 5000;
