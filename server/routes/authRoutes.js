@@ -3,9 +3,15 @@ const router = express.Router();
 const {
   loginUser,
   getUserProfile,
+  registerUser,
   createAdminUser,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
+
+// @route   POST /api/auth/register
+// @desc    Register new user
+// @access  Public
+router.post("/register", registerUser);
 
 // @route   POST /api/auth/login
 // @desc    Auth user & get token
