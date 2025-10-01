@@ -6,7 +6,23 @@ const asyncHandler = require('express-async-handler');
 // @route   POST /api/auth/login
 // @access  Public
 const loginUser = asyncHandler(async (req, res) => {
+  // Check if request body exists and has required fields
+  if (!req.body) {
+    return res.status(400).json({
+      message: 'Request body is missing',
+      error: 'Please send JSON data with username and password'
+    });
+  }
+
   const { username, password } = req.body;
+
+  // Validate required fields
+  if (!username || !password) {
+    return res.status(400).json({
+      message: 'Missing required fields',
+      error: 'Please provide both username and password'
+    });
+  }
 
   // Find user by username
   const user = await User.findOne({ username });
@@ -47,7 +63,23 @@ const getUserProfile = asyncHandler(async (req, res) => {
 // @route   POST /api/auth/create-admin
 // @access  Public (should be secured in production)
 const createAdminUser = asyncHandler(async (req, res) => {
+  // Check if request body exists and has required fields
+  if (!req.body) {
+    return res.status(400).json({
+      message: 'Request body is missing',
+      error: 'Please send JSON data with username and password'
+    });
+  }
+
   const { username, password } = req.body;
+
+  // Validate required fields
+  if (!username || !password) {
+    return res.status(400).json({
+      message: 'Missing required fields',
+      error: 'Please provide both username and password'
+    });
+  }
   
   // Check if admin user already exists
   const adminExists = await User.findOne({ isAdmin: true });
