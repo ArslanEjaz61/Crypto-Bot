@@ -6,29 +6,51 @@ const asyncHandler = require('express-async-handler');
 // @route   POST /api/auth/login
 // @access  Public
 const loginUser = asyncHandler(async (req, res) => {
-  // Check if request body exists and has required fields
-  if (!req.body) {
-    return res.status(400).json({
-      message: 'Request body is missing',
-      error: 'Please send JSON data with username and password'
-    });
-  }
-
-  const { username, password } = req.body;
+  console.log('🔐 Login attempt - Request body:', req.body);
+  console.log('🔐 Login attempt - Headers:', req.headers);
+  
+  // Get username and password from request body
+  const { username, password } = req.body || {};
 
   // Validate required fields
   if (!username || !password) {
+    console.log('❌ Missing credentials:', { username: !!username, password: !!password });
     return res.status(400).json({
-      message: 'Missing required fields',
+      message: 'Missing credentials',
       error: 'Please provide both username and password'
     });
   }
 
+  // Check MongoDB connection before querying
+  const mongoose = require('mongoose');
+  if (mongoose.connection.readyState !== 1) {
+    console.log('❌ MongoDB not connected, attempting to reconnect...');
+    try {
+      const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/binance-alerts";
+      await mongoose.connect(mongoURI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+      });
+      console.log('✅ MongoDB reconnected successfully');
+    } catch (reconnectError) {
+      console.error('❌ Failed to reconnect to MongoDB:', reconnectError.message);
+      return res.status(503).json({
+        message: 'Database temporarily unavailable',
+        error: 'Please try again in a few moments'
+      });
+    }
+  }
+
   // Find user by username
   const user = await User.findOne({ username });
+  console.log('🔍 User found:', !!user);
+  console.log('🔍 Username searched:', username);
 
   // Check if user exists and password matches
   if (user && (await user.matchPassword(password))) {
+    console.log('✅ Login successful for user:', user.username);
     res.json({
       _id: user._id,
       username: user.username,
@@ -36,6 +58,10 @@ const loginUser = asyncHandler(async (req, res) => {
       token: generateToken(user._id),
     });
   } else {
+    console.log('❌ Login failed - User exists:', !!user);
+    if (user) {
+      console.log('❌ Password match test:', await user.matchPassword(password));
+    }
     res.status(401);
     throw new Error('Invalid username or password');
   }

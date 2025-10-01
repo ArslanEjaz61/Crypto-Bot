@@ -37,10 +37,9 @@ const io = new Server(server, {
   }
 });
 
-// Middleware - Enhanced JSON parsing and CORS
+// Middleware - JSON parsing (must be before routes)
 app.use(express.json({ 
-  limit: '10mb',
-  type: 'application/json'
+  limit: '10mb'
 }));
 app.use(express.urlencoded({ 
   extended: true,
@@ -55,11 +54,10 @@ app.use(cors({
   credentials: true
 }));
 
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  console.log('Request body:', req.body);
-  console.log('Content-Type:', req.get('Content-Type'));
+// Request logging middleware (only for auth routes)
+app.use('/api/auth', (req, res, next) => {
+  console.log(`🔐 Auth request: ${req.method} ${req.url}`);
+  console.log('📦 Request body:', req.body);
   next();
 });
 
@@ -152,6 +150,13 @@ const registerRoutes = () => {
     console.log('Registering routes...');
     
     // Register individual routes with error handling
+    try {
+      app.use('/api/auth', require('./routes/authRoutes'));
+      console.log('✓ Auth routes registered');
+    } catch (error) {
+      console.error('❌ Failed to register auth routes:', error.message);
+    }
+    
     try {
       app.use('/api/crypto', require('./routes/cryptoRoutes'));
       console.log('✓ Crypto routes registered');
