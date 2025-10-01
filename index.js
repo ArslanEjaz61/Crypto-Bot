@@ -3,11 +3,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
-const {
-  connectDB,
-  isConnected,
-  waitForConnection,
-} = require("./server/config/db");
+const {connectDB,isConnectedwaitForConnection} = require("./server/config/db");
 const http = require("http");
 const { Server } = require("socket.io");
 // Removed morgan dependency as it might not be installed
