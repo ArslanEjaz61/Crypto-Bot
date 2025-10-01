@@ -3,7 +3,10 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
-const {connectDB,isConnectedwaitForConnection} = require("./server/config/db");
+const {
+  connectDB,
+  isConnectedwaitForConnection,
+} = require("./server/config/db");
 const http = require("http");
 const { Server } = require("socket.io");
 // Removed morgan dependency as it might not be installed
@@ -21,11 +24,13 @@ const initializeServer = async () => {
 
     // Connect to database with enhanced settings
     const dbConnected = await connectDB();
-    
+
     if (dbConnected) {
       console.log("✅ Database connection successful");
     } else {
-      console.log("⚠️ Database connection failed - continuing with limited functionality");
+      console.log(
+        "⚠️ Database connection failed - continuing with limited functionality"
+      );
     }
 
     console.log("✅ Server initialization complete");
@@ -37,7 +42,9 @@ const initializeServer = async () => {
         "⚠️ Continuing in production mode despite initialization errors"
       );
     } else {
-      console.log("⚠️ Continuing in development mode despite initialization errors");
+      console.log(
+        "⚠️ Continuing in development mode despite initialization errors"
+      );
     }
   }
 };
@@ -51,16 +58,10 @@ const io = new Server(server, {
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   },
 });
-app.use('/api', require('./server/routes/api'));
+
 // Enhanced middleware for request logging and proper JSON handling
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
-});
 
 // CORS configuration
 app.use(
@@ -71,6 +72,15 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// API routes - centralized routing
+app.use("/api", require("./server/routes/api"));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 // Add a simple health check endpoint
 app.get("/api/health", (req, res) => {
@@ -91,7 +101,7 @@ app.set("io", io);
 const { notFound, errorHandler } = require("./server/utils/errorHandler");
 
 // API routes - centralized routing
-app.use('/api', require('./server/routes/api'));
+app.use("/api", require("./server/routes/api"));
 
 // Start cron jobs
 setupCronJobs(io);
@@ -101,10 +111,10 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Serve React build
-app.use(express.static(path.join(__dirname, 'client/build')));
+app.use(express.static(path.join(__dirname, "client/build")));
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "client/build", "index.html"));
 });
 
 // Define port
