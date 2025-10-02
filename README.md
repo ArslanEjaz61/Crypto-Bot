@@ -1,151 +1,130 @@
-<<<<<<< HEAD
-# Binance Alerts System
+# ⚡ Crypto Alert Bot
 
-A real-time cryptocurrency monitoring and alert system built with MERN stack (MongoDB, Express, React, Node.js). This application allows traders to track cryptocurrency prices, set custom alerts based on price conditions, and analyze market trends using TradingView charts.
+Real-time cryptocurrency price alerts with WebSocket optimization.
 
-## Features
+## 🚀 Quick Start
 
-- **Price Alerts**: Create alerts for specific price targets or percentage changes
-- **Multiple Alert Types**: Support for price going up, down, or either way
-- **Smart Alert Triggering**: Alerts trigger based on price conditions, not time schedules
-- **Email Notifications**: Receive email notifications when alerts trigger
-- **Advanced RSI Analysis**: Calculate and display Relative Strength Index for cryptocurrencies with multiple timeframe support
-- **TradingView Chart Integration**: 
-  - Embedded professional TradingView widget
-  - Symbol change support
-  - Dark theme optimized interface
-  - Multiple timeframe options within TradingView
-- **Favorites**: Mark pairs as favorites for easy access
-- **Filtering & Sorting**: Filter by market, favorites, volume, and more
-- **Real-time Updates**: Socket.io integration for real-time data updates
-- **Performance Optimizations**: Caching, memoization, and lazy loading for improved responsiveness
-
-## Technology Stack
-
-- **Frontend**: React with Material UI
-- **Backend**: Node.js and Express.js
-- **Database**: MongoDB
-- **Real-time Communication**: Socket.io
-- **API Integration**: Binance REST and WebSocket APIs
-- **Charting**: TradingView Widget API
-- **Email Notifications**: Nodemailer
-- **Scheduled Tasks**: node-cron
-
-## Setup & Installation
-
-### Prerequisites
-
-- Node.js (v14 or higher)
-- MongoDB (local or Atlas)
-- Git
-
-### Installation Steps
-
-1. **Clone the repository**
-
+### **Step 1: Setup Database**
 ```bash
-git clone [repository-url]
-cd binance-alerts
+npm run populate
 ```
 
-2. **Install server dependencies**
-
+### **Step 2: Start Application**
 ```bash
-npm install
-```
-
-3. **Install client dependencies**
-
-```bash
-cd client
-npm install
-cd ..
-```
-
-4. **Configure environment variables**
-
-Create or modify the `.env` file in the root directory with the following variables:
-
-```
-PORT=5000
-MONGO_URI=mongodb://localhost:27017/binance-alerts
-EMAIL_SERVICE=gmail
-EMAIL_USERNAME=your_email@gmail.com
-EMAIL_PASSWORD=your_app_password
-NODE_ENV=development
-```
-
-Note: For Gmail, you'll need to generate an App Password in your Google account settings.
-
-5. **Run the application**
-
-Development mode (with hot reloading for both client and server):
-
-```bash
-npm run dev
-```
-
-Server only:
-
-```bash
-npm run server
-```
-
-Client only:
-
-```bash
-npm run client
-```
-
-Production build:
-
-```bash
-cd client
-npm run build
-cd ..
 npm start
 ```
 
-## Usage
+### **Step 3: Open Browser**
+```
+http://localhost:5000
+```
 
-1. **Create Alerts**: Navigate to the "Create Alert" tab to set up new price alerts with custom conditions
-2. **Manage Alerts**: View and manage your alerts in the "Alerts List" tab
-3. **Analyze Charts**: Use the integrated TradingView chart to:
-   - View professional-grade charts for any cryptocurrency pair
-   - Change symbols directly within the TradingView widget
-   - Apply technical indicators and drawing tools
-   - Switch between different timeframes
-   - Access TradingView's extensive charting capabilities
+**Done!** 🎉
 
-## API Endpoints
+---
 
-### Alerts
+## 📖 Documentation
 
-- `GET /api/alerts` - Get all alerts
-- `POST /api/alerts` - Create a new alert
-- `GET /api/alerts/:id` - Get alert by ID
-- `PUT /api/alerts/:id` - Update an alert
-- `DELETE /api/alerts/:id` - Delete an alert
+- **[QUICKSTART.md](QUICKSTART.md)** - Detailed quick start
+- **[NO_REDIS_SETUP.md](NO_REDIS_SETUP.md)** - Setup without Redis
 
-### Crypto
+---
 
-- `GET /api/crypto` - Get all crypto pairs
-- `GET /api/crypto/:symbol` - Get crypto by symbol
-- `PUT /api/crypto/:symbol/favorite` - Toggle favorite status
-- `GET /api/crypto/:symbol/rsi` - Calculate RSI for a specific pair
+## ✨ Features
 
-## Scheduled Tasks
+- ⚡ Real-time price alerts
+- 📧 Email notifications
+- 📱 Telegram integration
+- 📊 TradingView charts
+- 🎯 Advanced filters (RSI, EMA, Volume)
+- 🚀 Fast market panel
 
-The application runs the following scheduled tasks:
+---
 
-- Updates crypto data every minute
-- Checks for alerts that match price conditions every minute
-- Sends email notifications for triggered alerts
-- Implements cooldown periods to prevent repeated alert triggering
+## 🔧 Commands
 
-## License
+```bash
+# Setup (run once)
+npm run populate          # Populate database with Binance pairs
 
-[MIT](LICENSE)
-=======
-# Crypto-Bot
->>>>>>> d75f53d445ab078cfa6949128500df260aff229f
+# Start application
+npm start                 # Regular mode
+npm run dev              # Development mode
+
+# Individual services (optional)
+npm run websocket        # WebSocket service only
+npm run worker           # Alert worker only
+```
+
+---
+
+## ⚙️ Configuration
+
+Create `.env` file:
+
+```bash
+# MongoDB (required)
+MONGO_URI=mongodb://127.0.0.1:27017/alerts
+
+# Email (required for alerts)
+EMAIL_USERNAME=your_email@gmail.com
+EMAIL_PASSWORD=your_app_password
+
+# Optional
+REDIS_HOST=localhost
+REDIS_PORT=6379
+TELEGRAM_BOT_TOKEN=your_token
+PORT=5000
+```
+
+---
+
+## 🆘 Troubleshooting
+
+### Market Panel Empty?
+```bash
+npm run populate
+```
+
+### Alerts Not Working?
+Check `.env` file has email credentials.
+
+### Server Won't Start?
+Check MongoDB is running:
+```bash
+# Windows
+net start MongoDB
+
+# Mac/Linux
+sudo systemctl start mongod
+```
+
+---
+
+## 🎯 Tech Stack
+
+- **Frontend:** React, Material-UI
+- **Backend:** Node.js, Express
+- **Database:** MongoDB
+- **Real-time:** WebSocket, Socket.io
+- **Cache:** Redis (optional)
+
+---
+
+## 📝 License
+
+MIT
+
+---
+
+## 🎉 Success
+
+Your crypto alert system is ready!
+
+Features:
+- ✅ Real-time alerts
+- ✅ Email notifications  
+- ✅ Fast market panel
+- ✅ Professional UI
+
+Enjoy! 🚀

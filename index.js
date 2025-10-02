@@ -10,19 +10,18 @@ const {
 const http = require("http");
 const { Server } = require("socket.io");
 // Removed morgan dependency as it might not be installed
-const { setupCronJobs } = require("./server/utils/cronJobs");
-const { setupProduction } = require("./production-fixes");
+// Use optimized cron jobs (Redis-based, not Binance API)
+const { setupOptimizedCronJobs } = require("./server/utils/cronJobsOptimized");
 
 // Load environment variables
 dotenv.config();
 
-// Setup production environment (includes database connection)
+// Setup and connect to database
 const initializeServer = async () => {
   try {
-    // Setup production environment
-    await setupProduction();
+    console.log("🚀 Initializing server...");
 
-    // Connect to database with enhanced settings
+    // Connect to database
     const dbConnected = await connectDB();
 
     if (dbConnected) {
@@ -103,8 +102,8 @@ const { notFound, errorHandler } = require("./server/utils/errorHandler");
 // API routes - centralized routing
 app.use("/api", require("./server/routes/api"));
 
-// Start cron jobs
-setupCronJobs(io);
+// Start optimized cron jobs (uses Redis/WebSocket data)
+setupOptimizedCronJobs();
 
 // Error handler middleware
 app.use(notFound);

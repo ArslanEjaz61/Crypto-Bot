@@ -286,16 +286,35 @@ export const CryptoProvider = ({ children }) => {
       try {
         // Get baseUrl and construct proper API URL
         const baseUrl = process.env.REACT_APP_API_URL || "";
-        const endpoint = `${baseUrl}/api/crypto`;
+
+        // Try FAST endpoint first (Redis/WebSocket)
+        let endpoint = `${baseUrl}/api/crypto/fast`;
+        let useFastEndpoint = true;
 
         console.log(
-          `Fetching from: ${endpoint} with spotOnly=${spotOnly}, usdtOnly=${usdtOnly}`
+          `⚡ Fetching from FAST endpoint: ${endpoint} (Redis/WebSocket)`
         );
 
-        // Minimal axios configuration
-        const { data } = await axios.get(endpoint, {
-          params: { page, limit, spotOnly, usdtOnly },
-        });
+        let response;
+        try {
+          // Try fast endpoint
+          response = await axios.get(endpoint, {
+            params: { page, limit, spotOnly, usdtOnly },
+            timeout: 5000,
+          });
+        } catch (fastError) {
+          console.log(
+            "⚠️ Fast endpoint failed, falling back to regular endpoint"
+          );
+          // Fallback to regular endpoint
+          endpoint = `${baseUrl}/api/crypto`;
+          useFastEndpoint = false;
+          response = await axios.get(endpoint, {
+            params: { page, limit, spotOnly, usdtOnly },
+          });
+        }
+
+        const { data } = response;
 
         console.log(
           `Success! Received ${data.cryptos ? data.cryptos.length : 0} items`

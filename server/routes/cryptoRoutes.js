@@ -10,8 +10,30 @@ const {
   checkAlertConditions,
 } = require("../controllers/cryptoController");
 
+// Fast crypto controller (uses Redis/WebSocket)
+const {
+  getFastCryptoList,
+  getFastCryptoPrice,
+  syncPricesFromRedis,
+} = require("../controllers/fastCryptoController");
+
+// @route   GET api/crypto/fast
+// @desc    Get all crypto pairs (FAST - uses Redis/WebSocket)
+// @access  Public
+router.get("/fast", getFastCryptoList);
+
+// @route   GET api/crypto/fast/:symbol
+// @desc    Get single crypto price (FAST - uses Redis)
+// @access  Public
+router.get("/fast/:symbol", getFastCryptoPrice);
+
+// @route   POST api/crypto/sync-redis
+// @desc    Sync prices from Redis to Database
+// @access  Public
+router.post("/sync-redis", syncPricesFromRedis);
+
 // @route   GET api/crypto
-// @desc    Get all crypto pairs
+// @desc    Get all crypto pairs (slower - uses database)
 // @access  Public
 router.get("/", getCryptoList);
 
