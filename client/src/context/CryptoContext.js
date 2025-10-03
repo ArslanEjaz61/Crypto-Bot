@@ -46,6 +46,7 @@ const cryptoReducer = (state, action) => {
     case "CRYPTO_FAIL":
       return { ...state, loading: false, error: action.payload };
     case "GET_CRYPTOS":
+      console.log("📊 GET_CRYPTOS reducer: Setting", action.payload.cryptos.length, "cryptos");
       return {
         ...state,
         cryptos: action.payload.cryptos,
@@ -249,7 +250,7 @@ export const CryptoProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cryptoReducer, initialState);
   const { showNotification } = useSocket();
 
-  // Optimized request handling with caching
+  // Optimized request handling with enhanced caching and instant loading
   const loadCryptos = useCallback(
     async (
       page = 1,
@@ -259,26 +260,35 @@ export const CryptoProvider = ({ children }) => {
       spotOnly = true,
       usdtOnly = true
     ) => {
-      // Only dispatch loading state if not in silent mode
-      if (!silentLoading) {
-        dispatch({ type: "CRYPTO_REQUEST" });
-      }
-
       // Check cache first unless forced refresh
       const cacheKey = getCacheKey.cryptos(page, limit, spotOnly, usdtOnly);
       if (!forceRefresh) {
         const cachedData = apiCache.get(cacheKey);
         if (cachedData) {
-          console.log("Using cached crypto data");
+          console.log("⚡ Using cached crypto data - INSTANT LOAD");
           dispatch({
             type: "GET_CRYPTOS",
             payload: {
               ...cachedData,
               timestamp: Date.now(),
+              usingCachedData: true,
             },
           });
+          
+          // Start background refresh for next time (fire and forget)
+          if (Date.now() - cachedData.timestamp > 30000) { // If cache is older than 30 seconds
+            setImmediate(() => {
+              loadCryptos(page, limit, true, true, spotOnly, usdtOnly);
+            });
+          }
+          
           return cachedData.pagination;
         }
+      }
+
+      // Only dispatch loading state if not in silent mode
+      if (!silentLoading) {
+        dispatch({ type: "CRYPTO_REQUEST" });
       }
 
       console.log("Making API request for fresh data...");
@@ -287,31 +297,60 @@ export const CryptoProvider = ({ children }) => {
         // Get baseUrl and construct proper API URL
         const baseUrl = process.env.REACT_APP_API_URL || "";
 
-        // Try FAST endpoint first (Redis/WebSocket)
-        let endpoint = `${baseUrl}/api/crypto/fast`;
-        let useFastEndpoint = true;
-
-        console.log(
-          `⚡ Fetching from FAST endpoint: ${endpoint} (Redis/WebSocket)`
-        );
+        // Use instant pairs API for fast loading
+        let endpoint = `${baseUrl}/api/pairs/instant`;
+        console.log(`⚡ Fetching from instant pairs endpoint: ${endpoint}`);
+        console.log('🔍 Request params:', { page, limit, spotOnly, usdtOnly });
 
         let response;
+        let lastError = null;
+        
+        // Try instant pairs endpoint first - NO TIMEOUT
         try {
-          // Try fast endpoint
+          console.log(`🔄 Attempting instant pairs endpoint`);
           response = await axios.get(endpoint, {
-            params: { page, limit, spotOnly, usdtOnly },
-            timeout: 5000,
+            params: { page, limit, spotOnly, usdtOnly }
+            // NO TIMEOUT - Let it load naturally
           });
-        } catch (fastError) {
-          console.log(
-            "⚠️ Fast endpoint failed, falling back to regular endpoint"
-          );
-          // Fallback to regular endpoint
+          console.log("✅ Instant pairs endpoint successful");
+        } catch (instantError) {
+          console.log(`⚠️ Instant pairs failed:`, instantError.message);
+          lastError = instantError;
+          
+          // Fallback to regular crypto endpoint - NO TIMEOUT
+          console.log("🔄 Falling back to regular crypto endpoint");
           endpoint = `${baseUrl}/api/crypto`;
-          useFastEndpoint = false;
-          response = await axios.get(endpoint, {
-            params: { page, limit, spotOnly, usdtOnly },
-          });
+          
+          try {
+            response = await axios.get(endpoint, {
+              params: { page, limit, spotOnly, usdtOnly }
+              // NO TIMEOUT - Let it load naturally
+            });
+            console.log("✅ Regular crypto endpoint successful");
+          } catch (cryptoError) {
+            console.log(`⚠️ Regular crypto endpoint failed:`, cryptoError.message);
+            lastError = cryptoError;
+            
+            // Final fallback to fast endpoint - NO TIMEOUT
+            console.log("🔄 Final fallback to fast endpoint");
+            endpoint = `${baseUrl}/api/crypto/fast`;
+            
+            try {
+              response = await axios.get(endpoint, {
+                params: { page, limit, spotOnly, usdtOnly }
+                // NO TIMEOUT - Let it load naturally
+              });
+              console.log("✅ Fast endpoint successful");
+            } catch (fastError) {
+              console.log(`⚠️ All endpoints failed:`, fastError.message);
+              lastError = fastError;
+            }
+          }
+        }
+        
+        if (!response) {
+          console.log("⚠️ All endpoints failed");
+          throw lastError;
         }
 
         const { data } = response;
@@ -319,6 +358,9 @@ export const CryptoProvider = ({ children }) => {
         console.log(
           `Success! Received ${data.cryptos ? data.cryptos.length : 0} items`
         );
+        console.log('📊 Response data source:', data.dataSource);
+        console.log('📊 Response time:', data.responseTime);
+        console.log('📊 Total count:', data.totalCount);
 
         const cryptosArray = data.cryptos || [];
         const paginationInfo = data.pagination || {
@@ -336,11 +378,13 @@ export const CryptoProvider = ({ children }) => {
           timestamp: Date.now(),
         };
 
-        // Cache the result for 2 minutes
-        apiCache.set(cacheKey, payload, 2 * 60 * 1000);
+        // Cache the result for 15 minutes (longer cache for crypto endpoint)
+        const cacheTime = endpoint.includes('/api/crypto') ? 15 * 60 * 1000 : 10 * 60 * 1000;
+        apiCache.set(cacheKey, payload, cacheTime);
 
         // Use ADD_CRYPTOS_BATCH for pagination (page > 1) to append to existing list
         // Use GET_CRYPTOS for initial load (page 1) to replace the list
+        console.log("📊 Dispatching cryptos to state:", cryptosArray.length, "items");
         dispatch({
           type: page > 1 ? "ADD_CRYPTOS_BATCH" : "GET_CRYPTOS",
           payload,
@@ -378,13 +422,13 @@ export const CryptoProvider = ({ children }) => {
   const memoizedLoading = useMemo(() => state.loading, [state.loading]);
   const memoizedError = useMemo(() => state.error, [state.error]);
 
-  // Create alert from current filter conditions
+  // Create alert from current filter conditions using instant alert API
   const createAlertFromFilters = useCallback(async (symbol, filters) => {
     try {
       const baseUrl = process.env.REACT_APP_API_URL || "";
-      const alertEndpoint = baseUrl ? `${baseUrl}/api/alerts` : `/api/alerts`;
+      const alertEndpoint = baseUrl ? `${baseUrl}/api/alerts/instant/single` : `/api/alerts/instant/single`;
 
-      // Convert filter conditions to alert payload
+      // Convert filter conditions to instant alert payload
       const alertData = {
         symbol: symbol,
         direction: ">", // Default direction
@@ -392,83 +436,48 @@ export const CryptoProvider = ({ children }) => {
         targetValue:
           filters.percentageValue !== undefined
             ? parseFloat(filters.percentageValue)
-            : 0,
-        trackingMode: "current",
-        intervalMinutes: 0,
-        volumeChangeRequired: 0,
-        alertTime: new Date(),
-        comment: `Auto-created alert from favorite for ${symbol}`,
-        email: " kainat.tasadaq3@gmail.com", // Could be populated from user preferences
-
-        // Change percentage conditions
-        changePercentTimeframe: filters.changePercent
-          ? Object.keys(filters.changePercent).find(
-              (tf) => filters.changePercent[tf]
-            )
-          : null,
+            : 1,
         changePercentValue:
           filters.percentageValue !== undefined
             ? parseFloat(filters.percentageValue)
-            : 0,
-
-        // Candle conditions
-        candleTimeframe: filters.candle
-          ? Object.keys(filters.candle).find((tf) => filters.candle[tf])
-          : null,
-        candleCondition: (() => {
-          const condition = filters.candleCondition || "NONE";
-          // Map frontend values to backend enum values
-          const conditionMap = {
-            "Candle Above Open": "ABOVE_OPEN",
-            "Candle Below Open": "BELOW_OPEN",
-            "Green Candle": "GREEN_CANDLE",
-            "Red Candle": "RED_CANDLE",
-            "Bullish Hammer": "BULLISH_HAMMER",
-            "Bearish Hammer": "BEARISH_HAMMER",
-            Doji: "DOJI",
-            "Long Upper Wick": "LONG_UPPER_WICK",
-            "Long Lower Wick": "LONG_LOWER_WICK",
-            None: "NONE",
-          };
-          return conditionMap[condition] || "NONE";
-        })(),
-
-        // RSI conditions
-        rsiEnabled:
-          filters.rsiRange &&
-          Object.keys(filters.rsiRange).some((tf) => filters.rsiRange[tf]),
-        rsiTimeframe: filters.rsiRange
-          ? Object.keys(filters.rsiRange).find((tf) => filters.rsiRange[tf])
-          : null,
-        rsiPeriod: parseInt(filters.rsiPeriod) || 0,
-        rsiCondition: filters.rsiCondition || "NONE",
-        rsiLevel: parseInt(filters.rsiLevel) || 0,
-
-        // EMA conditions
-        emaEnabled:
-          filters.ema && Object.keys(filters.ema).some((tf) => filters.ema[tf]),
-        emaTimeframe: filters.ema
-          ? Object.keys(filters.ema).find((tf) => filters.ema[tf])
-          : null,
-        emaFastPeriod: parseInt(filters.emaFast) || 0,
-        emaSlowPeriod: parseInt(filters.emaSlow) || 0,
-        emaCondition: (() => {
-          const condition = filters.emaCondition;
-          if (!condition) return "NONE";
-          if (condition === "Fast Above Slow") return "ABOVE";
-          if (condition === "Fast Below Slow") return "BELOW";
-          if (condition === "Fast Crossing Up") return "CROSSING_UP";
-          if (condition === "Fast Crossing Down") return "CROSSING_DOWN";
-          return "NONE";
-        })(),
+            : 5,
+        minDailyVolume: filters.minVolume || 0,
+        alertCountEnabled: true,
+        alertCountTimeframe: "5MIN",
+        maxAlertsPerTimeframe: 3,
+        comment: `Auto-created alert from favorite for ${symbol}`,
+        email: "kainat.tasadaq3@gmail.com",
+        market: "ALL",
+        exchange: "BINANCE",
+        tradingPair: "USDT"
       };
 
-      console.log("Creating alert with data:", alertData);
+      console.log("Creating instant alert with data:", alertData);
 
       const response = await axios.post(alertEndpoint, alertData);
+      // NO TIMEOUT - Let it load naturally
+      
       console.log("Alert created successfully:", response.data);
+      
+      // Show success notification
+      if (window.showNotification) {
+        window.showNotification(
+          `✅ Alert created instantly for ${symbol}!`,
+          'success'
+        );
+      }
+      
     } catch (error) {
-      console.error("Error creating alert from filters:", error);
+      console.error("Error creating instant alert from filters:", error);
+      
+      // Show error notification
+      if (window.showNotification) {
+        window.showNotification(
+          `❌ Failed to create alert for ${symbol}: ${error.message}`,
+          'error'
+        );
+      }
+      
       if (error.response) {
         console.error("Server response:", error.response.data);
       }

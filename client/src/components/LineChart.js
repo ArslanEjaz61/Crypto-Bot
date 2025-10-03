@@ -58,13 +58,19 @@ const LineChart = ({
           `${API_URL}/api/triggered-alerts?limit=1&sort=createdAt&order=desc`
         );
         if (response.ok) {
-          const data = await response.json();
-          if (data.triggeredAlerts && data.triggeredAlerts.length > 0) {
-            setLatestAlert(data.triggeredAlerts[0]);
-            console.log(
-              "📊 Chart loaded latest alert:",
-              data.triggeredAlerts[0]
-            );
+          // Check if response is JSON before parsing
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            if (data.triggeredAlerts && data.triggeredAlerts.length > 0) {
+              setLatestAlert(data.triggeredAlerts[0]);
+              console.log(
+                "📊 Chart loaded latest alert:",
+                data.triggeredAlerts[0]
+              );
+            }
+          } else {
+            console.warn("📊 Triggered alerts API returned non-JSON response");
           }
         }
       } catch (error) {
@@ -255,6 +261,13 @@ const LineChart = ({
           throw new Error(
             `API error: ${response.status} - ${response.statusText}`
           );
+        }
+
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error("📊 Chart API returned non-JSON response:", contentType);
+          throw new Error("Server returned HTML instead of JSON");
         }
 
         const data = await response.json();

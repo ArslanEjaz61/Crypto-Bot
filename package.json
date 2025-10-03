@@ -19,7 +19,18 @@
     "sync:monitor": "node monitor_autosync.js",
     "sync:status": "node monitor_autosync.js status",
     "sync:history": "node monitor_autosync.js history",
-    "sync:test": "node monitor_autosync.js test"
+    "sync:test": "node monitor_autosync.js test",
+    "realtime": "node run-realtime-system.js",
+    "realtime:websocket": "node run-websocket-service.js",
+    "realtime:worker": "node run-alert-worker.js",
+    "realtime:dev": "concurrently \"npm run realtime:websocket\" \"npm run realtime:worker\" \"npm run server\" \"npm run client\"",
+    "start:complete": "node start-complete-system.js",
+    "start:complete-with-tests": "node start-complete-system-with-tests.js",
+    "start:realtime": "node run-realtime-alert-system.js",
+    "test:realtime": "node test-realtime-system.js",
+    "test:instant-alerts": "node test-instant-alerts.js",
+    "diagnose:alerts": "node diagnose-alert-system.js",
+    "test:alert-creation": "node test-alert-creation.js"
   },
   "keywords": [
     "binance",

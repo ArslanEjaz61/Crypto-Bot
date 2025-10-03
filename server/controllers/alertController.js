@@ -1,5 +1,6 @@
 const Alert = require("../models/alertModel");
 const Crypto = require("../models/cryptoModel");
+const { disableAllExistingAlerts } = require("../utils/alertCleanup");
 
 // @desc    Get all alerts
 // @route   GET /api/alerts
@@ -21,6 +22,13 @@ const getAlerts = async (req, res) => {
 // @access  Public
 const createAlert = async (req, res) => {
   try {
+    console.log('\n🔄 === NEW ALERT CREATION STARTED ===');
+    console.log('📝 Disabling all existing alerts for clean slate...');
+    
+    // STEP 1: Disable all existing alerts for clean slate
+    const disabledCount = await disableAllExistingAlerts();
+    console.log(`✅ Disabled ${disabledCount} existing alerts`);
+    
     console.log(
       "Creating new alert with body:",
       JSON.stringify(req.body, null, 2)

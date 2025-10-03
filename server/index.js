@@ -70,6 +70,8 @@ io.on('connection', (socket) => {
   });
 });
 
+// WebSocket job progress broadcasting is now handled in initializeRealtimeSystem()
+
 // Make io accessible to our routes
 app.set('io', io);
 
@@ -144,81 +146,116 @@ npm run build</pre>
   }
 });
 
-// Routes - with error handling for each route registration
-const registerRoutes = () => {
+// Routes are now handled by centralized api.js file
+console.log('✓ Routes will be registered via centralized api.js');
+
+// Add centralized API routes (moved before error handling)
+app.use('/api', require('./routes/api'));
+
+// Initialize pairs service
+const pairsService = require('./services/pairsService');
+pairsService.initialize().catch(error => {
+  console.error('❌ Failed to initialize pairs service:', error.message);
+  // Don't exit in production - continue without pairs service
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
+});
+
+// Initialize complete real-time alert system
+const initializeRealtimeSystem = async () => {
   try {
-    console.log('Registering routes...');
+    console.log('🚀 Starting Complete Real-time Alert System...');
+    console.log('==============================================');
     
-    // Register individual routes with error handling
-    try {
-      app.use('/api/auth', require('./routes/authRoutes'));
-      console.log('✓ Auth routes registered');
-    } catch (error) {
-      console.error('❌ Failed to register auth routes:', error.message);
-    }
+    // Import all real-time services
+    const binanceWebSocketService = require('./services/binanceWebSocketService');
+    const realtimeAlertWorker = require('./services/realtimeAlertWorker');
+    const instantPairsService = require('./services/instantPairsService');
+    const alertJobProcessor = require('./services/alertJobProcessor');
+    const { syncAlertsFromDB } = require('./config/redis');
     
-    try {
-      app.use('/api/crypto', require('./routes/cryptoRoutes'));
-      console.log('✓ Crypto routes registered');
-    } catch (error) {
-      console.error('❌ Failed to register crypto routes:', error.message);
-    }
+    // Step 1: Start Binance WebSocket Service
+    console.log('📡 Step 1: Starting Binance WebSocket Service...');
+    binanceWebSocketService.start();
+    console.log('✅ Binance WebSocket Service started');
     
-    try {
-      app.use('/api/alerts', require('./routes/alertRoutes'));
-      console.log('✓ Alert routes registered');
-    } catch (error) {
-      console.error('❌ Failed to register alert routes:', error.message);
-    }
+    // Step 2: Initialize Instant Pairs Service
+    console.log('⚡ Step 2: Initializing Instant Pairs Service...');
+    await instantPairsService.initialize();
+    console.log('✅ Instant Pairs Service initialized');
     
-    try {
-      app.use('/api/indicators', require('./routes/indicatorRoutes'));
-      console.log('✓ Indicator routes registered');
-    } catch (error) {
-      console.error('❌ Failed to register indicator routes:', error.message);
-    }
+    // Step 3: Sync alerts from database to Redis
+    console.log('🔄 Step 3: Syncing alerts from database to Redis...');
+    const syncedCount = await syncAlertsFromDB();
+    console.log(`✅ Synced ${syncedCount} alerts to Redis`);
     
-    try {
-      app.use('/api/telegram', require('./routes/telegramRoutes'));
-      console.log('✓ Telegram routes registered');
-    } catch (error) {
-      console.error('❌ Failed to register telegram routes:', error.message);
-    }
+    // Step 4: Start Real-time Alert Worker
+    console.log('🔍 Step 4: Starting Real-time Alert Worker...');
+    await realtimeAlertWorker.start();
+    console.log('✅ Real-time Alert Worker started');
     
-    try {
-      app.use('/api/notifications', require('./routes/notificationRoutes'));
-      console.log('✓ Notification routes registered');
-    } catch (error) {
-      console.error('❌ Failed to register notification routes:', error.message);
-    }
+    // Step 5: Start Alert Job Processor
+    console.log('⚡ Step 5: Starting Alert Job Processor...');
+    await alertJobProcessor.start();
+    console.log('✅ Alert Job Processor started');
     
-    try {
-      app.use('/api/triggered-alerts', require('./routes/triggeredAlerts'));
-      console.log('✓ Triggered alerts routes registered');
-    } catch (error) {
-      console.error('❌ Failed to register triggered alerts routes:', error.message);
-    }
+    // Step 6: Set up WebSocket job progress broadcasting
+    console.log('📡 Step 6: Setting up WebSocket job progress broadcasting...');
+    const { redisSubscriber } = require('./config/redis');
     
-    console.log('Route registration completed');
+    redisSubscriber.subscribe('alert-job-updates', (err, count) => {
+      if (err) {
+        console.error('❌ Error subscribing to alert-job-updates:', err.message);
+        return;
+      }
+      console.log('✅ Subscribed to alert-job-updates channel');
+    });
+
+    redisSubscriber.on('message', (channel, message) => {
+      if (channel === 'alert-job-updates') {
+        try {
+          const data = JSON.parse(message);
+          io.emit('alert-job-progress', data);
+          console.log(`📊 Broadcasting job progress: ${data.jobId} - ${data.progress}%`);
+        } catch (error) {
+          console.error('❌ Error parsing job update message:', error.message);
+        }
+      }
+    });
+    console.log('✅ WebSocket job progress broadcasting configured');
+    
+    console.log('==============================================');
+    console.log('🎉 Complete Real-time Alert System started successfully!');
+    console.log('==============================================');
+    console.log('📊 System Features:');
+    console.log('  ✅ Instant pairs loading');
+    console.log('  ✅ Real-time price updates');
+    console.log('  ✅ Instant alert creation');
+    console.log('  ✅ Background job processing');
+    console.log('  ✅ WebSocket progress updates');
+    console.log('  ✅ Real-time alert triggering');
+    console.log('==============================================');
+    
   } catch (error) {
-    console.error('Error registering routes:', error);
-    // Don't exit in production - continue with available routes
+    console.error('❌ Failed to start Real-time Alert System:', error.message);
+    // Don't exit in production - continue without real-time system
     if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
+      console.log('⚠️ Continuing without real-time system...');
     }
   }
 };
 
-// Register routes
-registerRoutes();
+// Start real-time system after server is ready
+server.on('listening', () => {
+  console.log('🚀 Server is ready, starting real-time alert system...');
+  initializeRealtimeSystem();
+});
 
 // Error handling middleware (must be after routes)
 const { notFound, errorHandler } = require('./utils/errorHandler');
 app.use(notFound);
 app.use(errorHandler);
-
-// Add centralized API routes
-app.use('/api', require('./routes/api'));
 
 // Start cron jobs with error handling
 try {

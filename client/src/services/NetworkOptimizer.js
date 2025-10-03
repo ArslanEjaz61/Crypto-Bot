@@ -284,7 +284,7 @@ class NetworkOptimizer {
     
     // Set reasonable timeout
     if (!optimized.timeout) {
-      optimized.timeout = 10000; // 10 seconds
+      optimized.timeout = 15000; // 15 seconds
     }
     
     return optimized;
@@ -464,7 +464,7 @@ class NetworkOptimizer {
         try {
           const response = await fetch(`${host}/health`, {
             method: 'HEAD',
-            timeout: 5000
+            timeout: 15000 // Increased to 15 seconds
           });
           
           return { host, healthy: response.ok };

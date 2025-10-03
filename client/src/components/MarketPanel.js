@@ -161,11 +161,14 @@ const MarketPanel = ({
 
   /* Filter functionality is handled directly in the component through the context */
 
-  // Load active USDT pairs only
+  // Load active USDT pairs only - force load on component mount
   useEffect(() => {
-    // Always load only active USDT pairs
+    console.log("🚀 MarketPanel: Loading trading pairs...");
+    console.log("📊 Current cryptos count:", cryptos ? cryptos.length : 0);
+    
+    // Always load pairs on component mount
     loadCryptos(1, 5000, false, true, true, true);
-  }, [loadCryptos, cryptos]);
+  }, []); // Empty dependency array - only run on mount
 
   // Memoized filtered cryptos for better performance
   const filteredCryptos = useMemo(() => {

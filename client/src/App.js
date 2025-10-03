@@ -15,6 +15,9 @@ import {
 } from "@mui/material";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
+// Import notification system
+import './utils/notifications';
+
 // Components - Lazy loaded for better performance
 import Header from "./components/Header";
 import { useAlert } from "./context/AlertContext";

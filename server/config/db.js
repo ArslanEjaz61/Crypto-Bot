@@ -10,24 +10,13 @@ const connectDB = async () => {
     console.log(`📍 Connection string: ${mongoURI.replace(/\/\/.*@/, '//***:***@')}`); // Hide credentials in logs
 
     const conn = await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 10000, // 10 seconds
       socketTimeoutMS: 45000,
-      bufferCommands: false,
       maxPoolSize: 10,
       minPoolSize: 2,
-      maxIdleTimeMS: 30000,
       connectTimeoutMS: 10000,
-      heartbeatFrequencyMS: 10000,
       retryWrites: true,
       retryReads: true,
-      // Add connection retry settings
-      retryReads: true,
-      retryWrites: true,
-      // Keep connection alive
-      keepAlive: true,
-      keepAliveInitialDelay: 300000,
     });
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
@@ -47,8 +36,6 @@ const connectDB = async () => {
       setTimeout(async () => {
         try {
           await mongoose.connect(mongoURI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
             serverSelectionTimeoutMS: 5000,
             connectTimeoutMS: 5000,
           });

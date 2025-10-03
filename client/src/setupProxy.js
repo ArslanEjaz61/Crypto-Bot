@@ -8,6 +8,9 @@ module.exports = function (app) {
       changeOrigin: true,
       secure: false,
       logLevel: "debug",
+      pathRewrite: {
+        "^/api": "/api" // Keep the /api prefix
+      },
       onError: (err, req, res) => {
         console.error("Proxy error:", err);
         res.status(500).json({ error: "Proxy error occurred" });
